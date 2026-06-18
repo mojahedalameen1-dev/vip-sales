@@ -1759,7 +1759,351 @@
       }
     }
 
-    /* Meetings Tab Styles */
+    /* ════════════════ SECTION: Daily Meetings Table Styles ════════════════ */
+
+    /* Header & Navigation */
+    .meetings-day-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .meetings-day-title {
+      font-size: var(--text-xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .meetings-day-title .day-emoji { font-size: 22px; }
+
+    .meetings-day-sub {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      margin-top: 3px;
+      font-weight: 400;
+    }
+
+    .day-nav-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-day-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+
+    .nav-day-btn:hover {
+      background: var(--bg-elevated);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    .nav-day-btn.today-btn {
+      background: linear-gradient(135deg, var(--accent-blue), #6366f1);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .nav-day-btn.today-btn:hover { filter: brightness(1.1); }
+
+    /* Progress Bar */
+    .meetings-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-elevated);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .meetings-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      border-radius: 9999px;
+      transition: width 0.6s ease;
+    }
+
+    .meetings-progress-label {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* KPI Mini Cards */
+    .meetings-kpi-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .meetings-kpi-card {
+      flex: 1;
+      min-width: 100px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: var(--shadow-card);
+      transition: transform 0.2s;
+    }
+
+    .meetings-kpi-card:hover { transform: translateY(-2px); }
+
+    .kpi-card-value {
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .kpi-card-label {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .kpi-card-icon {
+      font-size: 18px;
+      margin-bottom: 2px;
+    }
+
+    /* Table Container */
+    .meetings-table-wrapper {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-card);
+      overflow: auto;
+      box-shadow: var(--shadow-card);
+    }
+
+    .daily-meetings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+      direction: rtl;
+    }
+
+    .daily-meetings-table thead th {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    .daily-meetings-table tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.15s;
+      animation: rowSlideIn 0.35s ease backwards;
+    }
+
+    @keyframes rowSlideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .daily-meetings-table tbody tr:hover { background: var(--bg-subtle) !important; }
+    .daily-meetings-table tbody td { padding: 12px 16px; vertical-align: middle; }
+
+    /* Row Status Colors */
+    .meeting-row.upcoming { background: rgba(16, 185, 129, 0.04); }
+    .meeting-row.ongoing  { background: rgba(245, 158, 11, 0.06); }
+    .meeting-row.completed { background: transparent; opacity: 0.65; }
+
+    /* Ongoing pulse */
+    .ongoing-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #f59e0b;
+    }
+
+    .ongoing-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #f59e0b;
+      animation: ongoingPulse 1.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes ongoingPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%       { transform: scale(1.5); opacity: 0.6; }
+    }
+
+    /* Meeting Type Badge */
+    .meeting-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .meeting-type-badge.online {
+      background: rgba(79, 142, 247, 0.12);
+      color: var(--accent-blue);
+    }
+
+    .meeting-type-badge.offline {
+      background: rgba(245, 158, 11, 0.12);
+      color: #d97706;
+    }
+
+    /* Sales Rep Badge */
+    .sales-rep-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .rep-hosam   { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+    .rep-ashraf  { background: rgba(16, 185, 129, 0.12); color: #059669; }
+    .rep-shady   { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+    .rep-mujahid { background: rgba(236, 72, 153, 0.12); color: #db2777; }
+    .rep-none    { background: var(--bg-elevated); color: var(--text-muted); }
+
+    /* Join Button */
+    .join-meet-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #0f9d58, #34a853);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: filter 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+
+    .join-meet-btn:hover {
+      filter: brightness(1.12);
+      transform: scale(1.03);
+    }
+
+    .no-link-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Status Toggle Button */
+    .status-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .status-toggle-btn.pending {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .status-toggle-btn.done {
+      background: rgba(16, 185, 129, 0.12);
+      color: #059669;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .status-toggle-btn.postponed {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-toggle-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+    /* Empty meetings state */
+    .meetings-empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .meetings-empty-state .empty-icon { font-size: 48px; }
+    .meetings-empty-state p { font-size: var(--text-base); font-weight: 600; color: var(--text-secondary); }
+    .meetings-empty-state span { font-size: var(--text-sm); }
+
+    /* Refresh button in meetings */
+    .meetings-refresh-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .meetings-refresh-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .meetings-refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Legacy months-container (keep for safety) */
     .months-container {
       display: flex;
       flex-direction: column;
@@ -2201,14 +2545,63 @@
       </div>
 
       <!-- Meetings View -->
-      <div id="meetingsView" class="content-container" style="display: none;">
-        <div class="view-header" style="margin-bottom: 20px;">
-          <h2 style="font-size: var(--text-lg); font-weight: 700; color: var(--text-primary);">اجتماعات Google Meet المجدولة شهرياً</h2>
-          <p style="color: var(--text-secondary); margin-top: 4px; font-size: var(--text-xs);">عرض اجتماعاتك القادمة والسابقة مصنفة تلقائياً بحسب الأشهر</p>
+      <div id="meetingsView" class="content-container" style="display: none; flex-direction: column;">
+
+        <!-- Day Navigation Header -->
+        <div class="meetings-day-header">
+          <div>
+            <div class="meetings-day-title">
+              <span class="day-emoji">📅</span>
+              <div>
+                <div id="meetingsDayTitle">اجتماعات اليوم</div>
+                <div class="meetings-day-sub" id="meetingsDaySub">جارٍ التحميل...</div>
+              </div>
+            </div>
+          </div>
+          <div class="day-nav-group">
+            <button class="nav-day-btn" onclick="navigateMeetingsDay(-1)" id="prevDayBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+              اليوم السابق
+            </button>
+            <button class="nav-day-btn today-btn" onclick="goToMeetingsToday()">
+              اليوم
+            </button>
+            <button class="nav-day-btn" onclick="navigateMeetingsDay(1)" id="nextDayBtn">
+              اليوم التالي
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button class="meetings-refresh-btn" id="meetingsRefreshBtn" onclick="refreshMeetingsView()" title="تحديث">
+              <svg id="meetingsRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              تحديث
+            </button>
+          </div>
         </div>
-        <div id="meetingsMonthsContainer" class="months-container">
-          <!-- Dynamically populated month sections -->
+
+        <!-- Progress Bar -->
+        <div class="meetings-progress-label">
+          <span id="meetingsProgressLabel">0 من 0 اجتماعات مكتملة</span>
+          <span id="meetingsProgressPct">0%</span>
         </div>
+        <div class="meetings-progress-bar">
+          <div class="meetings-progress-fill" id="meetingsProgressFill" style="width: 0%"></div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="meetings-kpi-row" id="meetingsKpiRow"></div>
+
+        <!-- Table -->
+        <div class="meetings-table-wrapper">
+          <div id="meetingsTableContainer">
+            <div class="meetings-empty-state">
+              <span class="empty-icon">📅</span>
+              <p>لا توجد اجتماعات</p>
+              <span>اضغط «تحديث» لجلب اجتماعات اليوم</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legacy container (hidden) -->
+        <div id="meetingsMonthsContainer" style="display:none"></div>
       </div>
 
       <!-- Reports View -->
@@ -2767,6 +3160,8 @@
               document.getElementById("userName").textContent = user.displayName || user.email;
 
               setupRealtimeSubscriptions();
+              initMeetingStatusesListener();
+              meetingsCurrentDate = new Date();
               showToast("تم تسجيل الدخول بنجاح عبر Google", "success");
             } else {
               currentUser = null;
@@ -4162,76 +4557,200 @@
       };
     }
 
+    // ════════════════ Meetings Day State ════════════════
+    let meetingsCurrentDate = null; // Date object for the displayed day
+    let meetingStatuses = {};       // Firebase realtime statuses {eventId: {status, updatedBy}}
+    let meetingsFirebaseListener = null;
+
+    function getMeetingsDateStr(date) {
+      // Returns YYYY-MM-DD in local AST (+03:00)
+      const d = date || new Date();
+      const offset = 3 * 60 * 60 * 1000;
+      const local  = new Date(d.getTime() + offset);
+      const yyyy = local.getUTCFullYear();
+      const mm   = String(local.getUTCMonth() + 1).padStart(2, '0');
+      const dd   = String(local.getUTCDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function getMeetingTimeStatus(startTime, endTime) {
+      const now   = new Date();
+      const start = new Date(startTime);
+      const end   = endTime ? new Date(endTime) : new Date(start.getTime() + 60 * 60 * 1000);
+      if (now < start) return 'upcoming';
+      if (now > end)   return 'completed';
+      return 'ongoing';
+    }
+
+    function getSalesRepBadgeClass(rep) {
+      if (!rep) return 'rep-none';
+      if (rep === 'م.حسام')  return 'rep-hosam';
+      if (rep === 'م.أشرف') return 'rep-ashraf';
+      if (rep === 'م.شادي')  return 'rep-shady';
+      if (rep === 'م.اشرف') return 'rep-mujahid';
+      return 'rep-none';
+    }
+
+    function arDayName(date) {
+      const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      return days[date.getDay()];
+    }
+
+    function arMonthName(date) {
+      const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+      return months[date.getMonth()];
+    }
+
+    function goToMeetingsToday() {
+      meetingsCurrentDate = new Date();
+      fetchMeetingsForDay();
+    }
+
+    function navigateMeetingsDay(delta) {
+      if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
+      meetingsCurrentDate = new Date(meetingsCurrentDate.getTime() + delta * 24 * 60 * 60 * 1000);
+      fetchMeetingsForDay();
+    }
+
+    function refreshMeetingsView() {
+      fetchMeetingsForDay();
+    }
+
+    async function fetchMeetingsForDay() {
+      if (!currentUser) return;
+      if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
+
+      const dateStr = getMeetingsDateStr(meetingsCurrentDate);
+      const btn = document.getElementById('meetingsRefreshBtn');
+      if (btn) btn.classList.add('spinning');
+
+      // Update header
+      const titleEl = document.getElementById('meetingsDayTitle');
+      const subEl   = document.getElementById('meetingsDaySub');
+      if (titleEl) {
+        const isToday = dateStr === getMeetingsDateStr(new Date());
+        titleEl.textContent = isToday ? '📅 اجتماعات اليوم' : `📅 اجتماعات ${arDayName(meetingsCurrentDate)}`;
+      }
+      if (subEl) subEl.textContent = `${meetingsCurrentDate.getDate()} ${arMonthName(meetingsCurrentDate)} ${meetingsCurrentDate.getFullYear()}`;
+
+      try {
+        const response = await fetch(`/api/meetings?date=${dateStr}`);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
+        }
+        googleMeetings = await response.json();
+        renderMeetingsTab();
+      } catch (err) {
+        console.error(err);
+        showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
+        const container = document.getElementById('meetingsTableContainer');
+        if (container) container.innerHTML = `<div class="meetings-empty-state"><span class="empty-icon">⚠️</span><p>خطأ في الجلب</p><span>${err.message}</span></div>`;
+      } finally {
+        if (btn) btn.classList.remove('spinning');
+      }
+    }
+
+    // Firebase realtime listener for meeting statuses
+    function initMeetingStatusesListener() {
+      if (meetingsFirebaseListener) return; // already listening
+      meetingsFirebaseListener = db.ref('meetingStatuses').on('value', snapshot => {
+        meetingStatuses = snapshot.val() || {};
+        // Re-render only status buttons without full refetch
+        document.querySelectorAll('.status-toggle-btn').forEach(btn => {
+          const eventId = btn.dataset.eventId;
+          if (!eventId) return;
+          const s = (meetingStatuses[eventId] || {}).status || 'pending';
+          applyStatusToBtn(btn, s);
+        });
+        updateMeetingsProgress();
+      });
+    }
+
+    function applyStatusToBtn(btn, status) {
+      btn.className = `status-toggle-btn ${status}`;
+      const labels = { pending: '⏳ لم يتم', done: '✅ تم', postponed: '🔄 تأجل' };
+      btn.textContent = labels[status] || labels.pending;
+      btn.dataset.status = status;
+    }
+
+    async function toggleMeetingStatus(eventId, currentStatus) {
+      const cycle = { pending: 'done', done: 'postponed', postponed: 'pending' };
+      const newStatus = cycle[currentStatus] || 'done';
+      try {
+        await db.ref(`meetingStatuses/${eventId}`).set({
+          status: newStatus,
+          updatedBy: currentUser?.email || 'unknown',
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      } catch (err) {
+        showToast('فشل تحديث الحالة: ' + err.message, 'error');
+      }
+    }
+
+    function updateMeetingsProgress() {
+      const rows = document.querySelectorAll('.meeting-row[data-event-id]');
+      const total = rows.length;
+      let done  = 0;
+      rows.forEach(row => {
+        const eid = row.dataset.eventId;
+        if ((meetingStatuses[eid] || {}).status === 'done') done++;
+      });
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const fillEl = document.getElementById('meetingsProgressFill');
+      const lblEl  = document.getElementById('meetingsProgressLabel');
+      const pctEl  = document.getElementById('meetingsProgressPct');
+      if (fillEl) fillEl.style.width = `${pct}%`;
+      if (lblEl)  lblEl.textContent  = `${done} من ${total} اجتماعات مكتملة`;
+      if (pctEl)  pctEl.textContent  = `${pct}%`;
+    }
+
     async function fetchGoogleMeetings(isSilent = false) {
+      // Legacy: import meetings into kanban (keep existing behaviour)
       try {
         if (!currentUser || !currentUser.email) return;
-
-        const response = await fetch(`/api/meetings?userEmail=${encodeURIComponent(currentUser.email)}`);
+        const dateStr  = getMeetingsDateStr(new Date());
+        const response = await fetch(`/api/meetings?date=${dateStr}`);
         if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "فشل الاتصال بخادم الاجتماعات");
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
         }
-
         const events = await response.json();
         googleMeetings = events;
         renderMeetingsTab();
         let importedCount = 0;
-
         for (const event of events) {
           const duplicate = Object.values(leadsData).some(l => l.googleEventId === event.id);
           if (duplicate) continue;
-
-          // Parse summary for project name, slack code, type
           const parsed = parseMeetingSummary(event.summary);
           const slackCodeToUse = parsed.slackCode || (await getNextSlackCode());
-
           const leadKey = db.ref(getLeadsPath()).push().key;
           const payload = {
-            id: leadKey,
-            slackCode: slackCodeToUse,
-            clientName: parsed.clientName,
-            projectName: parsed.projectName,
-            fullName: parsed.clientName, // Fallback/Compatibility
-            phone: "",
-            firstPayment: 0,
-            totalDeal: 0,
-            meetingTitle: parsed.meetingTitle || event.summary || "اجتماع Google Meet",
+            id: leadKey, slackCode: slackCodeToUse,
+            clientName: parsed.clientName, projectName: parsed.projectName,
+            fullName: parsed.clientName, phone: "",
+            firstPayment: 0, totalDeal: 0,
+            meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
             needsReview: parsed.needsReview || false,
             meetingDate: event.startTime ? new Date(event.startTime).getTime() : Date.now(),
-            column: "new",
-            googleEventId: event.id,
+            column: 'new', googleEventId: event.id,
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             updatedAt: firebase.database.ServerValue.TIMESTAMP,
             lastActivityAt: Date.now(),
-            columnHistory: [
-              {
-                column: "new",
-                timestamp: Date.now(),
-                movedBy: "Google Calendar Service Account"
-              }
-            ],
+            columnHistory: [{ column: 'new', timestamp: Date.now(), movedBy: 'Google Calendar Service Account' }],
             openTicketsCount: 0
           };
-
           await db.ref(`${getLeadsPath()}/${leadKey}`).set(payload);
           importedCount++;
         }
-
-        document.getElementById("fetchMeetBtn").querySelector("span").textContent = "جلب اجتماعات Meet";
+        document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
         updateAutoRefreshIndicator();
-
-        if (importedCount > 0) {
-          showToast(`تم استيراد ${importedCount} اجتماعات جديدة بنجاح`, "success");
-        } else if (!isSilent) {
-          showToast("لا توجد اجتماعات Google Meet جديدة للاستيراد", "info");
-        }
-
+        if (importedCount > 0) showToast(`تم استيراد ${importedCount} اجتماعات جديدة بنجاح`, 'success');
+        else if (!isSilent) showToast('لا توجد اجتماعات Google Meet جديدة للاستيراد', 'info');
       } catch (err) {
         console.error(err);
-        if (!isSilent) {
-          showToast("فشل جلب الاجتماعات: " + err.message, "error");
-        }
-        document.getElementById("fetchMeetBtn").querySelector("span").textContent = "جلب اجتماعات Meet";
+        if (!isSilent) showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
+        document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
       }
     }
 
@@ -4744,7 +5263,8 @@
       });
 
       if (tab === 'meetings') {
-        renderMeetingsTab();
+        if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
+        fetchMeetingsForDay();
       } else if (tab === 'reports') {
         renderReports();
       }
@@ -4775,139 +5295,122 @@
     }
 
     function renderMeetingsTab() {
-      const container = document.getElementById("meetingsMonthsContainer");
-      container.innerHTML = "";
+      const container = document.getElementById('meetingsTableContainer');
+      if (!container) return;
 
-      if (!googleMeetings || googleMeetings.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <i data-lucide="calendar" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
-            <span class="empty-state-text">لا توجد اجتماعات مجدولة حالياً.</span>
+      const meetings = googleMeetings || [];
+
+      // ── KPI Cards ──
+      const kpiRow = document.getElementById('meetingsKpiRow');
+      if (kpiRow) {
+        const online   = meetings.filter(m => (m.meetingType || '').includes('أون') || m.meetLink).length;
+        const offline  = meetings.filter(m => (m.meetingType || '').includes('حضوري')).length;
+        const statusDone = meetings.filter(m => (meetingStatuses[m.id] || {}).status === 'done').length;
+        kpiRow.innerHTML = [
+          { icon: '🗓️', value: meetings.length,  label: 'إجمالي الاجتماعات' },
+          { icon: '💻', value: online,            label: 'أون لاين' },
+          { icon: '🏢', value: offline,           label: 'حضوري' },
+          { icon: '✅', value: statusDone,        label: 'مكتملة' },
+        ].map(k => `
+          <div class="meetings-kpi-card">
+            <div class="kpi-card-icon">${k.icon}</div>
+            <div class="kpi-card-value">${k.value}</div>
+            <div class="kpi-card-label">${k.label}</div>
           </div>
-        `;
-        lucide.createIcons();
+        `).join('');
+      }
+
+      // ── Empty state ──
+      if (meetings.length === 0) {
+        container.innerHTML = `<div class="meetings-empty-state"><span class="empty-icon">📭</span><p>لا توجد اجتماعات في هذا اليوم</p><span>جرّب يوماً آخر أو تحقق من التقويم</span></div>`;
+        updateMeetingsProgress();
         return;
       }
 
-      // Group meetings by month
-      const groups = {};
-      const arMonths = [
-        "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-        "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
-      ];
+      // ── Sort ──
+      const sorted = [...meetings].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-      // Sort meetings chronologically
-      const sortedMeetings = [...googleMeetings].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      // ── Build rows ──
+      const rowsHtml = sorted.map((m, idx) => {
+        const timeStatus = getMeetingTimeStatus(m.startTime, m.endTime);
+        const start = new Date(m.startTime);
+        const end   = m.endTime ? new Date(m.endTime) : null;
+        const timeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const endStr  = end ? end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
-      sortedMeetings.forEach(meeting => {
-        if (!meeting.startTime) return;
-        const date = new Date(meeting.startTime);
-        const year = date.getFullYear();
-        const monthNum = date.getMonth(); // 0-11
-        const monthKey = `${year}-${String(monthNum + 1).padStart(2, '0')}`; // YYYY-MM
-        const monthLabel = `شهر ${monthNum + 1} (${arMonths[monthNum]}) ${year}`;
+        const typeClass = (m.meetingType || '').includes('حضوري') ? 'offline' : 'online';
+        const typeLabel = (m.meetingType && m.meetingType !== 'أون لاين') ? m.meetingType : 'أون لاين';
 
-        if (!groups[monthKey]) {
-          groups[monthKey] = {
-            label: monthLabel,
-            meetings: []
-          };
-        }
-        groups[monthKey].meetings.push(meeting);
-      });
+        const repClass  = getSalesRepBadgeClass(m.salesRep);
+        const repLabel  = m.salesRep || 'بدون تابع';
 
-      // Get sorted month keys
-      const monthKeys = Object.keys(groups).sort();
-      const currentMonthKey = (() => {
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      })();
+        const eventStatus = (meetingStatuses[m.id] || {}).status || 'pending';
+        const statusLabels = { pending: '⏳ لم يتم', done: '✅ تم', postponed: '🔄 تأجل' };
 
-      monthKeys.forEach(monthKey => {
-        const group = groups[monthKey];
-        // Expand current month by default, collapse others
-        const isCollapsed = monthKey !== currentMonthKey;
+        const ongoingBadge = timeStatus === 'ongoing'
+          ? `<div class="ongoing-indicator"><div class="ongoing-dot"></div>يجري الآن</div>` : '';
 
-        const section = document.createElement("div");
-        section.className = `month-section ${isCollapsed ? 'collapsed' : ''}`;
-        section.id = `month-sec-${monthKey}`;
+        const projectDisplay = [m.clientName, m.projectName].filter(Boolean).join(' — ');
 
-        const meetingsHtml = group.meetings.map(m => {
-          const mDate = new Date(m.startTime);
-          const timeString = mDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-          const dateString = mDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'numeric' });
-
-          const attendeesList = m.attendees || [];
-          const attendeesChips = attendeesList.map(att => {
-            const isHighlight = att.email === currentUser?.email || att.email === 'sales@aait.sa';
-            return `<span class="attendee-chip ${isHighlight ? 'highlighted' : ''}" title="${att.email}">${att.displayName || att.email.split('@')[0]}</span>`;
-          }).join('');
-
-          const parsed = parseMeetingSummary(m.summary);
-
-          return `
-            <div class="meeting-card">
-              <div class="meeting-card-header">
-                <span class="meeting-card-title">${parsed.projectName}</span>
-                <span class="meeting-time-badge">${timeString}</span>
-              </div>
-              <div class="meeting-details">
-                <div class="meeting-detail-item">
-                  <i data-lucide="calendar"></i>
-                  <span>${dateString}</span>
-                </div>
-                <div class="meeting-detail-item">
-                  <i data-lucide="map-pin"></i>
-                  <span>النوع: ${parsed.meetingType}</span>
-                </div>
-                ${parsed.slackCode ? `
-                <div class="meeting-detail-item">
-                  <svg viewBox="0 0 24 24" style="color: #4a154b; width: 14px; height: 14px; display: inline-block; vertical-align: middle; fill: currentColor; margin-left: 4px;" xmlns="http://www.w3.org/2000/svg"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523 2.528 2.528 0 0 1-2.522-2.523 2.528 2.528 0 0 1 2.522-2.52h2.52v2.52zm1.261 0a2.528 2.528 0 0 1 2.52-2.52h5.043a2.528 2.528 0 0 1 2.522 2.52v5.042a2.528 2.528 0 0 1-2.522 2.52H8.823a2.528 2.528 0 0 1-2.52-2.52v-5.042zM8.823 5.043a2.528 2.528 0 0 1-2.52-2.522 2.528 2.528 0 0 1 2.52-2.521 2.528 2.528 0 0 1 2.522 2.521v2.522h-2.522zm0 1.261a2.528 2.528 0 0 1 2.52 2.52v5.043a2.528 2.528 0 0 1-2.52 2.522H3.78a2.528 2.528 0 0 1-2.52-2.522V8.824a2.528 2.528 0 0 1 2.52-2.52h5.043zm10.135 10.134a2.528 2.528 0 0 1 2.522-2.52 2.528 2.528 0 0 1 2.52 2.52 2.528 2.528 0 0 1-2.52 2.522h-2.522v-2.522zm-1.262 0a2.528 2.528 0 0 1-2.52 2.52h-5.043a2.528 2.528 0 0 1-2.522-2.52v-5.043a2.528 2.528 0 0 1 2.522-2.52h5.043a2.528 2.528 0 0 1 2.52 2.52v5.043zm-3.781-11.395a2.528 2.528 0 0 1 2.52-2.522 2.528 2.528 0 0 1 2.522 2.522 2.528 2.528 0 0 1-2.522 2.52h-2.52v-2.52zm0 1.262a2.528 2.528 0 0 1 2.52-2.52h5.043a2.528 2.528 0 0 1 2.522 2.52v5.043a2.528 2.528 0 0 1-2.522 2.52h-5.043a2.528 2.528 0 0 1-2.52-2.52V5.043z"/></svg>
-                  <span style="font-weight: bold; color: var(--accent-blue);">${parsed.slackCode}</span>
-                </div>
-                ` : ''}
-                <div class="meeting-detail-item">
-                  <i data-lucide="user"></i>
-                  <span>المنظم: ${m.organizer || 'غير معروف'}</span>
-                </div>
-                <div style="margin-top: 4px;">
-                  <span style="font-weight: 600; font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 4px;">المشاركون:</span>
-                  <div class="meeting-attendees-list">
-                    ${attendeesChips || '<span class="empty-state-text" style="font-size: 10px;">لا يوجد حضور</span>'}
-                  </div>
-                </div>
-              </div>
-              ${m.meetLink ? `
-                <div class="meeting-action">
-                  <a href="${m.meetLink}" target="_blank" class="meet-btn">
-                    <i data-lucide="video"></i>
-                    الانضمام عبر Meet
-                  </a>
-                </div>
-              ` : ''}
-            </div>
-          `;
-        }).join('');
-
-        section.innerHTML = `
-          <div class="month-header" onclick="toggleMonthSection('${monthKey}')">
-            <div class="month-title-wrapper">
-              <span class="month-title">${group.label}</span>
-              <span class="month-count-badge">${group.meetings.length}</span>
-            </div>
-            <i data-lucide="chevron-down" class="month-toggle-icon"></i>
-          </div>
-          <div class="month-content">
-            <div class="meetings-grid">
-              ${meetingsHtml}
-            </div>
-          </div>
+        return `
+          <tr class="meeting-row ${timeStatus}" data-event-id="${m.id}" style="animation-delay: ${idx * 40}ms">
+            <td style="font-weight:700; color:var(--text-muted); font-size:var(--text-xs); text-align:center;">${idx + 1}</td>
+            <td>
+              <div style="font-weight:700; font-size:var(--text-sm); color:var(--text-primary); line-height:1.4;">${projectDisplay || m.summary || '—'}</div>
+              ${ongoingBadge}
+              ${m.needsReview ? '<span style="font-size:10px;color:#f59e0b;font-weight:600;">⚠ يحتاج مراجعة</span>' : ''}
+            </td>
+            <td>
+              ${m.slackCode ? `<span style="font-size:11px;font-weight:700;color:var(--accent-blue);background:rgba(79,142,247,0.1);padding:2px 7px;border-radius:4px;">${m.slackCode}</span>` : '<span style="color:var(--text-muted);font-size:11px;">—</span>'}
+            </td>
+            <td>
+              <span class="sales-rep-badge ${repClass}">${repLabel}</span>
+            </td>
+            <td>
+              <span class="meeting-type-badge ${typeClass}">${typeLabel === 'حضوري' ? '🏢' : '💻'} ${typeLabel}</span>
+            </td>
+            <td style="white-space:nowrap;">
+              <div style="font-weight:700;font-size:var(--text-sm);">${timeStr}</div>
+              ${endStr ? `<div style="font-size:10px;color:var(--text-muted);">— ${endStr}</div>` : ''}
+            </td>
+            <td>
+              ${m.meetLink
+                ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضم</a>`
+                : `<span class="no-link-badge">لا يوجد رابط</span>`
+              }
+            </td>
+            <td>
+              <button
+                class="status-toggle-btn ${eventStatus}"
+                data-event-id="${m.id}"
+                data-status="${eventStatus}"
+                onclick="toggleMeetingStatus('${m.id}', this.dataset.status)">
+                ${statusLabels[eventStatus]}
+              </button>
+            </td>
+          </tr>
         `;
+      }).join('');
 
-        container.appendChild(section);
-      });
+      container.innerHTML = `
+        <table class="daily-meetings-table">
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>العميل / المشروع</th>
+              <th>كود AA</th>
+              <th>المندوب</th>
+              <th>جهة الاجتماع</th>
+              <th>الوقت</th>
+              <th>رابط</th>
+              <th>الحالة</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
 
-      lucide.createIcons();
+      updateMeetingsProgress();
     }
 
     function validateEmail(email) {
