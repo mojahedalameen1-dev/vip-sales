@@ -22,12 +22,12 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer(async (req, res) => {
-  const parsedUrl = url.parse(req.url, true);
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
   // API Route
   if (pathname === '/api/meetings') {
-    const userEmail = parsedUrl.query.userEmail;
+    const userEmail = parsedUrl.searchParams.get('userEmail');
     if (!userEmail) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'userEmail parameter is required' }));
