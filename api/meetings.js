@@ -25,7 +25,7 @@ function determineSalesRep(attendees) {
   if (emails.includes(HOSAM_EMAIL))   return 'م.حسام';
   if (emails.includes(ASHRAF_EMAIL))  return 'م.أشرف';
   if (emails.includes(SHADY_EMAIL))   return 'م.شادي';
-  if (emails.includes(MUJAHID_EMAIL)) return 'م.اشرف';
+  if (emails.includes(MUJAHID_EMAIL)) return 'م.مجاهد';
   return null;
 }
 
@@ -102,53 +102,50 @@ function parseMeetingSummary(summary) {
 
   const meetingTitle = summary;
   let clientName = '', projectName = '', needsReview = false;
-
-  const parts = summary.split(/\s*-\s*/);
-  let slackCode = null, slackCodeIndex = -1;
-  for (let i = 0; i < parts.length; i++) {
-    if (/^(AA|SLK|SLK-)\d+$/i.test(parts[i])) {
-      slackCode = parts[i].trim();
-      slackCodeIndex = i;
-      break;
-    }
-  }
-
-  let meetingType = 'أون لاين';
-  if (slackCodeIndex !== -1 && slackCodeIndex + 1 < parts.length) {
-    meetingType = parts[slackCodeIndex + 1].trim();
-  } else if (parts.length >= 2 && slackCodeIndex === -1) {
-    meetingType = parts[parts.length - 1].trim();
-  }
-
   let cleanSummary = summary;
-  if (slackCode) cleanSummary = summary.replace(new RegExp(`\\s*-\\s*${slackCode}`, 'i'), '');
-  if (meetingType && meetingType !== 'أون لاين' && meetingType !== 'حضوري') {
-    cleanSummary = cleanSummary.replace(new RegExp(`\\s*-\\s*${meetingType}`, 'i'), '');
+
+  // 1. Extract Slack Code dynamically anywhere in the text
+  let slackCode = null;
+  const slackMatch = cleanSummary.match(/(?:AA|SLK|SLK-)\d+/i);
+  if (slackMatch) {
+    slackCode = slackMatch[0].toUpperCase();
+    cleanSummary = cleanSummary.replace(slackMatch[0], '').trim();
   }
 
-  const prefixMatch = cleanSummary.match(/^(?:اجتماع\s+أ\s*-\s*|أ\s*-\s*|اجتماع\s*-\s*)(.+)$/i);
-  if (prefixMatch) {
-    const remaining = prefixMatch[1].trim();
-    const dashIndex = remaining.indexOf(' - ');
-    if (dashIndex !== -1) {
-      clientName  = remaining.substring(0, dashIndex).trim();
-      projectName = remaining.substring(dashIndex + 3).trim();
-    } else {
-      clientName  = cleanSummary.trim();
-      needsReview = true;
-    }
+  // 2. Extract Meeting Type
+  let meetingType = 'أون لاين';
+  if (cleanSummary.includes('حضوري')) {
+    meetingType = 'حضوري';
+    cleanSummary = cleanSummary.replace('حضوري', '').trim();
+  } else if (cleanSummary.includes('خارجي')) {
+    meetingType = 'خارجي';
+    cleanSummary = cleanSummary.replace('خارجي', '').trim();
+  } else if (cleanSummary.includes('أون لاين') || cleanSummary.includes('اون لاين')) {
+    meetingType = 'أون لاين';
+    cleanSummary = cleanSummary.replace(/أون لاين|اون لاين/g, '').trim();
+  }
+
+  // Clean up extra characters
+  cleanSummary = cleanSummary.replace(/[\(\)\[\]]/g, '');
+  cleanSummary = cleanSummary.replace(/^[\s\-\—\_]+|[\s\-\—\_]+$/g, '');
+
+  // 3. Extract Client and Project Name
+  // Remove common meeting prefixes
+  cleanSummary = cleanSummary.replace(/^(اجتماع|إجتماع)(\s+(أ|لـ|مع|لمناقشة))?\s*/i, '').trim();
+
+  // Split by dashes to separate client and project
+  const parts = cleanSummary.split(/\s*[-—]\s*/).filter(p => p.trim() !== '');
+
+  if (parts.length >= 2) {
+    clientName = parts[0].trim();
+    projectName = parts.slice(1).join(' - ').trim();
   } else {
-    const subParts = cleanSummary.split(/\s+-\s+/);
-    if (subParts.length >= 2) {
-      clientName  = subParts[0].trim();
-      projectName = subParts.slice(1).join(' - ').trim();
-    } else {
-      clientName  = cleanSummary.trim();
-      needsReview = true;
-    }
+    clientName = cleanSummary || summary;
+    projectName = '';
+    needsReview = true;
   }
 
-  return { clientName: clientName || cleanSummary || summary, projectName: projectName || '', meetingTitle, needsReview, slackCode, meetingType };
+  return { clientName, projectName, meetingTitle, needsReview, slackCode, meetingType };
 }
 
 // ════════════════ Main Handler ════════════════

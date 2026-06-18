@@ -2351,6 +2351,42 @@
         display: none;
       }
     }
+
+    /* Premium UI Upgrades */
+    .daily-meetings-table th {
+      background: linear-gradient(90deg, rgba(79, 142, 247, 0.08), rgba(79, 142, 247, 0.02));
+      text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .meeting-row {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .meeting-row:hover {
+      background-color: var(--bg-elevated);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px var(--border-subtle);
+    }
+    .join-meet-btn {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+      transition: all 0.2s ease;
+      font-weight: 700;
+    }
+    .join-meet-btn:hover {
+      background: linear-gradient(135deg, #34d399, #059669);
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 6px 14px rgba(16, 185, 129, 0.4);
+    }
+    .meetings-kpi-card {
+      background: linear-gradient(145deg, var(--bg-surface), var(--bg-elevated));
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-card);
+      transition: all 0.3s ease;
+    }
+    .meetings-kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-modal);
+      border-color: var(--border-focus);
+    }
   </style>
 </head>
 
@@ -3161,7 +3197,7 @@
 
               setupRealtimeSubscriptions();
               initMeetingStatusesListener();
-              meetingsCurrentDate = new Date();
+              if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
               showToast("تم تسجيل الدخول بنجاح عبر Google", "success");
             } else {
               currentUser = null;
@@ -4478,83 +4514,48 @@
 
     function parseMeetingSummary(summary) {
       if (!summary) {
-        return {
-          clientName: "عميل جديد",
-          projectName: "",
-          meetingTitle: "اجتماع Google Meet",
-          needsReview: true,
-          slackCode: null,
-          meetingType: "أون لاين"
-        };
-      }
-      
-      const meetingTitle = summary;
-      let clientName = "";
-      let projectName = "";
-      let needsReview = false;
-      
-      // Extract slack code first if it exists
-      const parts = summary.split(/\s*-\s*/);
-      let slackCode = null;
-      let slackCodeIndex = -1;
-      for (let i = 0; i < parts.length; i++) {
-        if (/^(AA|SLK|SLK-)\d+$/i.test(parts[i])) {
-          slackCode = parts[i].trim();
-          slackCodeIndex = i;
-          break;
-        }
-      }
-      
-      // Extract meetingType
-      let meetingType = "أون لاين";
-      if (slackCodeIndex !== -1 && slackCodeIndex + 1 < parts.length) {
-        meetingType = parts[slackCodeIndex + 1].trim();
-      } else if (parts.length >= 2 && slackCodeIndex === -1) {
-        meetingType = parts[parts.length - 1].trim();
+        return { clientName: 'عميل جديد', projectName: '', meetingTitle: 'اجتماع Google Meet', needsReview: true, slackCode: null, meetingType: 'أون لاين' };
       }
 
-      // Clean title from slack code and type for parsing names
+      const meetingTitle = summary;
+      let clientName = '', projectName = '', needsReview = false;
       let cleanSummary = summary;
-      if (slackCode) {
-        cleanSummary = summary.replace(new RegExp(`\\s*-\\s*${slackCode}`, 'i'), '');
+
+      let slackCode = null;
+      const slackMatch = cleanSummary.match(/(?:AA|SLK|SLK-)\d+/i);
+      if (slackMatch) {
+        slackCode = slackMatch[0].toUpperCase();
+        cleanSummary = cleanSummary.replace(slackMatch[0], '').trim();
       }
-      if (meetingType && meetingType !== "أون لاين" && meetingType !== "حضوري") {
-        cleanSummary = cleanSummary.replace(new RegExp(`\\s*-\\s*${meetingType}`, 'i'), '');
+
+      let meetingType = 'أون لاين';
+      if (cleanSummary.includes('حضوري')) {
+        meetingType = 'حضوري';
+        cleanSummary = cleanSummary.replace('حضوري', '').trim();
+      } else if (cleanSummary.includes('خارجي')) {
+        meetingType = 'خارجي';
+        cleanSummary = cleanSummary.replace('خارجي', '').trim();
+      } else if (cleanSummary.includes('أون لاين') || cleanSummary.includes('اون لاين')) {
+        meetingType = 'أون لاين';
+        cleanSummary = cleanSummary.replace(/أون لاين|اون لاين/g, '').trim();
       }
-      
-      // Try pattern matching
-      const prefixMatch = cleanSummary.match(/^(?:اجتماع\s+أ\s*-\s*|أ\s*-\s*|اجتماع\s*-\s*)(.+)$/i);
-      if (prefixMatch) {
-        const remaining = prefixMatch[1].trim();
-        const dashIndex = remaining.indexOf(" - ");
-        if (dashIndex !== -1) {
-          clientName = remaining.substring(0, dashIndex).trim();
-          projectName = remaining.substring(dashIndex + 3).trim();
-        } else {
-          clientName = cleanSummary.trim();
-          projectName = "";
-          needsReview = true;
-        }
+
+      cleanSummary = cleanSummary.replace(/[\(\)\[\]]/g, '');
+      cleanSummary = cleanSummary.replace(/^[\s\-\—\_]+|[\s\-\—\_]+$/g, '');
+      cleanSummary = cleanSummary.replace(/^(اجتماع|إجتماع)(\s+(أ|لـ|مع|لمناقشة))?\s*/i, '').trim();
+
+      const parts = cleanSummary.split(/\s*[-—]\s*/).filter(p => p.trim() !== '');
+
+      if (parts.length >= 2) {
+        clientName = parts[0].trim();
+        projectName = parts.slice(1).join(' - ').trim();
       } else {
-        const subParts = cleanSummary.split(/\s+-\s+/);
-        if (subParts.length >= 2) {
-          clientName = subParts[0].trim();
-          projectName = subParts.slice(1).join(" - ").trim();
-        } else {
-          clientName = cleanSummary.trim();
-          projectName = "";
-          needsReview = true;
-        }
+        clientName = cleanSummary || summary;
+        projectName = '';
+        needsReview = true;
       }
-      
-      return {
-        clientName: clientName || cleanSummary || summary,
-        projectName: projectName || "",
-        meetingTitle,
-        needsReview,
-        slackCode,
-        meetingType
-      };
+
+      return { clientName, projectName, meetingTitle, needsReview, slackCode, meetingType };
     }
 
     // ════════════════ Meetings Day State ════════════════
@@ -4616,9 +4617,12 @@
       fetchMeetingsForDay();
     }
 
+    let currentFetchMeetingsToken = 0;
     async function fetchMeetingsForDay() {
       if (!currentUser) return;
       if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
+
+      const fetchToken = ++currentFetchMeetingsToken;
 
       const dateStr = getMeetingsDateStr(meetingsCurrentDate);
       const btn = document.getElementById('meetingsRefreshBtn');
@@ -4639,6 +4643,7 @@
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
         }
+        if (fetchToken !== currentFetchMeetingsToken) return;
         googleMeetings = await response.json();
         renderMeetingsTab();
       } catch (err) {
@@ -5374,9 +5379,9 @@
               ${endStr ? `<div style="font-size:10px;color:var(--text-muted);">— ${endStr}</div>` : ''}
             </td>
             <td>
-              ${m.meetLink
-                ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضم</a>`
-                : `<span class="no-link-badge">لا يوجد رابط</span>`
+              ${['حضوري', 'خارجي'].includes(m.meetingType)
+                ? `<span class="no-link-badge" style="background:rgba(245,158,11,0.1); color:#f59e0b; padding:4px 8px; border-radius:6px; font-weight:700;">🏢 ${m.meetingType}</span>`
+                : (m.meetLink ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضمام</a>` : `<span class="no-link-badge">أون لاين (بدون رابط)</span>`)
               }
             </td>
             <td>
