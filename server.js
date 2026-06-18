@@ -34,12 +34,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      if (!fs.existsSync(KEY_PATH)) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Service account JSON key file not found' }));
+      let keyJson;
+      if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+        keyJson = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      } else {
+        if (!fs.existsSync(KEY_PATH)) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Service account JSON key file not found' }));
+        }
+        keyJson = JSON.parse(fs.readFileSync(KEY_PATH, 'utf8'));
       }
-
-      const keyJson = JSON.parse(fs.readFileSync(KEY_PATH, 'utf8'));
 
       // Get Google OAuth Token via JWT
       const accessToken = await getAccessTokenFromServiceAccount(keyJson);
@@ -296,6 +300,10 @@ function parseMeetingSummary(summary) {
   };
 }
 
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+if (process.env.VERCEL) {
+  module.exports = server;
+} else {
+  server.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
