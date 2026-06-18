@@ -21,7 +21,7 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon',
 };
 
-const server = http.createServer(async (req, res) => {
+const serverHandler = async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
@@ -300,8 +300,10 @@ function parseMeetingSummary(summary) {
   };
 }
 
+const server = http.createServer(serverHandler);
+
 if (process.env.VERCEL) {
-  module.exports = server;
+  module.exports = serverHandler;
 } else {
   server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
