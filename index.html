@@ -2926,7 +2926,7 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
         .then(() => {
           const provider = new firebase.auth.GoogleAuthProvider();
-          return auth.signInWithPopup(provider);
+          return auth.signInWithRedirect(provider);
         })
         .catch(err => {
           showToast("فشل تسجيل الدخول: " + err.message, "error");
