@@ -164,7 +164,7 @@ const serverHandler = async (req, res) => {
       res.end(content, 'utf-8');
     }
   });
-});
+};
 
 function base64url(stringOrBuffer) {
   const buf = Buffer.isBuffer(stringOrBuffer) ? stringOrBuffer : Buffer.from(stringOrBuffer);
