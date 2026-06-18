@@ -186,7 +186,9 @@ module.exports = async (req, res) => {
 
           const events = data.items || [];
           const userEmailLower = userEmail.toLowerCase();
-          const filteredEvents = events.filter(event => {
+          const isAdmin = ['mohammadalqahtani@aait.sa', 'sales@aait.sa'].includes(userEmailLower);
+
+          const filteredEvents = isAdmin ? events : events.filter(event => {
             const organizerEmail = (event.organizer?.email || event.organizer?.displayName || '').toLowerCase();
             if (organizerEmail === userEmailLower) return true;
 
