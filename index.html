@@ -2923,13 +2923,24 @@
         showToast("يرجى التأكد من اتصال قاعدة البيانات للتمكن من الدخول.", "error");
         return;
       }
+      const loginBtn = document.getElementById("googleLoginBtn");
+      if (loginBtn.disabled) return;
+
+      loginBtn.disabled = true;
+      const originalText = loginBtn.innerHTML;
+      loginBtn.innerHTML = "جاري الاتصال...";
+
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
         .then(() => {
           const provider = new firebase.auth.GoogleAuthProvider();
-          return auth.signInWithRedirect(provider);
+          return auth.signInWithPopup(provider);
         })
         .catch(err => {
           showToast("فشل تسجيل الدخول: " + err.message, "error");
+        })
+        .finally(() => {
+          loginBtn.disabled = false;
+          loginBtn.innerHTML = originalText;
         });
     });
 
