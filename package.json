@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "node server.js"
+    "dev": "node local-server.js"
   },
   "dependencies": {
     "firebase": "^12.14.0"
