@@ -3835,8 +3835,14 @@
         let colLeads = [];
         
         if (isMeetingsColumn) {
-          // Fetch user's monthly meetings
-          colLeads = monthlyMeetings || [];
+          // Fetch leads in 'new' stage that are meetings for the current month
+          colLeads = Object.values(leadsData).filter(l => {
+            if (l.column !== col.id) return false;
+            if (!l.meetingDate) return false;
+            const start = new Date(l.meetingDate);
+            const now = new Date();
+            return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth();
+          }) || [];
         } else {
           colLeads = Object.values(leadsData).filter(l => l.column === col.id) || [];
           // Filter by selectedMonth
@@ -3946,31 +3952,6 @@
 
           colLeads.forEach((item) => {
             const card = document.createElement("div");
-            
-            if (isMeetingsColumn) {
-              const m = item;
-              const start = new Date(m.startTime);
-              const timeStr = start.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) + ' ' + start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-              const typeClass = (m.meetingType || '').includes('حضوري') ? 'offline' : 'online';
-              const typeLabel = (m.meetingType && m.meetingType !== 'أون لاين') ? m.meetingType : 'أون لاين';
-              const ongoingBadge = getMeetingTimeStatus(m.startTime, m.endTime) === 'ongoing' ? `<span style="background:#ef4444; color:white; font-size:9px; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold; animation: pulse 1.5s infinite;">يجري الآن</span>` : '';
-              
-              card.className = "lead-card meeting-card-item";
-              card.style.borderRight = "4px solid var(--accent-blue)";
-              card.style.cursor = "default";
-              card.innerHTML = `
-                <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom: 6px;">${m.clientName || m.projectName || m.summary || 'اجتماع بدون عنوان'} ${ongoingBadge}</div>
-                <div style="font-size:11px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
-                  <div>📅 ${timeStr}</div>
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-                    <span class="meeting-type-badge ${typeClass}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>
-                    ${m.meetLink ? `<a href="${m.meetLink}" target="_blank" style="font-size:11px; text-decoration:none; color:var(--accent-blue); font-weight:bold;">🎥 انضمام</a>` : ''}
-                  </div>
-                </div>
-              `;
-              cardsContainer.appendChild(card);
-              return;
-            }
             const lead = item;
               card.className = "lead-card";
               card.draggable = window.innerWidth >= 768; // Only draggable on desktop
