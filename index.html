@@ -3153,6 +3153,7 @@
     let leadsData = {};
     let ticketsData = {};
     let googleMeetings = [];
+    let monthlyMeetings = [];
     let currentTheme = localStorage.getItem("crm_theme") || "light";
     let initialLoadComplete = false;
 
@@ -3228,6 +3229,7 @@
 
               document.getElementById("userAvatar").src = user.photoURL || "https://www.gravatar.com/avatar/?d=mp";
               document.getElementById("userName").textContent = user.displayName || user.email;
+              fetchMonthlyMeetings();
 
               setupRealtimeSubscriptions();
               initMeetingStatusesListener();
@@ -3421,6 +3423,7 @@
       setTimeout(() => {
         if (currentUser && currentUser.email) {
           fetchGoogleMeetings(true);
+          fetchMonthlyMeetings();
         }
       }, 2000);
 
@@ -3428,6 +3431,7 @@
       setInterval(() => {
         if (currentUser && currentUser.email) {
           fetchGoogleMeetings(true);
+          fetchMonthlyMeetings();
           updateAutoRefreshIndicator();
         }
       }, 5 * 60 * 1000);
@@ -3820,96 +3824,6 @@
 
       let allCards = [];
 
-      // Render Monthly Meetings Board named "جديد"
-      const meetingsColumn = document.createElement("div");
-      meetingsColumn.className = "kanban-column meetings-monthly-column";
-      meetingsColumn.style.border = "1px solid var(--border-subtle)";
-      meetingsColumn.style.borderRadius = "12px";
-      meetingsColumn.style.backgroundColor = "var(--bg-surface)";
-      meetingsColumn.style.boxShadow = "var(--shadow-card)";
-      
-      let myMonthlyMeetings = [];
-      if (currentUser) {
-        const userEmail = (currentUser.email || '').toLowerCase();
-        const userName = (currentUser.displayName || '').toLowerCase();
-        
-        const emailMap = {
-          'hosammohammed528@gmail.com': 'م.حسام',
-          'ashrafesmat1@gmail.com': 'م.أشرف',
-          'shady.alaraby22@gmail.com': 'م.شادي',
-          'mojahedalameen1@gmail.com': 'م.مجاهد'
-        };
-        const mySalesRepName = (emailMap[userEmail] || '').toLowerCase();
-
-        myMonthlyMeetings = (googleMeetings || []).filter(m => {
-          if (!m.startTime) return false;
-          const start = new Date(m.startTime);
-          const now = new Date();
-          const isThisMonth = start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth();
-          if (!isThisMonth) return false;
-          
-          const salesRep = (m.salesRep || '').toLowerCase();
-          const isUserRep = mySalesRepName && salesRep.includes(mySalesRepName);
-          const isUserEmail = salesRep.includes(userEmail);
-          const isUserDisplay = userName && salesRep.includes(userName);
-          return isUserRep || isUserEmail || isUserDisplay;
-        });
-      }
-      
-      const monthlyMeetSort = localStorage.getItem('monthlyMeetingsSort') || 'newest';
-      if (monthlyMeetSort === 'newest') {
-        myMonthlyMeetings.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-      } else {
-        myMonthlyMeetings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-      }
-      
-      const monthlySortLabel = monthlyMeetSort === 'newest' ? "الأحدث أولاً" : "الأقدم أولاً";
-      
-      meetingsColumn.innerHTML = `
-        <div class="column-color-bar" style="background-color: var(--accent-blue);"></div>
-        <div class="column-header" style="padding-bottom: 8px; position: relative;">
-          <h3 class="column-title" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;">جديد (اجتماعاتي بالشهر)</h3>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <div style="position: relative;" onclick="event.stopPropagation()">
-              <button class="btn-icon" style="padding: 2px 6px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 2px; color: var(--text-secondary);" onclick="toggleMonthlyMeetingsSortDropdown(event)" title="ترتيب: ${monthlySortLabel}">
-                <span>↕</span>
-              </button>
-              <div id="monthlyMeetingsSortDropdown" class="dropdown-content" style="display: none; position: absolute; top: 100%; left: 0; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; box-shadow: var(--shadow-modal); z-index: 300; min-width: 120px; padding: 4px 0; margin-top: 4px;">
-                <div class="dropdown-item" onclick="setMonthlyMeetingsSort('newest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${monthlyMeetSort === 'newest' ? '600' : 'normal'};">الأحدث أولاً ${monthlyMeetSort === 'newest' ? '✓' : ''}</div>
-                <div class="dropdown-item" onclick="setMonthlyMeetingsSort('oldest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${monthlyMeetSort === 'oldest' ? '600' : 'normal'};">الأقدم أولاً ${monthlyMeetSort === 'oldest' ? '✓' : ''}</div>
-              </div>
-            </div>
-            <span class="column-count-badge">${myMonthlyMeetings.length}</span>
-          </div>
-        </div>
-        <div class="column-cards-container" style="max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px;">
-          ${myMonthlyMeetings.length === 0 ? `
-            <div class="empty-state-card">
-              <span class="empty-state-text">لا توجد اجتماعات هذا الشهر</span>
-            </div>
-          ` : myMonthlyMeetings.map(m => {
-            const start = new Date(m.startTime);
-            const timeStr = start.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) + ' ' + start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            const typeClass = (m.meetingType || '').includes('حضوري') ? 'offline' : 'online';
-            const typeLabel = (m.meetingType && m.meetingType !== 'أون لاين') ? m.meetingType : 'أون لاين';
-            const ongoingBadge = getMeetingTimeStatus(m.startTime, m.endTime) === 'ongoing' ? `<span style="background:#ef4444; color:white; font-size:9px; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold; animation: pulse 1.5s infinite;">يجري الآن</span>` : '';
-            return `
-              <div class="lead-card meeting-card-item" style="border-right: 4px solid var(--accent-blue); padding: 12px; background: var(--bg-surface); border-radius: 8px; box-shadow: var(--shadow-card); cursor: pointer;">
-                <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom: 6px;">${m.clientName || m.projectName || m.summary || 'اجتماع بدون عنوان'} ${ongoingBadge}</div>
-                <div style="font-size:11px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
-                  <div>📅 ${timeStr}</div>
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-                    <span class="meeting-type-badge ${typeClass}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>
-                    ${m.meetLink ? `<a href="${m.meetLink}" target="_blank" style="font-size:11px; text-decoration:none; color:var(--accent-blue); font-weight:bold;">🎥 انضمام</a>` : ''}
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-      board.appendChild(meetingsColumn);
-
       COLUMNS.forEach(col => {
         const columnEl = document.createElement("div");
         columnEl.className = "kanban-column";
@@ -3917,19 +3831,29 @@
           columnEl.style.backgroundColor = "var(--col-closed-bg)";
         }
 
-        let colLeads = Object.values(leadsData).filter(l => l.column === col.id) || [];
+        const isMeetingsColumn = col.id === "new";
+        let colLeads = [];
         
-        // Filter by selectedMonth
-        if (filters.selectedMonth && filters.selectedMonth !== "all") {
-          colLeads = colLeads.filter(l => {
-            const date = new Date(l.updatedAt || l.createdAt || Date.now());
-            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            return key === filters.selectedMonth;
-          });
+        if (isMeetingsColumn) {
+          // Fetch user's monthly meetings
+          colLeads = monthlyMeetings || [];
+        } else {
+          colLeads = Object.values(leadsData).filter(l => l.column === col.id) || [];
+          // Filter by selectedMonth
+          if (filters.selectedMonth && filters.selectedMonth !== "all") {
+            colLeads = colLeads.filter(l => {
+              const date = new Date(l.updatedAt || l.createdAt || Date.now());
+              const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+              return key === filters.selectedMonth;
+            });
+          }
         }
         
         const sortType = localStorage.getItem(`columnSort_${col.id}`) || 'newest';
-        const sortLabels = {
+        const sortLabels = isMeetingsColumn ? {
+          newest: "الأحدث أولاً",
+          oldest: "الأقدم أولاً"
+        } : {
           newest: "الأحدث أولاً",
           highest_deal: "الأعلى قيمة",
           most_stale: "الأكثر سكوناً",
@@ -3937,10 +3861,20 @@
         };
         const currentSortLabel = sortLabels[sortType] || "ترتيب";
 
+        const dropdownItemsHtml = isMeetingsColumn ? `
+          <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'newest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'newest' ? '600' : 'normal'};">الأحدث أولاً ${sortType === 'newest' ? '✓' : ''}</div>
+          <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'oldest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'oldest' ? '600' : 'normal'};">الأقدم أولاً ${sortType === 'oldest' ? '✓' : ''}</div>
+        ` : `
+          <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'newest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'newest' ? '600' : 'normal'};">الأحدث أولاً ${sortType === 'newest' ? '✓' : ''}</div>
+          <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'highest_deal')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'highest_deal' ? '600' : 'normal'};">الأعلى قيمة أولاً ${sortType === 'highest_deal' ? '✓' : ''}</div>
+          <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'most_stale')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'most_stale' ? '600' : 'normal'};">الأكثر سكوناً أولاً ${sortType === 'most_stale' ? '✓' : ''}</div>
+          <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'alphabetical')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'alphabetical' ? '600' : 'normal'};">الأبجدي (أ ← ي) ${sortType === 'alphabetical' ? '✓' : ''}</div>
+        `;
+
         columnEl.innerHTML = `
           <div class="column-color-bar" style="background-color: ${col.color};"></div>
           <div class="column-header" style="padding-bottom: 8px; position: relative;">
-            <h3 class="column-title" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${col.name}</h3>
+            <h3 class="column-title" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;">${col.name} ${isMeetingsColumn ? "(اجتماعاتي بالشهر)" : ""}</h3>
             <div style="display: flex; align-items: center; gap: 6px;">
               <!-- Sort Button -->
               <div style="position: relative;" onclick="event.stopPropagation()">
@@ -3948,10 +3882,7 @@
                   <span>↕</span>
                 </button>
                 <div id="sortDropdown-${col.id}" class="dropdown-content" style="display: none; position: absolute; top: 100%; left: 0; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; box-shadow: var(--shadow-modal); z-index: 300; min-width: 140px; padding: 4px 0; margin-top: 4px;">
-                  <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'newest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'newest' ? '600' : 'normal'};">الأحدث أولاً ${sortType === 'newest' ? '✓' : ''}</div>
-                  <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'highest_deal')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'highest_deal' ? '600' : 'normal'};">الأعلى قيمة أولاً ${sortType === 'highest_deal' ? '✓' : ''}</div>
-                  <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'most_stale')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'most_stale' ? '600' : 'normal'};">الأكثر سكوناً أولاً ${sortType === 'most_stale' ? '✓' : ''}</div>
-                  <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'alphabetical')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'alphabetical' ? '600' : 'normal'};">الأبجدي (أ ← ي) ${sortType === 'alphabetical' ? '✓' : ''}</div>
+                  ${dropdownItemsHtml}
                 </div>
               </div>
               <span class="column-count-badge">${colLeads.length}</span>
@@ -3960,13 +3891,15 @@
           <div class="column-stats" id="stats-${col.id}" style="padding: 0 16px 10px; font-size: var(--text-xs); color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px;">
             <!-- stats populated here -->
           </div>
-          <div class="column-cards-container" id="column-${col.id}" data-column-id="${col.id}" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+          <div class="column-cards-container" id="column-${col.id}" data-column-id="${col.id}" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event)" style="max-height: 550px; overflow-y: auto;">
             <!-- Cards populated dynamically -->
           </div>
+          ${isMeetingsColumn ? "" : `
           <button class="add-lead-btn" onclick="openAddLeadModal('${col.id}')">
             <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
             إضافة عميل يدوياً
           </button>
+          `}
         `;
         board.appendChild(columnEl);
 
@@ -3979,36 +3912,71 @@
                 <circle cx="12" cy="11" r="3" />
                 <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z" />
               </svg>
-              <span class="empty-state-text">المرحلة فارغة حالياً</span>
+              <span class="empty-state-text">${isMeetingsColumn ? "لا توجد اجتماعات هذا الشهر" : "المرحلة فارغة حالياً"}</span>
             </div>
           `;
         } else {
           // Sort logic
-          if (sortType === 'newest') {
-            colLeads.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-          } else if (sortType === 'highest_deal') {
-            colLeads.sort((a, b) => (b.totalDeal || 0) - (a.totalDeal || 0));
-          } else if (sortType === 'most_stale') {
-            colLeads.sort((a, b) => {
-              const lastActA = a.lastActivityAt || a.createdAt || 0;
-              const lastActB = b.lastActivityAt || b.createdAt || 0;
-              return lastActA - lastActB;
-            });
-          } else if (sortType === 'alphabetical') {
-            colLeads.sort((a, b) => {
-              const nameA = (a.clientName || a.fullName || "").trim();
-              const nameB = (b.clientName || b.fullName || "").trim();
-              return nameA.localeCompare(nameB, 'ar');
-            });
+          if (isMeetingsColumn) {
+            const mSort = sortType === 'oldest' ? 'oldest' : 'newest';
+            if (mSort === 'newest') {
+              colLeads.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+            } else {
+              colLeads.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+            }
+          } else {
+            if (sortType === 'newest') {
+              colLeads.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            } else if (sortType === 'highest_deal') {
+              colLeads.sort((a, b) => (b.totalDeal || 0) - (a.totalDeal || 0));
+            } else if (sortType === 'most_stale') {
+              colLeads.sort((a, b) => {
+                const lastActA = a.lastActivityAt || a.createdAt || 0;
+                const lastActB = b.lastActivityAt || b.createdAt || 0;
+                return lastActA - lastActB;
+              });
+            } else if (sortType === 'alphabetical') {
+              colLeads.sort((a, b) => {
+                const nameA = (a.clientName || a.fullName || "").trim();
+                const nameB = (b.clientName || b.fullName || "").trim();
+                return nameA.localeCompare(nameB, 'ar');
+              });
+            }
           }
 
-          colLeads.forEach((lead) => {
+          colLeads.forEach((item) => {
             const card = document.createElement("div");
-            card.className = "lead-card";
-            card.draggable = window.innerWidth >= 768; // Only draggable on desktop
-            card.id = `card-${lead.id}`;
-            card.ondragstart = (e) => dragStart(e, lead.id);
-            card.ondragend = (e) => dragEnd(e);
+            
+            if (isMeetingsColumn) {
+              const m = item;
+              const start = new Date(m.startTime);
+              const timeStr = start.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) + ' ' + start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+              const typeClass = (m.meetingType || '').includes('حضوري') ? 'offline' : 'online';
+              const typeLabel = (m.meetingType && m.meetingType !== 'أون لاين') ? m.meetingType : 'أون لاين';
+              const ongoingBadge = getMeetingTimeStatus(m.startTime, m.endTime) === 'ongoing' ? `<span style="background:#ef4444; color:white; font-size:9px; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold; animation: pulse 1.5s infinite;">يجري الآن</span>` : '';
+              
+              card.className = "lead-card meeting-card-item";
+              card.style.borderRight = "4px solid var(--accent-blue)";
+              card.style.cursor = "default";
+              card.innerHTML = `
+                <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom: 6px;">${m.clientName || m.projectName || m.summary || 'اجتماع بدون عنوان'} ${ongoingBadge}</div>
+                <div style="font-size:11px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+                  <div>📅 ${timeStr}</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                    <span class="meeting-type-badge ${typeClass}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>
+                    ${m.meetLink ? `<a href="${m.meetLink}" target="_blank" style="font-size:11px; text-decoration:none; color:var(--accent-blue); font-weight:bold;">🎥 انضمام</a>` : ''}
+                  </div>
+                </div>
+              `;
+              cardsContainer.appendChild(card);
+              return;
+            }
+            const lead = item;
+              card.className = "lead-card";
+              card.draggable = window.innerWidth >= 768; // Only draggable on desktop
+              card.id = `card-${lead.id}`;
+              card.ondragstart = (e) => dragStart(e, lead.id);
+              card.ondragend = (e) => dragEnd(e);
 
             const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(val);
             const openTickets = lead.openTicketsCount || 0;
@@ -4832,6 +4800,24 @@
       if (fillEl) fillEl.style.width = `${pct}%`;
       if (lblEl)  lblEl.textContent  = `${done} من ${total} اجتماعات مكتملة`;
       if (pctEl)  pctEl.textContent  = `${pct}%`;
+    }
+
+    async function fetchMonthlyMeetings() {
+      if (!currentUser || !currentUser.email) return;
+      try {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${yyyy}-${mm}`;
+        const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
+        if (!response.ok) {
+          throw new Error('فشل جلب اجتماعات الشهر');
+        }
+        monthlyMeetings = await response.json();
+        renderKanbanBoard();
+      } catch (err) {
+        console.error("Failed to fetch monthly meetings:", err);
+      }
     }
 
     async function fetchGoogleMeetings(isSilent = false) {
