@@ -4727,6 +4727,26 @@
         for (const event of events) {
           const duplicate = Object.values(leadsData).some(l => l.googleEventId === event.id);
           if (duplicate) continue;
+          
+          // --- Filter events so employees only see their own clients on the board ---
+          const userEmail = currentUser.email.toLowerCase();
+          const emailMap = {
+            'hosammohammed528@gmail.com': 'م.حسام',
+            'ashrafesmat1@gmail.com': 'م.أشرف',
+            'shady.alaraby22@gmail.com': 'م.شادي',
+            'mojahedalameen1@gmail.com': 'م.مجاهد'
+          };
+          const mySalesRepName = emailMap[userEmail];
+          
+          if (mySalesRepName && event.salesRep !== mySalesRepName) {
+            continue; // This event belongs to a different sales rep
+          } else if (!mySalesRepName) {
+            // Fallback for other users not in the priority list
+            const isAttendee = event.attendees && event.attendees.some(a => a.email && a.email.toLowerCase() === userEmail);
+            if (!isAttendee) continue;
+          }
+          // -------------------------------------------------------------------------
+
           const parsed = parseMeetingSummary(event.summary);
           const slackCodeToUse = parsed.slackCode || (await getNextSlackCode());
           const leadKey = db.ref(getLeadsPath()).push().key;
