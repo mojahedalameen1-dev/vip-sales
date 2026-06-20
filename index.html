@@ -3877,10 +3877,13 @@
           <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'alphabetical')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'alphabetical' ? '600' : 'normal'};">الأبجدي (أ ← ي) ${sortType === 'alphabetical' ? '✓' : ''}</div>
         `;
 
+        const currentMonthNum = new Date().getMonth() + 1;
+        const colTitle = isMeetingsColumn ? `${col.name} (اجتماعاتي (شهر ${currentMonthNum}))` : col.name;
+
         columnEl.innerHTML = `
           <div class="column-color-bar" style="background-color: ${col.color};"></div>
           <div class="column-header" style="padding-bottom: 8px; position: relative;">
-            <h3 class="column-title" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;">${col.name} ${isMeetingsColumn ? "(اجتماعاتي بالشهر)" : ""}</h3>
+            <h3 class="column-title" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;">${colTitle}</h3>
             <div style="display: flex; align-items: center; gap: 6px;">
               <!-- Sort Button -->
               <div style="position: relative;" onclick="event.stopPropagation()">
@@ -4805,8 +4808,11 @@
       // Legacy: import meetings into kanban (keep existing behaviour)
       try {
         if (!currentUser || !currentUser.email) return;
-        const dateStr  = getMeetingsDateStr(new Date());
-        const response = await fetch(`/api/meetings?date=${dateStr}`);
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${yyyy}-${mm}`;
+        const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
