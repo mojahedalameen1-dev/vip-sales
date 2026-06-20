@@ -3878,7 +3878,7 @@
         `;
 
         const currentMonthNum = new Date().getMonth() + 1;
-        const colTitle = isMeetingsColumn ? `${col.name} (اجتماعاتي (شهر ${currentMonthNum}))` : col.name;
+        const colTitle = isMeetingsColumn ? `${col.name} ( اجتماعاتي شهر ${currentMonthNum} )` : col.name;
 
         columnEl.innerHTML = `
           <div class="column-color-bar" style="background-color: ${col.color};"></div>
@@ -3929,9 +3929,9 @@
           if (isMeetingsColumn) {
             const mSort = sortType === 'oldest' ? 'oldest' : 'newest';
             if (mSort === 'newest') {
-              colLeads.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+              colLeads.sort((a, b) => (b.meetingDate || 0) - (a.meetingDate || 0));
             } else {
-              colLeads.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+              colLeads.sort((a, b) => (a.meetingDate || 0) - (b.meetingDate || 0));
             }
           } else {
             if (sortType === 'newest') {
@@ -4054,7 +4054,10 @@
                 ${lead.meetingDate ? `
                   <div class="lead-meeting">
                     <i data-lucide="calendar" style="width: 12px; height: 12px;"></i>
-                    <span>${new Date(lead.meetingDate).toLocaleDateString('en-US')}</span>
+                    <span>${(() => {
+                      const d = new Date(lead.meetingDate);
+                      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getDate()}`;
+                    })()}</span>
                   </div>
                 ` : ''}
               </div>
