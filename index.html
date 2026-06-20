@@ -2666,7 +2666,7 @@
       <div id="dashboardView" class="content-container">
 
         <!-- KPIs Row -->
-        <section id="kpiContainer" class="kpis-row">
+        <section id="kpiContainer" class="kpis-row" style="display: none;">
           <!-- Dynamically populated KPI cards -->
         </section>
 
@@ -2884,7 +2884,6 @@
       <div class="bottom-sheet-option" onclick="moveLeadMobile('technical')">عرض فني</div>
       <div class="bottom-sheet-option" onclick="moveLeadMobile('closing')">تقفيل</div>
       <div class="bottom-sheet-option" onclick="moveLeadMobile('signed')">توقيع</div>
-      <div class="bottom-sheet-option" onclick="moveLeadMobile('postponed')">مؤجل</div>
       <div class="bottom-sheet-option" onclick="moveLeadMobile('closed')">مغلق</div>
     </div>
   </div>
@@ -3171,9 +3170,6 @@
                   <input type="checkbox" id="exportColSigned" checked> توقيع
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
-                  <input type="checkbox" id="exportColPostponed" checked> مؤجل
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
                   <input type="checkbox" id="exportColClosed" checked> مغلق
                 </label>
               </div>
@@ -3293,7 +3289,6 @@
       { id: "technical", name: "عرض فني", color: "var(--col-technical)" },
       { id: "closing", name: "تقفيل", color: "var(--col-closing)" },
       { id: "signed", name: "توقيع", color: "var(--col-signed)" },
-      { id: "postponed", name: "مؤجل", color: "var(--col-postponed)" },
       { id: "closed", name: "مغلق", color: "var(--col-closed)", isClosed: true }
     ];
 
@@ -3302,7 +3297,6 @@
       technical: "عرض فني",
       closing: "تقفيل",
       signed: "توقيع",
-      postponed: "مؤجل",
       closed: "مغلق"
     };
 
@@ -3823,18 +3817,18 @@
       const lead = leadsData[leadId];
       if (!lead) return;
       
-      if (!confirm("هل أنت متأكد من إعادة فتح هذا العميل ونقله إلى عمود 'مؤجل'؟")) return;
+      if (!confirm("هل أنت متأكد من إعادة فتح هذا العميل ونقله إلى عمود 'جديد'؟")) return;
       
       const history = lead.columnHistory || [];
       const userStr = currentUser ? (currentUser.displayName || currentUser.email) : "غير معروف";
       history.push({
-        column: "postponed",
+        column: "new",
         timestamp: Date.now(),
         movedBy: `إعادة فتح بواسطة ${userStr}`
       });
       
       db.ref(`${getLeadsPath()}/${leadId}`).update({
-        column: "postponed",
+        column: "new",
         columnHistory: history,
         lastActivityAt: Date.now(),
         updatedAt: firebase.database.ServerValue.TIMESTAMP,
@@ -3844,7 +3838,7 @@
         closedBy: null
       }).then(() => {
         closeModal("detailsModal");
-        showToast("تم إعادة فتح العميل ونقله لعمود 'مؤجل'", "success");
+        showToast("تم إعادة فتح العميل ونقله لعمود 'جديد'", "success");
       }).catch(err => {
         showToast("فشل إعادة الفتح: " + err.message, "error");
       });
