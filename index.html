@@ -1894,44 +1894,165 @@
 
     /* Table Container */
     .meetings-table-wrapper {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      overflow: visible;
+      box-shadow: none;
+    }
+
+    /* Modern Meetings Card Layout Styles */
+    .meetings-grid-v2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .meeting-card-v2 {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-card);
-      overflow: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: var(--shadow-card);
+      border-right: 4px solid var(--border-subtle);
     }
 
-    .daily-meetings-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: var(--text-sm);
-      direction: rtl;
+    .meeting-card-v2:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-modal);
+      border-color: var(--border-focus);
     }
 
-    .daily-meetings-table thead th {
-      background: var(--bg-elevated);
-      color: var(--text-secondary);
+    /* Color indicators for status on card borders */
+    .meeting-card-v2.status-done {
+      border-right-color: #10b981;
+    }
+    .meeting-card-v2.status-postponed {
+      border-right-color: #ef4444;
+    }
+    .meeting-card-v2.status-pending {
+      border-right-color: var(--accent-blue);
+    }
+
+    .meeting-card-v2.completed {
+      opacity: 0.75;
+    }
+
+    .meeting-card-header-v2 {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .meeting-card-title-v2 {
+      font-size: var(--text-base);
       font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.4;
+      flex: 1;
+    }
+
+    .meeting-card-time-v2 {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      text-align: left;
       font-size: var(--text-xs);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 12px 16px;
-      border-bottom: 2px solid var(--border-subtle);
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      color: var(--text-secondary);
+      background: var(--bg-elevated);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
       white-space: nowrap;
     }
 
-    .daily-meetings-table tbody tr {
-      border-bottom: 1px solid var(--border-subtle);
-      transition: background 0.15s;
-      animation: rowSlideIn 0.35s ease backwards;
+    .meeting-card-time-v2 .time-main {
+      font-weight: 700;
+      color: var(--accent-blue);
+      font-size: 13px;
     }
 
-    @keyframes rowSlideIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+    .meeting-card-body-v2 {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .meeting-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meeting-index-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .slack-code-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      background: rgba(79, 142, 247, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(79, 142, 247, 0.15);
+    }
+
+    .meeting-card-actions-v2 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+      gap: 10px;
+    }
+
+    /* Redesigned segmented filters */
+    .meetings-filter-tabs {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 4px;
+      border-radius: 10px;
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .meetings-filter-tabs button {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .meetings-filter-tabs button.active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--border-subtle);
     }
 
     .daily-meetings-table tbody tr:hover { background: var(--bg-subtle) !important; }
@@ -2624,9 +2745,9 @@
             </div>
           </div>
           <!-- Filter Tabs -->
-          <div class="meetings-filter-tabs" style="display: flex; gap: 8px; margin: 0 16px; align-items: center;">
-            <button id="btnAllMeetings" class="nav-day-btn today-btn" onclick="setMeetingsTabFilter('all')" style="padding: 6px 12px; font-size:12px; font-weight:600;">كل الاجتماعات</button>
-            <button id="btnMyMeetings" class="nav-day-btn" onclick="setMeetingsTabFilter('mine')" style="padding: 6px 12px; font-size:12px; font-weight:600;">اجتماعاتي</button>
+          <div class="meetings-filter-tabs">
+            <button id="btnAllMeetings" class="active" onclick="setMeetingsTabFilter('all')">كل الاجتماعات</button>
+            <button id="btnMyMeetings" onclick="setMeetingsTabFilter('mine')">اجتماعاتي</button>
           </div>
           <div class="day-nav-group">
             <button class="nav-day-btn" onclick="navigateMeetingsDay(-1)" id="prevDayBtn">
@@ -5431,8 +5552,13 @@
       const btnAll = document.getElementById('btnAllMeetings');
       const btnMy = document.getElementById('btnMyMeetings');
       if (btnAll && btnMy) {
-        btnAll.className = filter === 'all' ? 'nav-day-btn today-btn' : 'nav-day-btn';
-        btnMy.className = filter === 'mine' ? 'nav-day-btn today-btn' : 'nav-day-btn';
+        if (filter === 'all') {
+          btnAll.classList.add('active');
+          btnMy.classList.remove('active');
+        } else {
+          btnMy.classList.add('active');
+          btnAll.classList.remove('active');
+        }
       }
       renderMeetingsTab();
     }
@@ -5488,8 +5614,8 @@
       // ── Sort ──
       const sorted = [...meetings].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-      // ── Build rows ──
-      const rowsHtml = sorted.map((m, idx) => {
+      // ── Build cards grid ──
+      const cardsHtml = sorted.map((m, idx) => {
         const timeStatus = getMeetingTimeStatus(m.startTime, m.endTime);
         const start = new Date(m.startTime);
         const end   = m.endTime ? new Date(m.endTime) : null;
@@ -5511,33 +5637,35 @@
         const projectDisplay = [m.clientName, m.projectName].filter(Boolean).join(' — ');
 
         return `
-          <tr class="meeting-row ${timeStatus}" data-event-id="${m.id}" style="animation-delay: ${idx * 40}ms">
-            <td style="font-weight:700; color:var(--text-muted); font-size:var(--text-xs); text-align:center;">${idx + 1}</td>
-            <td>
-              <div style="font-weight:700; font-size:var(--text-sm); color:var(--text-primary); line-height:1.4;">${projectDisplay || m.summary || '—'}</div>
+          <div class="meeting-card-v2 meeting-row ${timeStatus} status-${eventStatus} ${eventStatus === 'done' ? 'completed' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
+            <div class="meeting-card-header-v2">
+              <div class="meeting-index-badge">${idx + 1}</div>
+              <div class="meeting-card-title-v2">
+                ${projectDisplay || m.summary || '—'}
+                ${m.needsReview ? '<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:4px;">⚠ يحتاج مراجعة</div>' : ''}
+              </div>
+              <div class="meeting-card-time-v2">
+                <span class="time-main">${timeStr}</span>
+                ${endStr ? `<span style="font-size:9px;color:var(--text-muted);margin-top:2px;">إلى ${endStr}</span>` : ''}
+              </div>
+            </div>
+            
+            <div class="meeting-card-body-v2">
               ${ongoingBadge}
-              ${m.needsReview ? '<span style="font-size:10px;color:#f59e0b;font-weight:600;">⚠ يحتاج مراجعة</span>' : ''}
-            </td>
-            <td>
-              ${m.slackCode ? `<span style="font-size:11px;font-weight:700;color:var(--accent-blue);background:rgba(79,142,247,0.1);padding:2px 7px;border-radius:4px;">${m.slackCode}</span>` : '<span style="color:var(--text-muted);font-size:11px;">—</span>'}
-            </td>
-            <td>
-              <span class="sales-rep-badge ${repClass}">${repLabel}</span>
-            </td>
-            <td>
-              <span class="meeting-type-badge ${typeClass}">${typeLabel === 'حضوري' ? '🏢' : '💻'} ${typeLabel}</span>
-            </td>
-            <td style="white-space:nowrap;">
-              <div style="font-weight:700;font-size:var(--text-sm);">${timeStr}</div>
-              ${endStr ? `<div style="font-size:10px;color:var(--text-muted);">— ${endStr}</div>` : ''}
-            </td>
-            <td>
-              ${['حضوري', 'خارجي'].includes(m.meetingType)
-                ? `<span class="no-link-badge" style="background:rgba(245,158,11,0.1); color:#f59e0b; padding:4px 8px; border-radius:6px; font-weight:700;">🏢 ${m.meetingType}</span>`
-                : (m.meetLink ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضمام</a>` : `<span class="no-link-badge">أون لاين (بدون رابط)</span>`)
-              }
-            </td>
-            <td>
+              <div class="meeting-meta-row">
+                <span class="sales-rep-badge ${repClass}">${repLabel}</span>
+                <span class="meeting-type-badge ${typeClass}">${typeLabel === 'حضوري' ? '🏢' : '💻'} ${typeLabel}</span>
+                ${m.slackCode ? `<span class="slack-code-badge">${m.slackCode}</span>` : ''}
+              </div>
+            </div>
+            
+            <div class="meeting-card-actions-v2">
+              <div>
+                ${['حضوري', 'خارجي'].includes(m.meetingType)
+                  ? `<span class="no-link-badge" style="background:rgba(245,158,11,0.08); color:#d97706; padding:5px 10px; border-radius:6px; font-weight:700; font-size:11px;">🏢 اجتماع حضوري</span>`
+                  : (m.meetLink ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضمام للمكالمة</a>` : `<span class="no-link-badge">أون لاين (بدون رابط)</span>`)
+                }
+              </div>
               <button
                 class="status-toggle-btn ${eventStatus}"
                 data-event-id="${m.id}"
@@ -5545,27 +5673,15 @@
                 onclick="toggleMeetingStatus('${m.id}', this.dataset.status)">
                 ${statusLabels[eventStatus]}
               </button>
-            </td>
-          </tr>
+            </div>
+          </div>
         `;
       }).join('');
 
       container.innerHTML = `
-        <table class="daily-meetings-table">
-          <thead>
-            <tr>
-              <th style="width:40px;">#</th>
-              <th>العميل / المشروع</th>
-              <th>كود AA</th>
-              <th>المندوب</th>
-              <th>جهة الاجتماع</th>
-              <th>الوقت</th>
-              <th>رابط</th>
-              <th>الحالة</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
+        <div class="meetings-grid-v2">
+          ${cardsHtml}
+        </div>
       `;
 
       updateMeetingsProgress();
