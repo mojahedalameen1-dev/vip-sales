@@ -2572,7 +2572,7 @@
           <div style="display: flex; align-items: center; gap: 16px; width: 100%; flex-wrap: wrap;">
             <div class="search-input-wrapper" style="flex: 1; max-width: 400px; position: relative; display: flex; align-items: center;">
               <i data-lucide="search" class="search-icon" style="position: absolute; right: 14px; color: var(--text-secondary); pointer-events: none; width: 16px; height: 16px;"></i>
-              <input type="text" id="kanbanSearchInput" class="search-input-field" placeholder="ابحث باسم العميل، المشروع، Slack، أو الجوال..." oninput="applyFilters()" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 10px 42px 10px 16px; border-radius: 8px; font-size: var(--text-sm); outline: none; transition: border-color 0.2s, box-shadow 0.2s;">
+              <input type="text" id="kanbanSearchInput" class="search-input-field" placeholder="ابحث باسم العميل، المشروع، Slack، أو الجوال..." oninput="debouncedApplyFilters()" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 10px 42px 10px 16px; border-radius: 8px; font-size: var(--text-sm); outline: none; transition: border-color 0.2s, box-shadow 0.2s;">
             </div>
             
              <!-- Month Filter Dropdown -->
@@ -3185,6 +3185,14 @@
       closed: "مغلق"
     };
 
+    // ═══ Shared constant: maps employee Gmail to display name ═══
+    const SALES_REP_EMAILS = {
+      'hosammohammed528@gmail.com': 'م.حسام',
+      'ashrafesmat1@gmail.com': 'م.أشرف',
+      'shady.alaraby22@gmail.com': 'م.شادي',
+      'mojahedalameen1@gmail.com': 'م.مجاهد'
+    };
+
     function isLeadStale(lead) {
       if (!lead || lead.column === 'closed') return false;
       
@@ -3576,6 +3584,9 @@
 
       const meetingDate = meetingDateVal ? new Date(meetingDateVal).getTime() : 0;
 
+      // Auto-assign salesRep from logged-in user
+      const autoSalesRep = currentUser ? (SALES_REP_EMAILS[currentUser.email.toLowerCase()] || currentUser.displayName || currentUser.email) : '';
+
       const payload = {
         slackCode,
         clientName,
@@ -3587,6 +3598,7 @@
         meetingTitle,
         meetingDate,
         column,
+        salesRep: autoSalesRep,
         updatedAt: firebase.database.ServerValue.TIMESTAMP,
         lastActivityAt: Date.now()
       };
@@ -4830,13 +4842,7 @@
           
           // --- Filter events so employees only see their own clients on the board ---
           const userEmail = currentUser.email.toLowerCase();
-          const emailMap = {
-            'hosammohammed528@gmail.com': 'م.حسام',
-            'ashrafesmat1@gmail.com': 'م.أشرف',
-            'shady.alaraby22@gmail.com': 'م.شادي',
-            'mojahedalameen1@gmail.com': 'م.مجاهد'
-          };
-          const mySalesRepName = emailMap[userEmail];
+          const mySalesRepName = SALES_REP_EMAILS[userEmail];
           
           if (mySalesRepName && event.salesRep !== mySalesRepName) {
             continue; // This event belongs to a different sales rep
@@ -5441,14 +5447,7 @@
       if (currentMeetingsTabFilter === 'mine' && currentUser) {
         const userEmail = (currentUser.email || '').toLowerCase();
         const userName = (currentUser.displayName || '').toLowerCase();
-        
-        const emailMap = {
-          'hosammohammed528@gmail.com': 'م.حسام',
-          'ashrafesmat1@gmail.com': 'م.أشرف',
-          'shady.alaraby22@gmail.com': 'م.شادي',
-          'mojahedalameen1@gmail.com': 'م.مجاهد'
-        };
-        const mySalesRepName = (emailMap[userEmail] || '').toLowerCase();
+        const mySalesRepName = (SALES_REP_EMAILS[userEmail] || '').toLowerCase();
         
         meetings = meetings.filter(m => {
           const salesRep = (m.salesRep || '').toLowerCase();
@@ -6302,12 +6301,19 @@
       applyFilters();
     }
     
+    // Debounced version of applyFilters for the search input
+    const debouncedApplyFilters = debounce(applyFilters, 250);
+
     function applyFilters() {
       filters.search = (document.getElementById("kanbanSearchInput")?.value || "").trim().toLowerCase();
       
       let matchedCount = 0;
       let totalCount = 0;
       const isFiltered = !!(filters.search || filters.staleOnly || filters.column !== "all");
+
+      // Track visible counts per column for badge update
+      const colVisibleCounts = {};
+      COLUMNS.forEach(c => colVisibleCounts[c.id] = 0);
       
       Object.values(leadsData).forEach(lead => {
         totalCount++;
@@ -6338,11 +6344,31 @@
           matchedCount++;
           cardEl.style.opacity = "1";
           cardEl.style.pointerEvents = "all";
+          if (colVisibleCounts[lead.column] !== undefined) colVisibleCounts[lead.column]++;
         } else {
           cardEl.style.opacity = "0.2";
           cardEl.style.pointerEvents = "none";
         }
       });
+
+      // Update column count badges to reflect filtered counts
+      if (isFiltered) {
+        COLUMNS.forEach(col => {
+          const colEl = document.getElementById(`column-${col.id}`);
+          if (!colEl) return;
+          const badge = colEl.closest('.kanban-column')?.querySelector('.column-count-badge');
+          if (badge) badge.textContent = colVisibleCounts[col.id] ?? 0;
+        });
+      } else {
+        // Restore actual counts
+        COLUMNS.forEach(col => {
+          const colEl = document.getElementById(`column-${col.id}`);
+          if (!colEl) return;
+          const badge = colEl.closest('.kanban-column')?.querySelector('.column-count-badge');
+          const actualCount = Object.values(leadsData).filter(l => l.column === col.id).length;
+          if (badge) badge.textContent = actualCount;
+        });
+      }
       
       const statusBar = document.getElementById("filterStatusBar");
       if (isFiltered) {
