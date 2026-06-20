@@ -2666,7 +2666,7 @@
       <div id="dashboardView" class="content-container">
 
         <!-- KPIs Row -->
-        <section id="kpiContainer" class="kpis-row" style="display: none;">
+        <section id="kpiContainer" class="kpis-row">
           <!-- Dynamically populated KPI cards -->
         </section>
 
@@ -5326,13 +5326,6 @@
       const monthlyFirstPaymentSum = monthlyLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
 
       const kpis = [
-        { label: "إجمالي العملاء", val: totalCount, icon: "users", color: "var(--accent-blue)" },
-        { label: "جديد", val: counts["new"] || 0, icon: "plus-circle", color: "var(--col-new)" },
-        { label: "عرض فني", val: counts["technical"] || 0, icon: "monitor", color: "var(--col-technical)" },
-        { label: "تقفيل", val: counts["closing"] || 0, icon: "lock", color: "var(--col-closing)" },
-        { label: "توقيع", val: counts["signed"] || 0, icon: "check-circle", color: "var(--col-signed)" },
-        { label: "مؤجل", val: counts["postponed"] || 0, icon: "clock", color: "var(--col-postponed)" },
-        { label: "مغلق", val: counts["closed"] || 0, icon: "x-circle", color: "var(--col-closed)" },
         { label: "قيمة العقود الموقعة", val: signedDealSum, icon: "award", color: "var(--accent-teal)", isCurrency: true },
         { label: `إجمالي عقود (${monthLabelText})`, val: monthlyDealSum, icon: "calendar", color: "var(--accent-blue)", isCurrency: true },
         { label: `إجمالي الدفع الأولى (${monthLabelText})`, val: monthlyFirstPaymentSum, icon: "percent", color: "var(--accent-teal)", isCurrency: true }
