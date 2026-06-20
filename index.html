@@ -2387,6 +2387,35 @@
       box-shadow: var(--shadow-modal);
       border-color: var(--border-focus);
     }
+
+    /* Custom Premium Scrollbar Design */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+    
+    /* Micro-animations and hover effects */
+    .lead-card, .meeting-card-item, .meetings-kpi-card, .nav-day-btn {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .lead-card:hover, .meeting-card-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    }
+    
+    .meetings-filter-tabs button {
+      cursor: pointer;
+    }
   </style>
 </head>
 
@@ -2593,6 +2622,11 @@
                 <div class="meetings-day-sub" id="meetingsDaySub">جارٍ التحميل...</div>
               </div>
             </div>
+          </div>
+          <!-- Filter Tabs -->
+          <div class="meetings-filter-tabs" style="display: flex; gap: 8px; margin: 0 16px; align-items: center;">
+            <button id="btnAllMeetings" class="nav-day-btn today-btn" onclick="setMeetingsTabFilter('all')" style="padding: 6px 12px; font-size:12px; font-weight:600;">كل الاجتماعات</button>
+            <button id="btnMyMeetings" class="nav-day-btn" onclick="setMeetingsTabFilter('mine')" style="padding: 6px 12px; font-size:12px; font-weight:600;">اجتماعاتي</button>
           </div>
           <div class="day-nav-group">
             <button class="nav-day-btn" onclick="navigateMeetingsDay(-1)" id="prevDayBtn">
@@ -3786,6 +3820,96 @@
 
       let allCards = [];
 
+      // Render Monthly Meetings Board named "جديد"
+      const meetingsColumn = document.createElement("div");
+      meetingsColumn.className = "kanban-column meetings-monthly-column";
+      meetingsColumn.style.border = "1px solid var(--border-subtle)";
+      meetingsColumn.style.borderRadius = "12px";
+      meetingsColumn.style.backgroundColor = "var(--bg-surface)";
+      meetingsColumn.style.boxShadow = "var(--shadow-card)";
+      
+      let myMonthlyMeetings = [];
+      if (currentUser) {
+        const userEmail = (currentUser.email || '').toLowerCase();
+        const userName = (currentUser.displayName || '').toLowerCase();
+        
+        const emailMap = {
+          'hosammohammed528@gmail.com': 'م.حسام',
+          'ashrafesmat1@gmail.com': 'م.أشرف',
+          'shady.alaraby22@gmail.com': 'م.شادي',
+          'mojahedalameen1@gmail.com': 'م.مجاهد'
+        };
+        const mySalesRepName = (emailMap[userEmail] || '').toLowerCase();
+
+        myMonthlyMeetings = (googleMeetings || []).filter(m => {
+          if (!m.startTime) return false;
+          const start = new Date(m.startTime);
+          const now = new Date();
+          const isThisMonth = start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth();
+          if (!isThisMonth) return false;
+          
+          const salesRep = (m.salesRep || '').toLowerCase();
+          const isUserRep = mySalesRepName && salesRep.includes(mySalesRepName);
+          const isUserEmail = salesRep.includes(userEmail);
+          const isUserDisplay = userName && salesRep.includes(userName);
+          return isUserRep || isUserEmail || isUserDisplay;
+        });
+      }
+      
+      const monthlyMeetSort = localStorage.getItem('monthlyMeetingsSort') || 'newest';
+      if (monthlyMeetSort === 'newest') {
+        myMonthlyMeetings.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+      } else {
+        myMonthlyMeetings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+      }
+      
+      const monthlySortLabel = monthlyMeetSort === 'newest' ? "الأحدث أولاً" : "الأقدم أولاً";
+      
+      meetingsColumn.innerHTML = `
+        <div class="column-color-bar" style="background-color: var(--accent-blue);"></div>
+        <div class="column-header" style="padding-bottom: 8px; position: relative;">
+          <h3 class="column-title" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;">جديد (اجتماعاتي بالشهر)</h3>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="position: relative;" onclick="event.stopPropagation()">
+              <button class="btn-icon" style="padding: 2px 6px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 2px; color: var(--text-secondary);" onclick="toggleMonthlyMeetingsSortDropdown(event)" title="ترتيب: ${monthlySortLabel}">
+                <span>↕</span>
+              </button>
+              <div id="monthlyMeetingsSortDropdown" class="dropdown-content" style="display: none; position: absolute; top: 100%; left: 0; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; box-shadow: var(--shadow-modal); z-index: 300; min-width: 120px; padding: 4px 0; margin-top: 4px;">
+                <div class="dropdown-item" onclick="setMonthlyMeetingsSort('newest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${monthlyMeetSort === 'newest' ? '600' : 'normal'};">الأحدث أولاً ${monthlyMeetSort === 'newest' ? '✓' : ''}</div>
+                <div class="dropdown-item" onclick="setMonthlyMeetingsSort('oldest')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${monthlyMeetSort === 'oldest' ? '600' : 'normal'};">الأقدم أولاً ${monthlyMeetSort === 'oldest' ? '✓' : ''}</div>
+              </div>
+            </div>
+            <span class="column-count-badge">${myMonthlyMeetings.length}</span>
+          </div>
+        </div>
+        <div class="column-cards-container" style="max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px;">
+          ${myMonthlyMeetings.length === 0 ? `
+            <div class="empty-state-card">
+              <span class="empty-state-text">لا توجد اجتماعات هذا الشهر</span>
+            </div>
+          ` : myMonthlyMeetings.map(m => {
+            const start = new Date(m.startTime);
+            const timeStr = start.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) + ' ' + start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const typeClass = (m.meetingType || '').includes('حضوري') ? 'offline' : 'online';
+            const typeLabel = (m.meetingType && m.meetingType !== 'أون لاين') ? m.meetingType : 'أون لاين';
+            const ongoingBadge = getMeetingTimeStatus(m.startTime, m.endTime) === 'ongoing' ? `<span style="background:#ef4444; color:white; font-size:9px; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold; animation: pulse 1.5s infinite;">يجري الآن</span>` : '';
+            return `
+              <div class="lead-card meeting-card-item" style="border-right: 4px solid var(--accent-blue); padding: 12px; background: var(--bg-surface); border-radius: 8px; box-shadow: var(--shadow-card); cursor: pointer;">
+                <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom: 6px;">${m.clientName || m.projectName || m.summary || 'اجتماع بدون عنوان'} ${ongoingBadge}</div>
+                <div style="font-size:11px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+                  <div>📅 ${timeStr}</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                    <span class="meeting-type-badge ${typeClass}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>
+                    ${m.meetLink ? `<a href="${m.meetLink}" target="_blank" style="font-size:11px; text-decoration:none; color:var(--accent-blue); font-weight:bold;">🎥 انضمام</a>` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+      board.appendChild(meetingsColumn);
+
       COLUMNS.forEach(col => {
         const columnEl = document.createElement("div");
         columnEl.className = "kanban-column";
@@ -4593,89 +4717,78 @@
     }
 
     function arDayName(date) {
-      const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-      return days[date.getDay()];
-    }
-
-    function arMonthName(date) {
-      const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-      return months[date.getMonth()];
-    }
-
-    function goToMeetingsToday() {
-      meetingsCurrentDate = new Date();
-      fetchMeetingsForDay();
-    }
-
-    function navigateMeetingsDay(delta) {
-      if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
-      meetingsCurrentDate = new Date(meetingsCurrentDate.getTime() + delta * 24 * 60 * 60 * 1000);
-      fetchMeetingsForDay();
-    }
-
-    function refreshMeetingsView() {
-      fetchMeetingsForDay();
-    }
-
-    let currentFetchMeetingsToken = 0;
-    async function fetchMeetingsForDay() {
-      if (!currentUser) return;
-      if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
-
-      const fetchToken = ++currentFetchMeetingsToken;
-
-      const dateStr = getMeetingsDateStr(meetingsCurrentDate);
-      const btn = document.getElementById('meetingsRefreshBtn');
-      if (btn) btn.classList.add('spinning');
-
-      // Update header
-      const titleEl = document.getElementById('meetingsDayTitle');
-      const subEl   = document.getElementById('meetingsDaySub');
-      if (titleEl) {
-        const isToday = dateStr === getMeetingsDateStr(new Date());
-        titleEl.textContent = isToday ? '📅 اجتماعات اليوم' : `📅 اجتماعات ${arDayName(meetingsCurrentDate)}`;
-      }
-      if (subEl) subEl.textContent = `${meetingsCurrentDate.getDate()} ${arMonthName(meetingsCurrentDate)} ${meetingsCurrentDate.getFullYear()}`;
-
+      const days = ['الأحد','الاثنين','الثلا    async function fetchGoogleMeetings(isSilent = false) {
+      // Import meetings for the entire current month into the kanban board
       try {
-        const response = await fetch(`/api/meetings?date=${dateStr}`);
+        if (!currentUser || !currentUser.email) return;
+
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${yyyy}-${mm}`;
+
+        const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
         }
-        if (fetchToken !== currentFetchMeetingsToken) return;
-        googleMeetings = await response.json();
-        renderMeetingsTab();
+        const events = await response.json();
+        
+        let importedCount = 0;
+        for (const event of events) {
+          const duplicate = Object.values(leadsData).some(l => l.googleEventId === event.id);
+          if (duplicate) continue;
+          
+          // --- Filter events so employees only see their own clients on the board ---
+          const userEmail = currentUser.email.toLowerCase();
+          const emailMap = {
+            'hosammohammed528@gmail.com': 'م.حسام',
+            'ashrafesmat1@gmail.com': 'م.أشرف',
+            'shady.alaraby22@gmail.com': 'م.شادي',
+            'mojahedalameen1@gmail.com': 'م.مجاهد'
+          };
+          const mySalesRepName = emailMap[userEmail];
+          
+          if (mySalesRepName && event.salesRep !== mySalesRepName) {
+            continue; // This event belongs to a different sales rep
+          } else if (!mySalesRepName) {
+            // Fallback for other users not in the priority list
+            const isAttendee = event.attendees && event.attendees.some(a => a.email && a.email.toLowerCase() === userEmail);
+            if (!isAttendee) continue;
+          }
+          // -------------------------------------------------------------------------
+
+          const parsed = parseMeetingSummary(event.summary);
+          const slackCodeToUse = parsed.slackCode || (await getNextSlackCode());
+          const leadKey = db.ref(getLeadsPath()).push().key;
+          const payload = {
+            id: leadKey, slackCode: slackCodeToUse,
+            clientName: parsed.clientName, projectName: parsed.projectName,
+            fullName: parsed.clientName, phone: "",
+            firstPayment: 0, totalDeal: 0,
+            meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
+            needsReview: parsed.needsReview || false,
+            meetingDate: event.startTime ? new Date(event.startTime).getTime() : Date.now(),
+            column: 'new', googleEventId: event.id,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP,
+            lastActivityAt: Date.now(),
+            columnHistory: [{ column: 'new', timestamp: Date.now(), movedBy: 'Google Calendar Service Account' }],
+            openTicketsCount: 0
+          };
+          await db.ref(`${getLeadsPath()}/${leadKey}`).set(payload);
+          importedCount++;
+        }
+        document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
+        updateAutoRefreshIndicator();
+        if (importedCount > 0) showToast(`تم استيراد ${importedCount} اجتماعات جديدة بنجاح`, 'success');
+        else if (!isSilent) showToast('لا توجد اجتماعات Google Meet جديدة للاستيراد', 'info');
       } catch (err) {
         console.error(err);
-        showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
-        const container = document.getElementById('meetingsTableContainer');
-        if (container) container.innerHTML = `<div class="meetings-empty-state"><span class="empty-icon">⚠️</span><p>خطأ في الجلب</p><span>${err.message}</span></div>`;
-      } finally {
-        if (btn) btn.classList.remove('spinning');
+        if (!isSilent) showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
+        document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
       }
-    }
-
-    // Firebase realtime listener for meeting statuses
-    function initMeetingStatusesListener() {
-      if (meetingsFirebaseListener) return; // already listening
-      meetingsFirebaseListener = db.ref('meetingStatuses').on('value', snapshot => {
-        meetingStatuses = snapshot.val() || {};
-        // Re-render only status buttons without full refetch
-        document.querySelectorAll('.status-toggle-btn').forEach(btn => {
-          const eventId = btn.dataset.eventId;
-          if (!eventId) return;
-          const s = (meetingStatuses[eventId] || {}).status || 'pending';
-          applyStatusToBtn(btn, s);
-        });
-        updateMeetingsProgress();
-      });
-    }
-
-    function applyStatusToBtn(btn, status) {
-      btn.className = `status-toggle-btn ${status}`;
-      const labels = { pending: '⏳ لم يتم', done: '✅ تم', postponed: '🔄 تأجل' };
-      btn.textContent = labels[status] || labels.pending;
+    }btn.textContent = labels[status] || labels.pending;
       btn.dataset.status = status;
     }
 
@@ -5319,11 +5432,45 @@
       }
     }
 
+    let currentMeetingsTabFilter = 'all';
+    function setMeetingsTabFilter(filter) {
+      currentMeetingsTabFilter = filter;
+      const btnAll = document.getElementById('btnAllMeetings');
+      const btnMy = document.getElementById('btnMyMeetings');
+      if (btnAll && btnMy) {
+        btnAll.className = filter === 'all' ? 'nav-day-btn today-btn' : 'nav-day-btn';
+        btnMy.className = filter === 'mine' ? 'nav-day-btn today-btn' : 'nav-day-btn';
+      }
+      renderMeetingsTab();
+    }
+
     function renderMeetingsTab() {
       const container = document.getElementById('meetingsTableContainer');
       if (!container) return;
 
-      const meetings = googleMeetings || [];
+      let meetings = googleMeetings || [];
+      
+      // Filter for current employee meetings
+      if (currentMeetingsTabFilter === 'mine' && currentUser) {
+        const userEmail = (currentUser.email || '').toLowerCase();
+        const userName = (currentUser.displayName || '').toLowerCase();
+        
+        const emailMap = {
+          'hosammohammed528@gmail.com': 'م.حسام',
+          'ashrafesmat1@gmail.com': 'م.أشرف',
+          'shady.alaraby22@gmail.com': 'م.شادي',
+          'mojahedalameen1@gmail.com': 'م.مجاهد'
+        };
+        const mySalesRepName = (emailMap[userEmail] || '').toLowerCase();
+        
+        meetings = meetings.filter(m => {
+          const salesRep = (m.salesRep || '').toLowerCase();
+          const isUserRep = mySalesRepName && salesRep.includes(mySalesRepName);
+          const isUserEmail = salesRep.includes(userEmail);
+          const isUserDisplay = userName && salesRep.includes(userName);
+          return isUserRep || isUserEmail || isUserDisplay;
+        });
+      }
 
       // ── KPI Cards ──
       const kpiRow = document.getElementById('meetingsKpiRow');
@@ -6220,6 +6367,20 @@
     }
 
     // Column Sorting helpers
+    window.toggleMonthlyMeetingsSortDropdown = function(e) {
+      e.stopPropagation();
+      const el = document.getElementById('monthlyMeetingsSortDropdown');
+      if (el) {
+        const isHidden = el.style.display === 'none';
+        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+        if (isHidden) el.style.display = 'block';
+      }
+    };
+    window.setMonthlyMeetingsSort = function(sortType) {
+      localStorage.setItem('monthlyMeetingsSort', sortType);
+      renderKanbanBoard();
+    };
+
     window.toggleSortDropdown = function(colId, event) {
       event.stopPropagation();
       COLUMNS.forEach(c => {

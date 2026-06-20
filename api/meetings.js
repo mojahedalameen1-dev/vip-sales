@@ -155,24 +155,40 @@ module.exports = async (req, res) => {
 
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const dateParam = req.query?.date || parsedUrl.searchParams.get('date'); // YYYY-MM-DD
+  const monthParam = req.query?.month || parsedUrl.searchParams.get('month'); // YYYY-MM
 
-  // Determine the target day (default = today in +03:00)
-  let targetDate;
-  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    targetDate = new Date(`${dateParam}T00:00:00+03:00`);
+  let dayStart, dayEnd;
+
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    const [yyyy, mm] = monthParam.split('-');
+    dayStart = new Date(`${yyyy}-${mm}-01T00:00:00+03:00`).toISOString();
+    
+    let nextYear = parseInt(yyyy, 10);
+    let nextMonth = parseInt(mm, 10) + 1;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    const nextMonthStr = String(nextMonth).padStart(2, '0');
+    dayEnd = new Date(`${nextYear}-${nextMonthStr}-01T00:00:00+03:00`).toISOString();
   } else {
-    // Today in Arabia Standard Time (UTC+3)
-    const now = new Date();
-    const offsetMs = 3 * 60 * 60 * 1000;
-    const localNow = new Date(now.getTime() + offsetMs);
-    const yyyy = localNow.getUTCFullYear();
-    const mm   = String(localNow.getUTCMonth() + 1).padStart(2, '0');
-    const dd   = String(localNow.getUTCDate()).padStart(2, '0');
-    targetDate = new Date(`${yyyy}-${mm}-${dd}T00:00:00+03:00`);
+    // Determine the target day (default = today in +03:00)
+    let targetDate;
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      targetDate = new Date(`${dateParam}T00:00:00+03:00`);
+    } else {
+      // Today in Arabia Standard Time (UTC+3)
+      const now = new Date();
+      const offsetMs = 3 * 60 * 60 * 1000;
+      const localNow = new Date(now.getTime() + offsetMs);
+      const yyyy = localNow.getUTCFullYear();
+      const mm   = String(localNow.getUTCMonth() + 1).padStart(2, '0');
+      const dd   = String(localNow.getUTCDate()).padStart(2, '0');
+      targetDate = new Date(`${yyyy}-${mm}-${dd}T00:00:00+03:00`);
+    }
+    dayStart = targetDate.toISOString();
+    dayEnd   = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000).toISOString();
   }
-
-  const dayStart = targetDate.toISOString();
-  const dayEnd   = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
   try {
     let keyJson;
@@ -212,7 +228,7 @@ module.exports = async (req, res) => {
           }
 
           const events = data.items || [];
-          const result = events.map(event => {
+          let result = events.map(event => {
             const meetLink = event.hangoutLink ||
               (event.conferenceData?.entryPoints?.[0]?.uri) || '';
             const parsed    = parseMeetingSummary(event.summary || '');
@@ -236,6 +252,15 @@ module.exports = async (req, res) => {
               salesRep
             };
           });
+
+          const emailParam = req.query?.email || parsedUrl.searchParams.get('email');
+          if (emailParam) {
+            const emailLower = emailParam.toLowerCase();
+            result = result.filter(r => {
+              const isAttendee = r.attendees && r.attendees.some(a => a.email && a.email.toLowerCase() === emailLower);
+              return isAttendee;
+            });
+          }
 
           res.writeHead(200);
           res.end(JSON.stringify(result));
