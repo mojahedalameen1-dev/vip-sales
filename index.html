@@ -2082,6 +2082,35 @@
     .meetings-empty-state p { font-size: var(--text-base); font-weight: 600; color: var(--text-secondary); }
     .meetings-empty-state span { font-size: var(--text-sm); }
 
+    /* Custom Premium Scrollbar Design */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+    
+    /* Micro-animations and hover effects */
+    .lead-card, .meeting-card-item, .meetings-kpi-card, .nav-day-btn {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .lead-card:hover, .meeting-card-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    }
+    
+    .meetings-filter-tabs button {
+      cursor: pointer;
+    }
+
     /* Refresh button in meetings */
     .meetings-refresh-btn {
       display: flex;
@@ -2386,35 +2415,6 @@
       transform: translateY(-3px);
       box-shadow: var(--shadow-modal);
       border-color: var(--border-focus);
-    }
-
-    /* Custom Premium Scrollbar Design */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-subtle);
-      border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-    
-    /* Micro-animations and hover effects */
-    .lead-card, .meeting-card-item, .meetings-kpi-card, .nav-day-btn {
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .lead-card:hover, .meeting-card-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-    }
-    
-    .meetings-filter-tabs button {
-      cursor: pointer;
     }
   </style>
 </head>
@@ -4717,78 +4717,89 @@
     }
 
     function arDayName(date) {
-      const days = ['الأحد','الاثنين','الثلا    async function fetchGoogleMeetings(isSilent = false) {
-      // Import meetings for the entire current month into the kanban board
+      const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      return days[date.getDay()];
+    }
+
+    function arMonthName(date) {
+      const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+      return months[date.getMonth()];
+    }
+
+    function goToMeetingsToday() {
+      meetingsCurrentDate = new Date();
+      fetchMeetingsForDay();
+    }
+
+    function navigateMeetingsDay(delta) {
+      if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
+      meetingsCurrentDate = new Date(meetingsCurrentDate.getTime() + delta * 24 * 60 * 60 * 1000);
+      fetchMeetingsForDay();
+    }
+
+    function refreshMeetingsView() {
+      fetchMeetingsForDay();
+    }
+
+    let currentFetchMeetingsToken = 0;
+    async function fetchMeetingsForDay() {
+      if (!currentUser) return;
+      if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
+
+      const fetchToken = ++currentFetchMeetingsToken;
+
+      const dateStr = getMeetingsDateStr(meetingsCurrentDate);
+      const btn = document.getElementById('meetingsRefreshBtn');
+      if (btn) btn.classList.add('spinning');
+
+      // Update header
+      const titleEl = document.getElementById('meetingsDayTitle');
+      const subEl   = document.getElementById('meetingsDaySub');
+      if (titleEl) {
+        const isToday = dateStr === getMeetingsDateStr(new Date());
+        titleEl.textContent = isToday ? '📅 اجتماعات اليوم' : `📅 اجتماعات ${arDayName(meetingsCurrentDate)}`;
+      }
+      if (subEl) subEl.textContent = `${meetingsCurrentDate.getDate()} ${arMonthName(meetingsCurrentDate)} ${meetingsCurrentDate.getFullYear()}`;
+
       try {
-        if (!currentUser || !currentUser.email) return;
-
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const monthStr = `${yyyy}-${mm}`;
-
-        const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
+        const response = await fetch(`/api/meetings?date=${dateStr}`);
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
         }
-        const events = await response.json();
-        
-        let importedCount = 0;
-        for (const event of events) {
-          const duplicate = Object.values(leadsData).some(l => l.googleEventId === event.id);
-          if (duplicate) continue;
-          
-          // --- Filter events so employees only see their own clients on the board ---
-          const userEmail = currentUser.email.toLowerCase();
-          const emailMap = {
-            'hosammohammed528@gmail.com': 'م.حسام',
-            'ashrafesmat1@gmail.com': 'م.أشرف',
-            'shady.alaraby22@gmail.com': 'م.شادي',
-            'mojahedalameen1@gmail.com': 'م.مجاهد'
-          };
-          const mySalesRepName = emailMap[userEmail];
-          
-          if (mySalesRepName && event.salesRep !== mySalesRepName) {
-            continue; // This event belongs to a different sales rep
-          } else if (!mySalesRepName) {
-            // Fallback for other users not in the priority list
-            const isAttendee = event.attendees && event.attendees.some(a => a.email && a.email.toLowerCase() === userEmail);
-            if (!isAttendee) continue;
-          }
-          // -------------------------------------------------------------------------
-
-          const parsed = parseMeetingSummary(event.summary);
-          const slackCodeToUse = parsed.slackCode || (await getNextSlackCode());
-          const leadKey = db.ref(getLeadsPath()).push().key;
-          const payload = {
-            id: leadKey, slackCode: slackCodeToUse,
-            clientName: parsed.clientName, projectName: parsed.projectName,
-            fullName: parsed.clientName, phone: "",
-            firstPayment: 0, totalDeal: 0,
-            meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
-            needsReview: parsed.needsReview || false,
-            meetingDate: event.startTime ? new Date(event.startTime).getTime() : Date.now(),
-            column: 'new', googleEventId: event.id,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            lastActivityAt: Date.now(),
-            columnHistory: [{ column: 'new', timestamp: Date.now(), movedBy: 'Google Calendar Service Account' }],
-            openTicketsCount: 0
-          };
-          await db.ref(`${getLeadsPath()}/${leadKey}`).set(payload);
-          importedCount++;
-        }
-        document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
-        updateAutoRefreshIndicator();
-        if (importedCount > 0) showToast(`تم استيراد ${importedCount} اجتماعات جديدة بنجاح`, 'success');
-        else if (!isSilent) showToast('لا توجد اجتماعات Google Meet جديدة للاستيراد', 'info');
+        if (fetchToken !== currentFetchMeetingsToken) return;
+        googleMeetings = await response.json();
+        renderMeetingsTab();
       } catch (err) {
         console.error(err);
-        if (!isSilent) showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
-        document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
+        showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
+        const container = document.getElementById('meetingsTableContainer');
+        if (container) container.innerHTML = `<div class="meetings-empty-state"><span class="empty-icon">⚠️</span><p>خطأ في الجلب</p><span>${err.message}</span></div>`;
+      } finally {
+        if (btn) btn.classList.remove('spinning');
       }
-    }btn.textContent = labels[status] || labels.pending;
+    }
+
+    // Firebase realtime listener for meeting statuses
+    function initMeetingStatusesListener() {
+      if (meetingsFirebaseListener) return; // already listening
+      meetingsFirebaseListener = db.ref('meetingStatuses').on('value', snapshot => {
+        meetingStatuses = snapshot.val() || {};
+        // Re-render only status buttons without full refetch
+        document.querySelectorAll('.status-toggle-btn').forEach(btn => {
+          const eventId = btn.dataset.eventId;
+          if (!eventId) return;
+          const s = (meetingStatuses[eventId] || {}).status || 'pending';
+          applyStatusToBtn(btn, s);
+        });
+        updateMeetingsProgress();
+      });
+    }
+
+    function applyStatusToBtn(btn, status) {
+      btn.className = `status-toggle-btn ${status}`;
+      const labels = { pending: '⏳ لم يتم', done: '✅ تم', postponed: '🔄 تأجل' };
+      btn.textContent = labels[status] || labels.pending;
       btn.dataset.status = status;
     }
 
