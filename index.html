@@ -2537,6 +2537,110 @@
       box-shadow: var(--shadow-modal);
       border-color: var(--border-focus);
     }
+
+    /* List Layout styles for Meetings v2 */
+    .meetings-list-v2 {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .meeting-list-item-v2 {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-card);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: var(--shadow-card);
+      border-right: 4px solid var(--border-subtle);
+    }
+
+    .meeting-list-item-v2:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-modal);
+      border-color: var(--border-focus);
+    }
+
+    .meeting-list-item-v2.status-done {
+      border-right-color: #10b981;
+    }
+    .meeting-list-item-v2.status-postponed {
+      border-right-color: #ef4444;
+    }
+    .meeting-list-item-v2.status-pending {
+      border-right-color: var(--accent-blue);
+    }
+
+    .meeting-list-item-v2.completed {
+      opacity: 0.75;
+    }
+
+    .meeting-list-info-v2 {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .meeting-list-meta-v2 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Styled Select Dropdown for status */
+    .status-dropdown {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      border: 1px solid var(--border-subtle);
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .status-dropdown.pending {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border-color: var(--border-subtle);
+    }
+
+    .status-dropdown.done {
+      background: rgba(16, 185, 129, 0.12);
+      color: #059669;
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+
+    .status-dropdown.postponed {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    @media (max-width: 767px) {
+      .meeting-list-item-v2 {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px;
+      }
+      .meeting-list-info-v2 {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+    }
   </style>
 </head>
 
@@ -3270,6 +3374,7 @@
     let leadsData = {};
     let ticketsData = {};
     let googleMeetings = [];
+    let dailyMeetings = [];
     let monthlyMeetings = [];
     let currentTheme = localStorage.getItem("crm_theme") || "light";
     let initialLoadComplete = false;
@@ -4720,7 +4825,7 @@
 
     function parseMeetingSummary(summary) {
       if (!summary) {
-        return { clientName: 'عميل جديد', projectName: '', meetingTitle: 'اجتماع Google Meet', needsReview: true, slackCode: null, meetingType: 'أون لاين' };
+        return { clientName: 'عميل جديد', projectName: '', meetingTitle: 'اجتماع Google Meet', needsReview: false, slackCode: null, meetingType: 'أون لاين' };
       }
 
       const meetingTitle = summary;
@@ -4735,15 +4840,15 @@
       }
 
       let meetingType = 'أون لاين';
-      if (cleanSummary.includes('حضوري')) {
+      if (/حضوري/i.test(cleanSummary)) {
         meetingType = 'حضوري';
-        cleanSummary = cleanSummary.replace('حضوري', '').trim();
-      } else if (cleanSummary.includes('خارجي')) {
+        cleanSummary = cleanSummary.replace(/حضوري/gi, '').trim();
+      } else if (/خارجي|خارج/i.test(cleanSummary)) {
         meetingType = 'خارجي';
-        cleanSummary = cleanSummary.replace('خارجي', '').trim();
-      } else if (cleanSummary.includes('أون لاين') || cleanSummary.includes('اون لاين')) {
+        cleanSummary = cleanSummary.replace(/خارجي|خارج/gi, '').trim();
+      } else if (/أون\s*لاين|اون\s*لاين|اونلاين|أونلاين/i.test(cleanSummary)) {
         meetingType = 'أون لاين';
-        cleanSummary = cleanSummary.replace(/أون لاين|اون لاين/g, '').trim();
+        cleanSummary = cleanSummary.replace(/أون\s*لاين|اون\s*لاين|اونلاين|أونلاين/gi, '').trim();
       }
 
       cleanSummary = cleanSummary.replace(/[\(\)\[\]]/g, '');
@@ -4843,6 +4948,18 @@
       }
       if (subEl) subEl.textContent = `${meetingsCurrentDate.getDate()} ${arMonthName(meetingsCurrentDate)} ${meetingsCurrentDate.getFullYear()}`;
 
+      // Immediately show skeleton loading state in the container for smoothness
+      const container = document.getElementById('meetingsTableContainer');
+      if (container) {
+        container.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; padding: 4px;">
+            <div class="skeleton" style="height: 100px; width: 100%; border-radius: 12px;"></div>
+            <div class="skeleton" style="height: 100px; width: 100%; border-radius: 12px;"></div>
+            <div class="skeleton" style="height: 100px; width: 100%; border-radius: 12px;"></div>
+          </div>
+        `;
+      }
+
       try {
         const response = await fetch(`/api/meetings?date=${dateStr}`);
         if (!response.ok) {
@@ -4850,15 +4967,17 @@
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
         }
         if (fetchToken !== currentFetchMeetingsToken) return;
-        googleMeetings = await response.json();
+        dailyMeetings = await response.json();
         renderMeetingsTab();
       } catch (err) {
         console.error(err);
+        if (fetchToken !== currentFetchMeetingsToken) return;
         showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
-        const container = document.getElementById('meetingsTableContainer');
         if (container) container.innerHTML = `<div class="meetings-empty-state"><span class="empty-icon">⚠️</span><p>خطأ في الجلب</p><span>${err.message}</span></div>`;
       } finally {
-        if (btn) btn.classList.remove('spinning');
+        if (fetchToken === currentFetchMeetingsToken && btn) {
+          btn.classList.remove('spinning');
+        }
       }
     }
 
@@ -4867,27 +4986,23 @@
       if (meetingsFirebaseListener) return; // already listening
       meetingsFirebaseListener = db.ref('meetingStatuses').on('value', snapshot => {
         meetingStatuses = snapshot.val() || {};
-        // Re-render only status buttons without full refetch
-        document.querySelectorAll('.status-toggle-btn').forEach(btn => {
-          const eventId = btn.dataset.eventId;
+        // Re-render dropdowns without full refetch
+        document.querySelectorAll('.status-dropdown').forEach(select => {
+          const eventId = select.dataset.eventId;
           if (!eventId) return;
           const s = (meetingStatuses[eventId] || {}).status || 'pending';
-          applyStatusToBtn(btn, s);
+          applyStatusToDropdown(select, s);
         });
         updateMeetingsProgress();
       });
     }
 
-    function applyStatusToBtn(btn, status) {
-      btn.className = `status-toggle-btn ${status}`;
-      const labels = { pending: '⏳ لم يتم', done: '✅ تم', postponed: '🔄 تأجل' };
-      btn.textContent = labels[status] || labels.pending;
-      btn.dataset.status = status;
+    function applyStatusToDropdown(select, status) {
+      select.className = `status-dropdown ${status}`;
+      select.value = status;
     }
 
-    async function toggleMeetingStatus(eventId, currentStatus) {
-      const cycle = { pending: 'done', done: 'postponed', postponed: 'pending' };
-      const newStatus = cycle[currentStatus] || 'done';
+    async function setMeetingStatus(eventId, newStatus) {
       try {
         await db.ref(`meetingStatuses/${eventId}`).set({
           status: newStatus,
@@ -5554,7 +5669,7 @@
       const container = document.getElementById('meetingsTableContainer');
       if (!container) return;
 
-      let meetings = googleMeetings || [];
+      let meetings = dailyMeetings || [];
       
       // Filter for current employee meetings
       if (currentMeetingsTabFilter === 'mine' && currentUser) {
@@ -5601,8 +5716,8 @@
       // ── Sort ──
       const sorted = [...meetings].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-      // ── Build cards grid ──
-      const cardsHtml = sorted.map((m, idx) => {
+      // ── Build cards list ──
+      const listHtml = sorted.map((m, idx) => {
         const timeStatus = getMeetingTimeStatus(m.startTime, m.endTime);
         const start = new Date(m.startTime);
         const end   = m.endTime ? new Date(m.endTime) : null;
@@ -5616,58 +5731,58 @@
         const repLabel  = m.salesRep || 'بدون تابع';
 
         const eventStatus = (meetingStatuses[m.id] || {}).status || 'pending';
-        const statusLabels = { pending: '⏳ لم يتم', done: '✅ تم', postponed: '🔄 تأجل' };
 
         const ongoingBadge = timeStatus === 'ongoing'
-          ? `<div class="ongoing-indicator"><div class="ongoing-dot"></div>يجري الآن</div>` : '';
+          ? `<div class="ongoing-indicator" style="margin-left: 6px;"><div class="ongoing-dot"></div>يجري الآن</div>` : '';
 
         const projectDisplay = [m.clientName, m.projectName].filter(Boolean).join(' — ');
 
         return `
-          <div class="meeting-card-v2 meeting-row ${timeStatus} status-${eventStatus} ${eventStatus === 'done' ? 'completed' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
-            <div class="meeting-card-header-v2">
+          <div class="meeting-list-item-v2 meeting-row ${timeStatus} status-${eventStatus} ${eventStatus === 'done' ? 'completed' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
+            <div class="meeting-list-info-v2">
               <div class="meeting-index-badge">${idx + 1}</div>
-              <div class="meeting-card-title-v2">
-                ${projectDisplay || m.summary || '—'}
-                ${m.needsReview ? '<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:4px;">⚠ يحتاج مراجعة</div>' : ''}
+              <div style="flex: 1; min-width: 0;">
+                <div class="meeting-card-title-v2">
+                  ${projectDisplay || m.summary || '—'}
+                </div>
+                <div class="meeting-list-meta-v2" style="margin-top: 6px;">
+                  <span class="sales-rep-badge ${repClass}">${repLabel}</span>
+                  <span class="meeting-type-badge ${typeClass}">${typeLabel === 'حضوري' ? '🏢' : '💻'} ${typeLabel}</span>
+                  ${m.slackCode ? `<span class="slack-code-badge">${m.slackCode}</span>` : ''}
+                  ${ongoingBadge}
+                </div>
               </div>
-              <div class="meeting-card-time-v2">
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <div class="meeting-card-time-v2" style="align-items: center; justify-content: center; min-width: 75px;">
                 <span class="time-main">${timeStr}</span>
                 ${endStr ? `<span style="font-size:9px;color:var(--text-muted);margin-top:2px;">إلى ${endStr}</span>` : ''}
               </div>
-            </div>
-            
-            <div class="meeting-card-body-v2">
-              ${ongoingBadge}
-              <div class="meeting-meta-row">
-                <span class="sales-rep-badge ${repClass}">${repLabel}</span>
-                <span class="meeting-type-badge ${typeClass}">${typeLabel === 'حضوري' ? '🏢' : '💻'} ${typeLabel}</span>
-                ${m.slackCode ? `<span class="slack-code-badge">${m.slackCode}</span>` : ''}
-              </div>
-            </div>
-            
-            <div class="meeting-card-actions-v2">
+              
               <div>
                 ${['حضوري', 'خارجي'].includes(m.meetingType)
                   ? `<span class="no-link-badge" style="background:rgba(245,158,11,0.08); color:#d97706; padding:5px 10px; border-radius:6px; font-weight:700; font-size:11px;">🏢 اجتماع حضوري</span>`
                   : (m.meetLink ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضمام للمكالمة</a>` : `<span class="no-link-badge">أون لاين (بدون رابط)</span>`)
                 }
               </div>
-              <button
-                class="status-toggle-btn ${eventStatus}"
+              
+              <select
+                class="status-dropdown ${eventStatus}"
                 data-event-id="${m.id}"
-                data-status="${eventStatus}"
-                onclick="toggleMeetingStatus('${m.id}', this.dataset.status)">
-                ${statusLabels[eventStatus]}
-              </button>
+                onchange="setMeetingStatus('${m.id}', this.value)">
+                <option value="pending" ${eventStatus === 'pending' ? 'selected' : ''}>⏳ لم يتم</option>
+                <option value="done" ${eventStatus === 'done' ? 'selected' : ''}>✅ تم</option>
+                <option value="postponed" ${eventStatus === 'postponed' ? 'selected' : ''}>🔄 تأجل</option>
+              </select>
             </div>
           </div>
         `;
       }).join('');
 
       container.innerHTML = `
-        <div class="meetings-grid-v2">
-          ${cardsHtml}
+        <div class="meetings-list-v2">
+          ${listHtml}
         </div>
       `;
 

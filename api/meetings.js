@@ -114,15 +114,15 @@ function parseMeetingSummary(summary) {
 
   // 2. Extract Meeting Type
   let meetingType = 'أون لاين';
-  if (cleanSummary.includes('حضوري')) {
+  if (/حضوري/i.test(cleanSummary)) {
     meetingType = 'حضوري';
-    cleanSummary = cleanSummary.replace('حضوري', '').trim();
-  } else if (cleanSummary.includes('خارجي')) {
+    cleanSummary = cleanSummary.replace(/حضوري/gi, '').trim();
+  } else if (/خارجي|خارج/i.test(cleanSummary)) {
     meetingType = 'خارجي';
-    cleanSummary = cleanSummary.replace('خارجي', '').trim();
-  } else if (cleanSummary.includes('أون لاين') || cleanSummary.includes('اون لاين')) {
+    cleanSummary = cleanSummary.replace(/خارجي|خارج/gi, '').trim();
+  } else if (/أون\s*لاين|اون\s*لاين|اونلاين|أونلاين/i.test(cleanSummary)) {
     meetingType = 'أون لاين';
-    cleanSummary = cleanSummary.replace(/أون لاين|اون لاين/g, '').trim();
+    cleanSummary = cleanSummary.replace(/أون\s*لاين|اون\s*لاين|اونلاين|أونلاين/gi, '').trim();
   }
 
   // Clean up extra characters
