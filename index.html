@@ -12,24 +12,19 @@
     document.documentElement.setAttribute('data-theme', savedTheme);
   </script>
 
-  <!-- Google Fonts: IBM Plex Sans Arabic -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet">
+  <!-- IBM Plex Sans Arabic Font (Local) -->
+  <link href="assets/css/ibm-plex-arabic.css" rel="stylesheet">
 
   <!-- Firebase SDK Compat (v9.22.0) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
+  <!-- Lucide Icons (Local) -->
+  <script src="assets/js/lucide.min.js"></script>
 
-
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-
-  <!-- SheetJS for Excel Export -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS for Excel Export (Local) -->
+  <script src="assets/js/xlsx.full.min.js"></script>
 
   <style>
     /* ════════════════ SECTION 2: CSS Variables & Reset ════════════════ */
@@ -6563,12 +6558,24 @@
     window.debouncedApplyFilters = debouncedApplyFilters;
     window.applyFilters = applyFilters;
 
+    function normalizeArabic(text) {
+      if (!text) return "";
+      return text
+        .toLowerCase()
+        .replace(/[أإآ]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/[\u064B-\u065F]/g, "")
+        .trim();
+    }
+
     function applyFilters() {
-      filters.search = (document.getElementById("kanbanSearchInput")?.value || "").trim().toLowerCase();
+      const rawSearch = (document.getElementById("kanbanSearchInput")?.value || "").trim();
+      const searchTerms = normalizeArabic(rawSearch).split(/\s+/).filter(Boolean);
       
       let matchedCount = 0;
       let totalCount = 0;
-      const isFiltered = !!(filters.search || filters.staleOnly || filters.column !== "all");
+      const isFiltered = !!(rawSearch || filters.staleOnly || filters.column !== "all");
 
       // Track visible counts per column for badge update
       const colVisibleCounts = {};
@@ -6581,12 +6588,15 @@
         
         let match = true;
         
-        if (filters.search) {
-          const name = (lead.clientName || lead.fullName || "").toLowerCase();
-          const project = (lead.projectName || "").toLowerCase();
-          const slack = (lead.slackCode || "").toLowerCase();
-          const phone = (lead.phone || "").toLowerCase();
-          if (!name.includes(filters.search) && !project.includes(filters.search) && !slack.includes(filters.search) && !phone.includes(filters.search)) {
+        if (searchTerms.length > 0) {
+          const nameNorm = normalizeArabic(lead.clientName || lead.fullName || "");
+          const projectNorm = normalizeArabic(lead.projectName || "");
+          const slackNorm = normalizeArabic(lead.slackCode || "");
+          const phoneNorm = normalizeArabic(lead.phone || "");
+          
+          const combinedText = `${nameNorm} ${projectNorm} ${slackNorm} ${phoneNorm}`;
+          const allTermsMatch = searchTerms.every(term => combinedText.includes(term));
+          if (!allTermsMatch) {
             match = false;
           }
         }
