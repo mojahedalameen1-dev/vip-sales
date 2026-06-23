@@ -6560,6 +6560,8 @@
     
     // Debounced version of applyFilters for the search input
     const debouncedApplyFilters = debounce(applyFilters, 250);
+    window.debouncedApplyFilters = debouncedApplyFilters;
+    window.applyFilters = applyFilters;
 
     function applyFilters() {
       filters.search = (document.getElementById("kanbanSearchInput")?.value || "").trim().toLowerCase();
@@ -6694,6 +6696,10 @@
       const selectedMonthLabelEl = document.getElementById("selectedMonthLabel");
       if (selectedMonthLabelEl) {
         selectedMonthLabelEl.textContent = defaultMonthLabel;
+      }
+      const searchInput = document.getElementById("kanbanSearchInput");
+      if (searchInput) {
+        searchInput.addEventListener("input", debouncedApplyFilters);
       }
     });
   </script>
