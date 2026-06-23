@@ -2768,7 +2768,7 @@
           <img id="userAvatar" src="" alt="avatar" class="user-avatar" referrerpolicy="no-referrer">
           <div class="user-details">
             <span id="userName" class="user-name">-</span>
-            <span class="user-role">فريق المبيعات</span>
+            <span class="user-role">مطور أعمال</span>
           </div>
         </div>
         <div id="logoutBtn" class="logout-btn">
@@ -3053,13 +3053,10 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="leadClientName">اسم العميل / الشخص المسؤول<span class="required">*</span></label>
-            <input type="text" id="leadClientName" class="input-field" placeholder="أدخل اسم العميل المسؤول">
+            <label for="leadClientName">اسم الاجتماع كاملاً (اسم العميل + اسم المشروع إذا وجد)<span class="required">*</span></label>
+            <input type="text" id="leadClientName" class="input-field" placeholder="أدخل الاسم المسؤول أو اسم الاجتماع">
           </div>
-          <div class="form-group">
-            <label for="leadProjectName">اسم المشروع أو الشركة<span class="required">*</span></label>
-            <input type="text" id="leadProjectName" class="input-field" placeholder="أدخل اسم المشروع أو الشركة">
-          </div>
+          <input type="hidden" id="leadProjectName" value="">
         </div>
 
         <div class="form-row">
@@ -3133,10 +3130,6 @@
               <div class="details-info-item">
                 <span class="info-label">اسم العميل:</span>
                 <span id="detailClientName" class="info-val">-</span>
-              </div>
-              <div class="details-info-item">
-                <span class="info-label">اسم المشروع / الشركة:</span>
-                <span id="detailProjectName" class="info-val">-</span>
               </div>
               <div class="details-info-item">
                 <span class="info-label">رقم الجوال:</span>
@@ -3841,10 +3834,6 @@
         setFieldError("leadClientName", "اسم العميل مطلوب");
         return;
       }
-      if (!projectName) {
-        setFieldError("leadProjectName", "اسم المشروع مطلوب");
-        return;
-      }
 
       const meetingDate = meetingDateVal ? new Date(meetingDateVal).getTime() : 0;
 
@@ -4299,8 +4288,7 @@
               </div>
 
               <div class="lead-card-body">
-                <span class="lead-name inline-editable" data-field="clientName" data-lead-id="${lead.id}" style="font-weight: 700; font-size: var(--text-base); color: var(--text-primary); display: block; margin-bottom: 2px;">${nameToDisplay}</span>
-                <span class="lead-project inline-editable" data-field="projectName" data-lead-id="${lead.id}" style="font-size: var(--text-xs); color: var(--text-muted); display: block; margin-bottom: 6px;">${projectToDisplay || 'أضف اسم المشروع...'}</span>
+                <span class="lead-name inline-editable" data-field="clientName" data-lead-id="${lead.id}" style="font-weight: 700; font-size: var(--text-base); color: var(--text-primary); display: block; margin-bottom: 6px;">${nameToDisplay}</span>
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 4px;">
                   <span class="lead-phone inline-editable" data-field="phone" data-lead-id="${lead.id}" style="font-size: var(--text-xs); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px;">
                     <i data-lucide="phone" style="width: 12px; height: 12px;"></i>
@@ -5490,32 +5478,33 @@
       const monthlyDealSum = monthlyLeads.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
       const monthlyFirstPaymentSum = monthlyLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
 
-      const kpis = [
-        { label: "قيمة العقود الموقعة", val: signedDealSum, icon: "award", color: "var(--accent-teal)", isCurrency: true },
-        { label: `إجمالي عقود (${monthLabelText})`, val: monthlyDealSum, icon: "calendar", color: "var(--accent-blue)", isCurrency: true },
-        { label: `إجمالي الدفع الأولى (${monthLabelText})`, val: monthlyFirstPaymentSum, icon: "percent", color: "var(--accent-teal)", isCurrency: true }
-      ];
+      const targetVal = 115000;
+      const pctOfTarget = Math.min(100, Math.round((monthlyFirstPaymentSum / targetVal) * 100));
+      const formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(monthlyFirstPaymentSum);
+      const formattedTarget = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(targetVal);
 
-      kpis.forEach(kpi => {
-        const card = document.createElement("div");
-        card.className = "kpi-card";
-
-        let formattedValue = kpi.val;
-        if (kpi.isCurrency) {
-          formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(kpi.val);
-        }
-
-        card.innerHTML = `
-          <div class="kpi-header">
-            <span>${kpi.label}</span>
-            <div class="kpi-icon" style="color: ${kpi.color}; background-color: rgba(255, 255, 255, 0.02);">
-              <i data-lucide="${kpi.icon}" style="width: 18px; height: 18px;"></i>
-            </div>
+      const card = document.createElement("div");
+      card.className = "kpi-card";
+      card.style.gridColumn = "span 3";
+      
+      card.innerHTML = `
+        <div class="kpi-header" style="width: 100%;">
+          <span style="font-weight: 600; font-size: var(--text-base);">إجمالي الدفع الأولى للشهر الحالي</span>
+          <div class="kpi-icon" style="color: var(--accent-teal); background-color: rgba(255, 255, 255, 0.02); padding: 6px; border-radius: 8px;">
+            <i data-lucide="percent" style="width: 20px; height: 20px;"></i>
           </div>
-          <div class="kpi-value" id="kpi-val-${kpi.label}">${formattedValue}</div>
-        `;
-        container.appendChild(card);
-      });
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
+            <span class="kpi-value" style="font-size: var(--text-3xl); font-weight: 800; color: var(--accent-teal);">${formattedValue}</span>
+            <span style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">المستهدف: ${formattedTarget} (${pctOfTarget}%)</span>
+          </div>
+          <div style="width: 100%; height: 8px; background-color: var(--bg-elevated); border-radius: 9999px; overflow: hidden; border: 1px solid var(--border-subtle);">
+            <div style="height: 100%; width: ${pctOfTarget}%; background: linear-gradient(90deg, var(--accent-teal), #2dd4bf); border-radius: 9999px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
 
       lucide.createIcons();
     }
@@ -6610,12 +6599,12 @@
         
         if (match) {
           matchedCount++;
-          cardEl.style.opacity = "1";
-          cardEl.style.pointerEvents = "all";
+          cardEl.style.display = "";
+          cardEl.style.opacity = "";
+          cardEl.style.pointerEvents = "";
           if (colVisibleCounts[lead.column] !== undefined) colVisibleCounts[lead.column]++;
         } else {
-          cardEl.style.opacity = "0.2";
-          cardEl.style.pointerEvents = "none";
+          cardEl.style.display = "none";
         }
       });
 
