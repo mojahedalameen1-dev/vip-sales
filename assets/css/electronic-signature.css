@@ -500,22 +500,33 @@
 /* Overlays */
 .overlay-element {
   position: absolute;
-  cursor: move;
-  border: 2px dashed transparent;
+  cursor: grab;
+  border: 2px dashed rgba(79, 142, 247, 0.4);
   transition: border-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
   touch-action: none;
   z-index: 10;
 }
 
+.overlay-element:active {
+  cursor: grabbing;
+}
+
 .overlay-element.selected {
   border-color: var(--accent-blue);
-  box-shadow: 0 0 10px rgba(79, 142, 247, 0.4);
+  border-style: solid;
+  box-shadow: 0 0 15px var(--accent-blue);
+  animation: overlaySelectedPulse 2s infinite alternate;
 }
 
 .overlay-element.selected.stamp-element {
   border-color: var(--accent-teal);
-  box-shadow: 0 0 10px rgba(45, 212, 191, 0.4);
+  box-shadow: 0 0 15px var(--accent-teal);
+}
+
+@keyframes overlaySelectedPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.01); }
 }
 
 .overlay-img {
@@ -525,6 +536,66 @@
   pointer-events: none;
   display: block;
 }
+
+/* Dual Upload layout & Internal tabs */
+.upload-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.document-file-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.document-file-card.has-file {
+  border-color: var(--accent-blue);
+}
+
+.internal-preview-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 1rem;
+}
+
+.internal-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.internal-tab-btn.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+.dual-preview-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 992px) {
+  .dual-preview-split.both-active {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 
 /* Resize Handles */
 .resize-handle {
