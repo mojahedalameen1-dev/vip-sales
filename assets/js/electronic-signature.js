@@ -22,6 +22,8 @@ let esState = {
   isProcessing: false,
   isInitialized: false,
   activePreviewSubTab: 'technical',
+  reviewedFiles: { technicalOffer: false, contract: false },
+  wizardStep: 1,
   
   // Independent File States
   technicalOffer: {
@@ -30,6 +32,7 @@ let esState = {
     pageCount: 0,
     renderedPages: [], // [{renderedWidth, renderedHeight, pdfPageWidth, pdfPageHeight, pageNum, isRendered, canvas}]
     signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
+    pageSignatureOverlays: [], // [{leftRatio, topRatio, widthRatio, heightRatio} | null]
     processingStatus: 'empty',
     autoPlacementMethod: 'manual-fallback',
     autoPlacementSucceeded: false,
@@ -42,6 +45,8 @@ let esState = {
     renderedPages: [], // [{renderedWidth, renderedHeight, pdfPageWidth, pdfPageHeight, pageNum, isRendered, canvas}]
     signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
     stampOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
+    pageSignatureOverlays: [],
+    pageStampOverlays: [],
     processingStatus: 'empty',
     autoPlacementMethod: 'manual-fallback',
     autoPlacementSucceeded: false,
@@ -594,21 +599,51 @@ function goToStep(step) {
 }
 
 function nextStep() {
+  const hasTech = esState.technicalOffer.file !== null;
+  const hasContract = esState.contract.file !== null;
+  
   if (esState.currentStep === 1) {
+    if (hasTech && hasContract) {
+      esState.wizardStep = 1;
+      esState.reviewedFiles = { technicalOffer: false, contract: false };
+    }
     goToStep(2);
   } else if (esState.currentStep === 2) {
-    goToStep(3);
+    if (hasTech && hasContract) {
+      if (esState.wizardStep === 1) {
+        esState.reviewedFiles.technicalOffer = true;
+        goToWizardSubStep(2);
+      } else if (esState.wizardStep === 2) {
+        esState.reviewedFiles.contract = true;
+        goToStep(3);
+      }
+    } else {
+      goToStep(3);
+    }
   }
 }
 
 function prevStep() {
+  const hasTech = esState.technicalOffer.file !== null;
+  const hasContract = esState.contract.file !== null;
+  
   if (esState.currentStep === 2) {
-    // Clear observer when going back
-    if (esIntersectionObserver) {
-      esIntersectionObserver.disconnect();
-      esIntersectionObserver = null;
+    if (hasTech && hasContract && esState.wizardStep === 2) {
+      goToWizardSubStep(1);
+    } else {
+      if (esIntersectionObserver) {
+        esIntersectionObserver.disconnect();
+        esIntersectionObserver = null;
+      }
+      goToStep(1);
     }
-    goToStep(1);
+  } else if (esState.currentStep === 3) {
+    if (hasTech && hasContract) {
+      goToStep(2);
+      goToWizardSubStep(2);
+    } else {
+      goToStep(2);
+    }
   }
 }
 
@@ -621,14 +656,19 @@ function resetEsignFlow() {
     esState.technicalOffer = {
       file: null, pdfDocument: null, pageCount: 0, renderedPages: [],
       signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
+      pageSignatureOverlays: [],
       processingStatus: 'empty', autoPlacementMethod: 'manual-fallback', autoPlacementSucceeded: false, errorMessage: ''
     };
     esState.contract = {
       file: null, pdfDocument: null, pageCount: 0, renderedPages: [],
       signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
       stampOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
+      pageSignatureOverlays: [],
+      pageStampOverlays: [],
       processingStatus: 'empty', autoPlacementMethod: 'manual-fallback', autoPlacementSucceeded: false, errorMessage: ''
     };
+    esState.reviewedFiles = { technicalOffer: false, contract: false };
+    esState.wizardStep = 1;
     esState.currentStep = 1;
     goToStep(1);
   }
@@ -804,9 +844,30 @@ function renderStep2(container) {
   let tabsHtml = '';
   if (hasTech && hasContract) {
     tabsHtml = `
-      <div class="internal-preview-tabs">
-        <button class="internal-tab-btn active" id="subtab-btn-technical" onclick="switchPreviewSubTab('technical')">معاينة العرض الفني</button>
-        <button class="internal-tab-btn" id="subtab-btn-contract" onclick="switchPreviewSubTab('contract')">معاينة العقد الرسمي</button>
+      <div class="es-wizard-stepper">
+        <div class="es-wizard-step active" id="wizard-step-technical" onclick="goToWizardSubStep(1)">
+          <div class="es-wizard-icon">1</div>
+          <div class="es-wizard-text">
+            <span class="es-wizard-title">العرض الفني</span>
+            <span class="es-wizard-status" id="wizard-status-technical">بانتظار المراجعة</span>
+          </div>
+        </div>
+        <div class="es-wizard-line"></div>
+        <div class="es-wizard-step" id="wizard-step-contract" onclick="goToWizardSubStep(2)">
+          <div class="es-wizard-icon">2</div>
+          <div class="es-wizard-text">
+            <span class="es-wizard-title">العقد الرسمي</span>
+            <span class="es-wizard-status" id="wizard-status-contract">بانتظار المراجعة</span>
+          </div>
+        </div>
+        <div class="es-wizard-line"></div>
+        <div class="es-wizard-step" id="wizard-step-final" onclick="goToWizardSubStep(3)">
+          <div class="es-wizard-icon">3</div>
+          <div class="es-wizard-text">
+            <span class="es-wizard-title">المراجعة والتحميل</span>
+            <span class="es-wizard-status">جاهز للتوقيع</span>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -873,10 +934,6 @@ function renderStep2(container) {
 function switchPreviewSubTab(subTab) {
   esState.activePreviewSubTab = subTab;
   
-  document.querySelectorAll('.internal-tab-btn').forEach(btn => btn.classList.remove('active'));
-  const activeBtn = document.getElementById(`subtab-btn-${subTab}`);
-  if (activeBtn) activeBtn.classList.add('active');
-  
   const techWorkspace = document.getElementById('workspace-technical');
   const contractWorkspace = document.getElementById('workspace-contract');
   const ocrBtn = document.getElementById('btn-run-ocr-visual');
@@ -885,14 +942,94 @@ function switchPreviewSubTab(subTab) {
     if (techWorkspace) techWorkspace.style.display = 'block';
     if (contractWorkspace) contractWorkspace.style.display = 'none';
     if (ocrBtn) ocrBtn.style.display = 'none';
-    // Re-observe unrendered pages now that they're visible
     _reObserveUnrenderedPages('technicalOffer');
   } else {
     if (techWorkspace) techWorkspace.style.display = 'none';
     if (contractWorkspace) contractWorkspace.style.display = 'block';
     if (ocrBtn) ocrBtn.style.display = 'inline-flex';
-    // Re-observe unrendered pages now that they're visible
     _reObserveUnrenderedPages('contract');
+  }
+}
+
+function goToWizardSubStep(stepNum) {
+  const hasTech = esState.technicalOffer.file !== null;
+  const hasContract = esState.contract.file !== null;
+  if (!hasTech || !hasContract) return;
+  
+  // Warn if leaving unreviewed files
+  if (esState.wizardStep === 1 && stepNum > 1 && !esState.reviewedFiles.technicalOffer) {
+    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العرض الفني وتحديد مواضع التوقيع. هل تريد الانتقال على أي حال؟')) {
+      return;
+    }
+  }
+  if (esState.wizardStep === 2 && stepNum === 3 && !esState.reviewedFiles.contract) {
+    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العقد والختم. هل تريد الانتقال على أي حال؟')) {
+      return;
+    }
+  }
+  
+  // Set reviewed state
+  if (esState.wizardStep === 1) esState.reviewedFiles.technicalOffer = true;
+  if (esState.wizardStep === 2) esState.reviewedFiles.contract = true;
+  
+  esState.wizardStep = stepNum;
+  
+  updateWizardStepperUI();
+  
+  if (stepNum === 1) {
+    switchPreviewSubTab('technical');
+  } else if (stepNum === 2) {
+    switchPreviewSubTab('contract');
+  } else if (stepNum === 3) {
+    goToStep(3);
+  }
+}
+
+function updateWizardStepperUI() {
+  const stepTech = document.getElementById('wizard-step-technical');
+  const stepContract = document.getElementById('wizard-step-contract');
+  const stepFinal = document.getElementById('wizard-step-final');
+  
+  if (!stepTech || !stepContract || !stepFinal) return;
+  
+  stepTech.classList.remove('active', 'completed');
+  stepContract.classList.remove('active', 'completed');
+  stepFinal.classList.remove('active', 'completed');
+  
+  const statusTech = document.getElementById('wizard-status-technical');
+  const statusContract = document.getElementById('wizard-status-contract');
+  
+  if (statusTech) {
+    statusTech.textContent = esState.reviewedFiles.technicalOffer ? 'تمت المراجعة' : 'بانتظار المراجعة';
+    statusTech.className = esState.reviewedFiles.technicalOffer ? 'es-wizard-status completed' : 'es-wizard-status pending';
+  }
+  if (statusContract) {
+    statusContract.textContent = esState.reviewedFiles.contract ? 'تمت المراجعة' : 'بانتظار المراجعة';
+    statusContract.className = esState.reviewedFiles.contract ? 'es-wizard-status completed' : 'es-wizard-status pending';
+  }
+  
+  if (esState.wizardStep === 1) {
+    stepTech.classList.add('active');
+  } else if (esState.wizardStep === 2) {
+    stepTech.classList.add('completed');
+    stepContract.classList.add('active');
+  } else if (esState.wizardStep === 3) {
+    stepTech.classList.add('completed');
+    stepContract.classList.add('completed');
+    stepFinal.classList.add('active');
+  }
+  
+  // Modify Next button label to guide user
+  const nextBtn = document.getElementById('btn-next-step');
+  if (nextBtn) {
+    if (esState.wizardStep === 1) {
+      nextBtn.innerHTML = '<span>التالي — مراجعة العقد</span><i data-lucide="arrow-left"></i>';
+    } else if (esState.wizardStep === 2) {
+      nextBtn.innerHTML = '<span>التالي — المراجعة النهائية</span><i data-lucide="arrow-left"></i>';
+    }
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
   }
 }
 
@@ -957,6 +1094,8 @@ async function parsePdfMetadataOnly(type, workspaceId) {
   state.pdfDocument = pdf;
   state.pageCount = pdf.numPages;
   state.renderedPages = [];
+  state.pageSignatureOverlays = new Array(pdf.numPages).fill(null);
+  state.pageStampOverlays = new Array(pdf.numPages).fill(null);
   
   if (type === 'technicalOffer' && pdf.numPages === 1) {
     const errorDiv = document.createElement('div');
@@ -1379,9 +1518,18 @@ function initializeDefaultOverlayRatios(type) {
   }
 }
 
+function getOverlayState(docType, overlayType, pageIndex) {
+  const state = esState[docType];
+  const overlaysArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
+  if (overlaysArray && overlaysArray[pageIndex]) {
+    return overlaysArray[pageIndex];
+  }
+  return overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
+}
+
 function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedHeight, docType) {
   const state = esState[docType];
-  const overlayState = overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
+  const overlayState = getOverlayState(docType, overlayType, pageIndex);
   const assetData = overlayType === 'signature' ? esState.signatureData : esState.stampData;
   
   const el = document.createElement('div');
@@ -1393,7 +1541,9 @@ function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedH
   
   const badge = document.createElement('div');
   badge.className = 'overlay-badge';
-  badge.textContent = overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة';
+  
+  const isCustom = (overlayType === 'signature' ? state.pageSignatureOverlays?.[pageIndex] : state.pageStampOverlays?.[pageIndex]) !== null;
+  badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
   el.appendChild(badge);
   
   const img = document.createElement('img');
@@ -1431,20 +1581,27 @@ function initPointerDrag(element, overlayType, docType) {
     document.querySelectorAll('.overlay-element').forEach(o => o.classList.remove('selected'));
     element.classList.add('selected');
     
+    removeFloatingMenus();
+    
     esState.activeOverlay = overlayType;
     
     const state = esState[docType];
-    const overlayState = overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
+    const pageIndex = parseInt(element.dataset.pageIndex);
     const pageWrapper = element.parentElement;
     const renderedWidth = pageWrapper.clientWidth;
     const renderedHeight = pageWrapper.clientHeight;
     
+    if (!state.pageSignatureOverlays) state.pageSignatureOverlays = new Array(state.pageCount).fill(null);
+    if (!state.pageStampOverlays) state.pageStampOverlays = new Array(state.pageCount).fill(null);
+    
+    const startRatios = getOverlayState(docType, overlayType, pageIndex);
+    
     let startX = e.clientX;
     let startY = e.clientY;
-    let startLeft = overlayState.leftRatio * renderedWidth;
-    let startTop = overlayState.topRatio * renderedHeight;
-    const elementWidth = overlayState.widthRatio * renderedWidth;
-    const elementHeight = overlayState.heightRatio * renderedHeight;
+    let startLeft = startRatios.leftRatio * renderedWidth;
+    let startTop = startRatios.topRatio * renderedHeight;
+    const elementWidth = startRatios.widthRatio * renderedWidth;
+    const elementHeight = startRatios.heightRatio * renderedHeight;
     
     element.setPointerCapture(e.pointerId);
     
@@ -1458,20 +1615,23 @@ function initPointerDrag(element, overlayType, docType) {
       newLeft = Math.max(0, Math.min(newLeft, renderedWidth - elementWidth));
       newTop = Math.max(0, Math.min(newTop, renderedHeight - elementHeight));
       
-      overlayState.leftRatio = newLeft / renderedWidth;
-      overlayState.topRatio = newTop / renderedHeight;
+      const targetOverlaysArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
+      targetOverlaysArray[pageIndex] = {
+        leftRatio: newLeft / renderedWidth,
+        topRatio: newTop / renderedHeight,
+        widthRatio: startRatios.widthRatio,
+        heightRatio: startRatios.heightRatio
+      };
       
-      if (overlayType === 'signature') {
-        syncSignatureOverlayToAllPages(docType);
-      } else {
-        updateOverlayUI(element, overlayState, renderedWidth, renderedHeight);
-      }
+      updateOverlayUI(element, targetOverlaysArray[pageIndex], renderedWidth, renderedHeight);
     };
     
     const onPointerUp = (upEvent) => {
       element.releasePointerCapture(upEvent.pointerId);
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('pointerup', onPointerUp);
+      
+      showFloatingMenu(element, overlayType, docType, pageIndex);
     };
     
     element.addEventListener('pointermove', onPointerMove);
@@ -1484,8 +1644,10 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
     e.stopPropagation();
     e.preventDefault();
     
+    removeFloatingMenus();
+    
     const state = esState[docType];
-    const overlayState = overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
+    const pageIndex = parseInt(element.dataset.pageIndex);
     const assetData = overlayType === 'signature' ? esState.signatureData : esState.stampData;
     const pageWrapper = element.parentElement;
     const renderedWidth = pageWrapper.clientWidth;
@@ -1493,13 +1655,18 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
     
     const aspect = assetData.width / assetData.height;
     
+    if (!state.pageSignatureOverlays) state.pageSignatureOverlays = new Array(state.pageCount).fill(null);
+    if (!state.pageStampOverlays) state.pageStampOverlays = new Array(state.pageCount).fill(null);
+    
+    const startRatios = getOverlayState(docType, overlayType, pageIndex);
+    
     let startX = e.clientX;
     let startY = e.clientY;
     
-    let startLeft = overlayState.leftRatio * renderedWidth;
-    let startTop = overlayState.topRatio * renderedHeight;
-    let startWidth = overlayState.widthRatio * renderedWidth;
-    let startHeight = overlayState.heightRatio * renderedHeight;
+    let startLeft = startRatios.leftRatio * renderedWidth;
+    let startTop = startRatios.topRatio * renderedHeight;
+    let startWidth = startRatios.widthRatio * renderedWidth;
+    let startHeight = startRatios.heightRatio * renderedHeight;
     
     handle.setPointerCapture(e.pointerId);
     
@@ -1577,47 +1744,163 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
         }
       }
       
-      overlayState.leftRatio = newLeft / renderedWidth;
-      overlayState.topRatio = newTop / renderedHeight;
-      overlayState.widthRatio = newWidth / renderedWidth;
-      overlayState.heightRatio = newHeight / renderedHeight;
+      const targetOverlaysArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
+      targetOverlaysArray[pageIndex] = {
+        leftRatio: newLeft / renderedWidth,
+        topRatio: newTop / renderedHeight,
+        widthRatio: newWidth / renderedWidth,
+        heightRatio: newHeight / renderedHeight
+      };
       
-      if (overlayType === 'signature') {
-        syncSignatureOverlayToAllPages(docType);
-      } else {
-        updateOverlayUI(element, overlayState, renderedWidth, renderedHeight);
-      }
+      updateOverlayUI(element, targetOverlaysArray[pageIndex], renderedWidth, renderedHeight);
     };
     
     const onPointerUp = (upEvent) => {
       handle.releasePointerCapture(upEvent.pointerId);
       handle.removeEventListener('pointermove', onPointerMove);
       handle.removeEventListener('pointerup', onPointerUp);
+      
+      showFloatingMenu(element, overlayType, docType, pageIndex);
     };
     
     element.classList.add('selected');
     esState.activeOverlay = overlayType;
     
-    // CRITICAL FIX: listeners must be on `handle` (not `element`) because
-    // handle.setPointerCapture() routes all pointer events to `handle`
     handle.addEventListener('pointermove', onPointerMove);
     handle.addEventListener('pointerup', onPointerUp);
   });
 }
 
-function syncSignatureOverlayToAllPages(docType) {
+function showFloatingMenu(element, overlayType, docType, pageIndex) {
+  removeFloatingMenus();
+  
+  const pageWrapper = element.parentElement;
+  if (!pageWrapper) return;
+  
+  const menu = document.createElement('div');
+  menu.className = 'es-floating-menu';
+  menu.id = `es-floating-menu-${docType}-${overlayType}-${pageIndex}`;
+  
+  const btnApplyAll = document.createElement('button');
+  btnApplyAll.className = 'es-menu-item';
+  btnApplyAll.innerHTML = '<i data-lucide="check-check"></i><span>تطبيق الموضع على كل الصفحات</span>';
+  btnApplyAll.onclick = () => applyPositionToAll(docType, overlayType, pageIndex);
+  
+  const btnApplyNext = document.createElement('button');
+  btnApplyNext.className = 'es-menu-item';
+  btnApplyNext.innerHTML = '<i data-lucide="chevrons-down"></i><span>تطبيق الموضع على الصفحات التالية</span>';
+  btnApplyNext.onclick = () => applyPositionToSubsequent(docType, overlayType, pageIndex);
+  
+  const btnReset = document.createElement('button');
+  btnReset.className = 'es-menu-item es-menu-item-danger';
+  btnReset.innerHTML = '<i data-lucide="rotate-ccw"></i><span>إعادة هذه الصفحة للوضع الافتراضي</span>';
+  btnReset.onclick = () => resetPageToDefault(docType, overlayType, pageIndex);
+  
+  menu.appendChild(btnApplyAll);
+  menu.appendChild(btnApplyNext);
+  menu.appendChild(btnReset);
+  
+  const overlayRectTop = parseFloat(element.style.top);
+  const overlayRectHeight = parseFloat(element.style.height);
+  const overlayRectLeft = parseFloat(element.style.left);
+  const overlayRectWidth = parseFloat(element.style.width);
+  
+  menu.style.top = `${overlayRectTop + overlayRectHeight + 8}px`;
+  menu.style.left = `${overlayRectLeft + (overlayRectWidth / 2) - 105}px`;
+  
+  pageWrapper.appendChild(menu);
+  
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+  
+  const badge = element.querySelector('.overlay-badge');
+  if (badge) {
+    badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - تعديل هذه الصفحة فقط`;
+  }
+}
+
+function removeFloatingMenus() {
+  document.querySelectorAll('.es-floating-menu').forEach(menu => menu.remove());
+}
+
+function applyPositionToAll(docType, overlayType, pageIndex) {
+  const sourceState = getOverlayState(docType, overlayType, pageIndex);
+  const state = esState[docType];
+  if (overlayType === 'signature') {
+    state.signatureOverlay = { ...sourceState };
+    state.pageSignatureOverlays = new Array(state.pageCount).fill(null);
+  } else {
+    state.stampOverlay = { ...sourceState };
+    state.pageStampOverlays = new Array(state.pageCount).fill(null);
+  }
+  
+  redrawAllPageOverlays(docType, overlayType);
+  showToast('تم تطبيق الموضع على جميع الصفحات.', 'success');
+  removeFloatingMenus();
+}
+
+function applyPositionToSubsequent(docType, overlayType, pageIndex) {
+  const sourceState = getOverlayState(docType, overlayType, pageIndex);
+  const state = esState[docType];
+  const targetArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
+  
+  for (let i = pageIndex; i < state.pageCount; i++) {
+    if (docType === 'technicalOffer' && i === 0) continue;
+    targetArray[i] = { ...sourceState };
+  }
+  
+  redrawAllPageOverlays(docType, overlayType);
+  showToast('تم تطبيق الموضع على الصفحات التالية.', 'success');
+  removeFloatingMenus();
+}
+
+function resetPageToDefault(docType, overlayType, pageIndex) {
+  const state = esState[docType];
+  const targetArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
+  targetArray[pageIndex] = null;
+  
+  const defaultState = overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
+  const el = document.getElementById(`overlay-${docType}-${overlayType}-page-${pageIndex}`);
+  if (el) {
+    const pageData = state.renderedPages[pageIndex];
+    updateOverlayUI(el, defaultState, pageData.renderedWidth, pageData.renderedHeight);
+    const badge = el.querySelector('.overlay-badge');
+    if (badge) {
+      badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - افتراضي`;
+    }
+  }
+  showToast('تمت إعادة تعيين موضع الصفحة للوضع الافتراضي.', 'info');
+  removeFloatingMenus();
+}
+
+function redrawAllPageOverlays(docType, overlayType) {
   const state = esState[docType];
   const isTech = docType === 'technicalOffer';
   
   state.renderedPages.forEach((pageData, index) => {
     if (isTech && index === 0) return;
     
-    const el = document.getElementById(`overlay-${docType}-signature-page-${index}`);
+    const el = document.getElementById(`overlay-${docType}-${overlayType}-page-${index}`);
     if (el) {
-      updateOverlayUI(el, state.signatureOverlay, pageData.renderedWidth, pageData.renderedHeight);
+      const overlayState = getOverlayState(docType, overlayType, index);
+      updateOverlayUI(el, overlayState, pageData.renderedWidth, pageData.renderedHeight);
+      
+      const badge = el.querySelector('.overlay-badge');
+      if (badge) {
+        const isCustom = (overlayType === 'signature' ? state.pageSignatureOverlays?.[index] : state.pageStampOverlays?.[index]) !== null;
+        badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
+      }
     }
   });
 }
+
+// Global click listener to close floating menus when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.overlay-element') && !e.target.closest('.es-floating-menu')) {
+    removeFloatingMenus();
+  }
+});
 
 function resetOverlaysToDefaults() {
   const currentSubTab = esState.activePreviewSubTab;
@@ -1696,6 +1979,17 @@ function renderStep3(container) {
     `;
   }
   
+  let allReviewed = true;
+  if (hasTech && hasContract) {
+    allReviewed = esState.reviewedFiles.technicalOffer && esState.reviewedFiles.contract;
+  }
+  const disabledAttr = allReviewed ? '' : 'disabled';
+  const warningMsg = allReviewed ? '' : `
+    <div style="color: #ef4444; background-color: rgba(239, 68, 68, 0.05); border: 1px solid #ef4444; border-radius: 8px; padding: 0.75rem; max-width: 500px; margin: 1rem auto; font-size: 0.85rem; font-weight: bold; text-align: center;">
+      تنبيه: يجب مراجعة وتحديد موضع التوقيع لكلا الملفين أولاً قبل إتمام عملية التوقيع والتحميل.
+    </div>
+  `;
+  
   container.innerHTML = `
     <div style="text-align: center; margin-bottom: 1.5rem;">
       <h3 style="margin: 0; font-size: 1.25rem;">المستندات جاهزة للتنزيل النهائي</h3>
@@ -1708,8 +2002,10 @@ function renderStep3(container) {
       ${contractRow}
     </div>
     
+    ${warningMsg}
+    
     <div style="text-align: center; margin-top: 2rem;">
-      <button class="btn-es btn-es-primary" id="btn-process-pdf" onclick="processAllDocumentsDownload()" style="margin: 0 auto; padding: 0.8rem 2.5rem; font-size: 1.05rem;">
+      <button class="btn-es btn-es-primary" id="btn-process-pdf" onclick="processAllDocumentsDownload()" ${disabledAttr} style="margin: 0 auto; padding: 0.8rem 2.5rem; font-size: 1.05rem;">
         <i data-lucide="file-signature"></i>
         <span>توقيع وتحميل الملفات</span>
       </button>
@@ -1849,7 +2145,8 @@ async function generateFinalPdfBytes(type) {
     const page = pages[i];
     const { width: pdfW, height: pdfH } = page.getSize();
     
-    const sig = state.signatureOverlay;
+    // Get page-specific signature or fallback
+    const sig = getOverlayState(type, 'signature', i);
     const pdfX = sig.leftRatio * pdfW;
     const pdfWidth = sig.widthRatio * pdfW;
     const pdfHeight = sig.heightRatio * pdfH;
@@ -1863,7 +2160,8 @@ async function generateFinalPdfBytes(type) {
     });
     
     if (i === lastPageIndex && stampImage) {
-      const st = state.stampOverlay;
+      // Get page-specific stamp or fallback
+      const st = getOverlayState(type, 'stamp', i);
       const stPdfX = st.leftRatio * pdfW;
       const stPdfWidth = st.widthRatio * pdfW;
       const stPdfHeight = st.heightRatio * pdfH;
