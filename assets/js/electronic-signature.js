@@ -703,28 +703,6 @@ function renderStep1(container) {
     </div>
     
     <div class="upload-grid-container">
-      <div class="document-file-card" id="card-upload-technical">
-        <h4 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-          <i data-lucide="file-text" style="color: var(--accent-blue);"></i>
-          <span>العرض الفني (Technical Offer)</span>
-        </h4>
-        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">* سيتم تجاهل الصفحة الأولى تلقائياً، والتوقيع يبدأ من الصفحة الثانية لنهاية الملف.</p>
-        
-        <div class="upload-zone" id="zone-technical" onclick="document.getElementById('input-technical').click()">
-          <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
-          <p>اسحب ملف العرض الفني هنا أو انقر للاختيار</p>
-          <span>PDF فقط</span>
-          <input type="file" id="input-technical" accept="application/pdf" style="display:none" onchange="handleDocumentUpload(this, 'technicalOffer')">
-        </div>
-        
-        <div id="details-technical" style="display: none; background-color: var(--bg-subtle); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-            <span id="name-technical" style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: bold;">-</span>
-            <button class="btn-es btn-es-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="clearUploadedDocument('technicalOffer')">حذف</button>
-          </div>
-        </div>
-      </div>
-      
       <div class="document-file-card" id="card-upload-contract">
         <h4 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
           <i data-lucide="file-check-2" style="color: var(--accent-teal);"></i>
@@ -743,6 +721,28 @@ function renderStep1(container) {
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
             <span id="name-contract" style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: bold;">-</span>
             <button class="btn-es btn-es-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="clearUploadedDocument('contract')">حذف</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="document-file-card" id="card-upload-technical">
+        <h4 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="file-text" style="color: var(--accent-blue);"></i>
+          <span>العرض الفني (Technical Offer)</span>
+        </h4>
+        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">* سيتم تجاهل الصفحة الأولى تلقائياً، والتوقيع يبدأ من الصفحة الثانية لنهاية الملف.</p>
+        
+        <div class="upload-zone" id="zone-technical" onclick="document.getElementById('input-technical').click()">
+          <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
+          <p>اسحب ملف العرض الفني هنا أو انقر للاختيار</p>
+          <span>PDF فقط</span>
+          <input type="file" id="input-technical" accept="application/pdf" style="display:none" onchange="handleDocumentUpload(this, 'technicalOffer')">
+        </div>
+        
+        <div id="details-technical" style="display: none; background-color: var(--bg-subtle); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <span id="name-technical" style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: bold;">-</span>
+            <button class="btn-es btn-es-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="clearUploadedDocument('technicalOffer')">حذف</button>
           </div>
         </div>
       </div>
@@ -871,16 +871,6 @@ function renderStep2(container) {
     `;
   }
   
-  let ocrBtnHtml = '';
-  if (hasContract) {
-    ocrBtnHtml = `
-      <button class="btn-es btn-es-secondary" id="btn-run-ocr-visual" onclick="triggerOcrAutoPlacement()">
-        <i data-lucide="scan-eye" style="width: 16px; height: 16px;"></i>
-        <span>البحث البصري الذكي (OCR)</span>
-      </button>
-    `;
-  }
-  
   container.innerHTML = `
     <div style="text-align: center; margin-bottom: 1rem;">
       <h3 style="margin: 0; font-size: 1.25rem;">حدد الموضع والتوزيع على صفحات المستند</h3>
@@ -902,7 +892,6 @@ function renderStep2(container) {
         </div>
         
         <div class="toolbar-group" style="gap: 0.5rem;">
-          ${ocrBtnHtml}
           <button class="btn-es btn-es-secondary" onclick="resetActiveOverlays()">
             <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
             <span>إعادة تعيين المواضع</span>
@@ -940,12 +929,10 @@ function switchPreviewSubTab(subTab) {
   if (subTab === 'technical') {
     if (techWorkspace) techWorkspace.style.display = 'block';
     if (contractWorkspace) contractWorkspace.style.display = 'none';
-    if (ocrBtn) ocrBtn.style.display = 'none';
     _reObserveUnrenderedPages('technicalOffer');
   } else {
     if (techWorkspace) techWorkspace.style.display = 'none';
     if (contractWorkspace) contractWorkspace.style.display = 'block';
-    if (ocrBtn) ocrBtn.style.display = 'inline-flex';
     _reObserveUnrenderedPages('contract');
   }
 }
@@ -1343,11 +1330,12 @@ function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedH
   el.dataset.docType = docType;
   el.dataset.pageIndex = pageIndex;
   
-  const badge = document.createElement('div');
-  badge.className = 'overlay-badge';
-  
-  const isCustom = (overlayType === 'signature' ? state.pageSignatureOverlays?.[pageIndex] : state.pageStampOverlays?.[pageIndex]) !== null;
-  badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
+  if (overlayType === 'signature') {
+    const isCustom = state.pageSignatureOverlays?.[pageIndex] !== null;
+    badge.textContent = `توقيع المدير - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
+  } else {
+    badge.textContent = 'ختم الشركة';
+  }
   el.appendChild(badge);
   
   const img = document.createElement('img');
@@ -1435,7 +1423,9 @@ function initPointerDrag(element, overlayType, docType) {
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('pointerup', onPointerUp);
       
-      showFloatingMenu(element, overlayType, docType, pageIndex);
+      if (overlayType !== 'stamp') {
+        showFloatingMenu(element, overlayType, docType, pageIndex);
+      }
     };
     
     element.addEventListener('pointermove', onPointerMove);
@@ -1564,7 +1554,9 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
       handle.removeEventListener('pointermove', onPointerMove);
       handle.removeEventListener('pointerup', onPointerUp);
       
-      showFloatingMenu(element, overlayType, docType, pageIndex);
+      if (overlayType !== 'stamp') {
+        showFloatingMenu(element, overlayType, docType, pageIndex);
+      }
     };
     
     element.classList.add('selected');
