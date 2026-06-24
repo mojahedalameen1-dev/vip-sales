@@ -2687,6 +2687,148 @@
         gap: 8px;
       }
     }
+
+    /* Auto Login Splash Screen Styles */
+    .auto-login-splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-surface);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+    }
+
+    .auto-login-splash.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-content {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 400px;
+      width: 90%;
+      padding: 2rem;
+    }
+
+    .splash-logo-container {
+      position: relative;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .splash-logo {
+      animation: splashFloat 3s ease-in-out infinite;
+      z-index: 2;
+    }
+
+    .splash-pulse-ring {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79, 142, 247, 0.2) 0%, rgba(45, 212, 191, 0) 70%);
+      animation: splashPulse 2s infinite ease-out;
+      z-index: 1;
+    }
+
+    @keyframes splashFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes splashPulse {
+      0% { transform: scale(0.6); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .splash-title {
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .splash-subtitle {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    /* User Card inside Splash */
+    .splash-user-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      padding: 10px 20px;
+      border-radius: 50px;
+      margin-bottom: 2rem;
+      animation: cardSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      box-shadow: var(--shadow-card);
+    }
+
+    .splash-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--accent-teal);
+    }
+
+    .splash-user-info {
+      display: flex;
+      flex-direction: column;
+      text-align: right;
+    }
+
+    .splash-username {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .splash-useremail {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Splash loader dots */
+    .splash-loader {
+      display: flex;
+      gap: 6px;
+    }
+
+    .splash-loader .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-teal);
+      animation: splashLoaderDots 1.4s infinite ease-in-out both;
+    }
+
+    .splash-loader .dot:nth-child(1) { animation-delay: -0.32s; }
+    .splash-loader .dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes splashLoaderDots {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1.0); }
+    }
   </style>
   <!-- Responsive Design CSS -->
   <link rel="stylesheet" href="assets/css/responsive.css">
@@ -2694,8 +2836,41 @@
 
 <body>
 
+  <!-- ════════════════ AUTO LOGIN SPLASH OVERLAY ════════════════ -->
+  <div id="autoLoginSplash" class="auto-login-splash">
+    <div class="splash-content">
+      <div class="splash-logo-container">
+        <!-- SVG funnel logo with animation -->
+        <svg width="80" height="80" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="splash-logo">
+          <path
+            d="M4 6C4 4.89543 4.89543 4 6 4H30C31.1046 4 32 4.89543 32 6V9.24264C32 9.77307 31.7893 10.2818 31.4142 10.6569L22 20.0711V29.5C22 30.8807 20.8807 32 19.5 32H16.5C15.1193 32 14 30.8807 14 29.5V20.0711L4.58579 10.6569C4.21071 10.2818 4 9.77307 4 9.24264V6Z"
+            fill="url(#logoGrad)" />
+        </svg>
+        <div class="splash-pulse-ring"></div>
+      </div>
+      <h2 class="splash-title">أهلاً بك مجدداً!</h2>
+      <p class="splash-subtitle">جاري التحقق وتوصيلك بالنظام تلقائياً...</p>
+      
+      <!-- User Profile Card -->
+      <div id="splashUserCard" class="splash-user-card" style="display: none;">
+        <img id="splashUserAvatar" src="https://www.gravatar.com/avatar/?d=mp" alt="avatar" class="splash-avatar">
+        <div class="splash-user-info">
+          <span id="splashUserName" class="splash-username">الموظف</span>
+          <span id="splashUserEmail" class="splash-useremail">email@domain.com</span>
+        </div>
+      </div>
+
+      <!-- Modern animated loading dots -->
+      <div class="splash-loader">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════════════ SECTION 4.1: Login Screen ════════════════ -->
-  <div id="loginScreen" class="login-screen">
+  <div id="loginScreen" class="login-screen" style="display: none;">
     <div class="login-card">
       <!-- Funnel Custom SVG Logo -->
       <svg width="64" height="64" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3356,6 +3531,7 @@
     let monthlyMeetings = [];
     let currentTheme = localStorage.getItem("crm_theme") || "light";
     let initialLoadComplete = false;
+    let isManualLogin = false;
 
     function getLeadsPath() {
       return currentUser ? `/users/${currentUser.uid}/leads` : '/leads';
@@ -3428,6 +3604,7 @@
 
           // Listen for Firebase Auth State Changes
           auth.onAuthStateChanged(user => {
+            const splash = document.getElementById("autoLoginSplash");
             if (user) {
               currentUser = user;
               document.getElementById("loginScreen").style.display = "none";
@@ -3440,11 +3617,34 @@
               setupRealtimeSubscriptions();
               initMeetingStatusesListener();
               if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
-              showToast("تم تسجيل الدخول بنجاح عبر Google", "success");
+
+              // Update user card inside splash with premium entrance
+              document.getElementById("splashUserAvatar").src = user.photoURL || "https://www.gravatar.com/avatar/?d=mp";
+              document.getElementById("splashUserName").textContent = user.displayName || user.email;
+              document.getElementById("splashUserEmail").textContent = user.email;
+              document.getElementById("splashUserCard").style.display = "flex";
+
+              const delayTime = isManualLogin ? 500 : 1800;
+              if (!isManualLogin) {
+                showToast("أهلاً بك مجدداً! تم تسجيل الدخول تلقائياً", "success");
+              } else {
+                showToast("تم تسجيل الدخول بنجاح عبر Google", "success");
+              }
+              isManualLogin = false; // reset flag
+
+              setTimeout(() => {
+                if (splash) {
+                  splash.classList.add("fade-out");
+                  setTimeout(() => splash.style.display = "none", 600);
+                }
+              }, delayTime);
             } else {
               currentUser = null;
               document.getElementById("loginScreen").style.display = "flex";
               document.getElementById("appContainer").style.display = "none";
+              if (splash) {
+                splash.style.display = "none";
+              }
             }
           });
 
@@ -3470,6 +3670,10 @@
 
       } catch (error) {
         console.warn("Firebase init error (Switching to Local Guest Mode):", error);
+        const splash = document.getElementById("autoLoginSplash");
+        if (splash) {
+          splash.style.display = "none";
+        }
         showToast("تنبيه: تعمل المنصة الآن كزائر محلي (بدون ربط Firebase).", "warning");
         setupLocalMockData();
       }
@@ -3599,6 +3803,7 @@
       const loginBtn = document.getElementById("googleLoginBtn");
       if (loginBtn.disabled) return;
 
+      isManualLogin = true;
       loginBtn.disabled = true;
       const originalText = loginBtn.innerHTML;
       loginBtn.innerHTML = "جاري الاتصال...";
@@ -5572,14 +5777,32 @@
 
     function openModal(modalId) {
       const modal = document.getElementById(modalId);
-      modal.classList.add("show");
-      clearErrors();
+      if (modal) {
+        modal.classList.add("show");
+        clearErrors();
+      }
     }
 
     function closeModal(modalId) {
       const modal = document.getElementById(modalId);
-      modal.classList.remove("show");
+      if (modal) {
+        modal.classList.remove("show");
+      }
     }
+
+    // Global listener to close modals when clicking on the backdrop
+    window.addEventListener("click", (e) => {
+      if (e.target && e.target.classList.contains("modal-backdrop")) {
+        const modalId = e.target.id;
+        if (modalId) {
+          if (modalId === "closingReasonModal") {
+            cancelClosingReason(e);
+          } else {
+            closeModal(modalId);
+          }
+        }
+      }
+    });
 
     function switchTab(tab) {
       window.location.hash = tab === 'dashboard' ? '' : tab;
