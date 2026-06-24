@@ -868,11 +868,32 @@ function switchPreviewSubTab(subTab) {
     if (techWorkspace) techWorkspace.style.display = 'block';
     if (contractWorkspace) contractWorkspace.style.display = 'none';
     if (ocrBtn) ocrBtn.style.display = 'none';
+    // Re-observe unrendered pages now that they're visible
+    _reObserveUnrenderedPages('technicalOffer');
   } else {
     if (techWorkspace) techWorkspace.style.display = 'none';
     if (contractWorkspace) contractWorkspace.style.display = 'block';
     if (ocrBtn) ocrBtn.style.display = 'inline-flex';
+    // Re-observe unrendered pages now that they're visible
+    _reObserveUnrenderedPages('contract');
   }
+}
+
+// Force re-observation of unrendered pages after display switch
+function _reObserveUnrenderedPages(type) {
+  if (!esIntersectionObserver) return;
+  // Small delay lets browser complete layout before observer checks intersection
+  setTimeout(() => {
+    const state = esState[type];
+    if (!state || !state.renderedPages) return;
+    state.renderedPages.forEach((pd, idx) => {
+      if (pd.isRendered) return;
+      const el = document.getElementById(`page-wrapper-${type}-${idx}`);
+      if (el) {
+        try { esIntersectionObserver.observe(el); } catch(e) {/* already observed */}
+      }
+    });
+  }, 60);
 }
 
 async function processStep2Files() {
@@ -965,63 +986,39 @@ async function parsePdfMetadataOnly(type, workspaceId) {
 }
 
 function buildPlaceholderViews(type, container) {
-  const state = esState[type];
-  const isTech = type === 'technicalOffer';
+  const state  = esState[type];
   
   state.renderedPages.forEach((pageData, index) => {
-    // If technical, first page doesn't get signed or previewed for overlays
-    if (isTech && index === 0) {
-      const firstPageWrapper = document.createElement('div');
-      firstPageWrapper.className = 'page-wrapper';
-      firstPageWrapper.id = `page-wrapper-${type}-${index}`;
-      firstPageWrapper.style.position = 'relative';
-      firstPageWrapper.style.marginBottom = '20px';
-      firstPageWrapper.style.width = `${pageData.renderedWidth}px`;
-      firstPageWrapper.style.height = `${pageData.renderedHeight}px`;
-      firstPageWrapper.style.backgroundColor = 'var(--bg-elevated)';
-      
-      const skeleton = document.createElement('div');
-      skeleton.style.width = '100%';
-      skeleton.style.height = '100%';
-      skeleton.className = 'pulse-loader';
-      skeleton.style.margin = 'auto';
-      firstPageWrapper.appendChild(skeleton);
-      
-      container.appendChild(firstPageWrapper);
-      
-      // Register for observation
-      if (esIntersectionObserver) {
-        esIntersectionObserver.observe(firstPageWrapper);
-      }
-      return;
-    }
-    
     const wrapper = document.createElement('div');
-    wrapper.className = 'page-wrapper';
-    wrapper.id = `page-wrapper-${type}-${index}`;
-    wrapper.style.position = 'relative';
+    wrapper.className          = 'page-wrapper';
+    wrapper.id                 = `page-wrapper-${type}-${index}`;
+    // Store data attributes for reliable retrieval in the observer callback
+    wrapper.dataset.esType     = type;
+    wrapper.dataset.esIndex    = String(index);
+    wrapper.style.position     = 'relative';
     wrapper.style.marginBottom = '20px';
-    wrapper.style.width = `${pageData.renderedWidth}px`;
-    wrapper.style.height = `${pageData.renderedHeight}px`;
-    wrapper.style.backgroundColor = 'var(--bg-elevated)';
+    wrapper.style.width        = `${pageData.renderedWidth}px`;
+    wrapper.style.height       = `${pageData.renderedHeight}px`;
+    wrapper.style.backgroundColor = 'white';
     
     const skeleton = document.createElement('div');
-    skeleton.style.width = '100%';
-    skeleton.style.height = '100%';
-    skeleton.className = 'pulse-loader';
-    skeleton.style.margin = 'auto';
+    skeleton.style.width   = '100%';
+    skeleton.style.height  = '100%';
+    skeleton.className     = 'pulse-loader';
+    skeleton.style.borderRadius = '0';
     wrapper.appendChild(skeleton);
     
     container.appendChild(wrapper);
     
-    // Register for observation
+    // Register for lazy rendering
     if (esIntersectionObserver) {
       esIntersectionObserver.observe(wrapper);
     }
   });
 }
 
-// Set up IntersectionObserver
+// Set up IntersectionObserver — uses VIEWPORT as root (null) so it works
+// even when workspace containers are toggled via display:none/block
 function setupIntersectionObserver() {
   if (esIntersectionObserver) {
     esIntersectionObserver.disconnect();
@@ -1030,19 +1027,19 @@ function setupIntersectionObserver() {
   esIntersectionObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
-        const idParts = entry.target.id.split('-');
-        // ID format: page-wrapper-technicalOffer-index
-        const type = idParts[2];
-        const index = parseInt(idParts[3]);
-        
+        const el = entry.target;
+        // Read type and index from data attributes (more reliable than ID parsing)
+        const type  = el.dataset.esType;
+        const index = parseInt(el.dataset.esIndex);
+        if (!type || isNaN(index)) return;
+        esIntersectionObserver.unobserve(el);
         lazyRenderPageCanvas(type, index);
-        esIntersectionObserver.unobserve(entry.target);
       }
     });
   }, {
-    root: document.getElementById('pdf-workspace-area'),
-    rootMargin: '100px 0px 100px 0px', // Pre-load 100px before appearing
-    threshold: 0.1
+    root: null,                           // viewport — works regardless of display state
+    rootMargin: '200px 0px 200px 0px',   // pre-load 200px before entering viewport
+    threshold: 0.01
   });
 }
 
@@ -1575,8 +1572,10 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
     element.classList.add('selected');
     esState.activeOverlay = overlayType;
     
-    element.addEventListener('pointermove', onPointerMove);
-    element.addEventListener('pointerup', onPointerUp);
+    // CRITICAL FIX: listeners must be on `handle` (not `element`) because
+    // handle.setPointerCapture() routes all pointer events to `handle`
+    handle.addEventListener('pointermove', onPointerMove);
+    handle.addEventListener('pointerup', onPointerUp);
   });
 }
 

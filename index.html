@@ -5660,7 +5660,14 @@
       tabs.forEach(t => {
         const view = document.getElementById(`${t}View`);
         const menu = document.getElementById(`menu-${t}`);
-        if (view) view.style.display = t === tab ? "flex" : "none";
+        if (view) {
+          if (t === tab) {
+            view.style.display = t === 'esign' ? 'flex' : 'flex';
+            if (t === 'esign') view.style.flexDirection = 'column';
+          } else {
+            view.style.display = 'none';
+          }
+        }
         if (menu) {
           if (t === tab) menu.classList.add("active");
           else menu.classList.remove("active");
