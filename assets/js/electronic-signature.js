@@ -706,7 +706,7 @@ function renderStep1(container) {
       <div class="document-file-card" id="card-upload-contract">
         <h4 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
           <i data-lucide="file-check-2" style="color: var(--accent-teal);"></i>
-          <span>عقد رسمي (Contract)</span>
+          <span>العقد رسمي (Contract)</span>
         </h4>
         <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">* يتم توقيع كافة الصفحات، مع وضع الختم الرسمي على الصفحة الأخيرة فقط.</p>
         
@@ -788,6 +788,28 @@ function handleDocumentUpload(input, type) {
   esState[type].processingStatus = 'loading';
   showUploadedDetails(type, file.name);
   checkStepValidity();
+
+  // Asynchronously parse metadata to display page count
+  const reader = new FileReader();
+  reader.onload = async function() {
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/js/vendor/pdf.worker.min.js';
+      const arrayBuffer = this.result;
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      esState[type].pageCount = pdf.numPages;
+      esState[type].pdfDocument = pdf;
+      
+      const prefix = type === 'technicalOffer' ? 'technical' : 'contract';
+      const nameSpan = document.getElementById(`name-${prefix}`);
+      if (nameSpan) {
+        nameSpan.innerHTML = `${file.name} <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal; margin-inline-start: 8px;">(${pdf.numPages} صفحات)</span>`;
+      }
+      checkStepValidity();
+    } catch (e) {
+      console.error("Error reading PDF metadata on upload", e);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 function showUploadedDetails(type, filename) {
@@ -801,7 +823,14 @@ function showUploadedDetails(type, filename) {
   if (card) card.classList.add('has-file');
   if (zone) zone.style.display = 'none';
   if (details) details.style.display = 'block';
-  if (nameSpan) nameSpan.textContent = filename;
+  if (nameSpan) {
+    const pageCount = esState[type].pageCount;
+    if (pageCount > 0) {
+      nameSpan.innerHTML = `${filename} <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal; margin-inline-start: 8px;">(${pageCount} صفحات)</span>`;
+    } else {
+      nameSpan.textContent = filename;
+    }
+  }
 }
 
 function clearUploadedDocument(type) {
@@ -1103,8 +1132,15 @@ async function parsePdfMetadataOnly(type, workspaceId) {
     const pageViewport = page.getPageViewport ? page.getPageViewport({ scale: 1.0 }) : page.getViewport({ scale: 1.0 });
     const aspect = pageViewport.width / pageViewport.height;
     
-    // Natural A4 width on screen (800px at 100% zoom)
-    const baseDisplayWidth = 800;
+    // Natural A4 width on screen (800px at 100% zoom, adaptive for smaller screens)
+    let baseDisplayWidth = 800;
+    const workspaceEl = document.getElementById('pdf-workspace-area');
+    if (workspaceEl && window.innerWidth < 768) {
+      baseDisplayWidth = Math.min(800, workspaceEl.clientWidth - 24);
+      if (baseDisplayWidth <= 0) {
+        baseDisplayWidth = window.innerWidth - 32;
+      }
+    }
     const renderedWidth = baseDisplayWidth * esState.zoomLevel;
     const renderedHeight = renderedWidth / aspect;
     
