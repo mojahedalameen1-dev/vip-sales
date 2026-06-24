@@ -23,8 +23,8 @@
   <!-- Lucide Icons (Local) -->
   <script src="assets/js/lucide.min.js"></script>
 
-  <!-- SheetJS for Excel Export (Local) -->
-  <script src="assets/js/xlsx.full.min.js"></script>
+  <!-- SheetJS fork (xlsx-js-style) for styled Excel Export (Local) -->
+  <script src="assets/js/vendor/xlsx-js-style.js"></script>
 
   <!-- PDF.js v3.11.174 -->
   <script src="assets/js/vendor/pdf.min.js"></script>
@@ -724,6 +724,7 @@
         flex-direction: column;
         align-items: stretch;
       }
+
       .inline-ticket-form input,
       .inline-ticket-form button {
         width: 100% !important;
@@ -1395,7 +1396,7 @@
     .dropdown-item {
       transition: background-color 0.2s;
     }
-    
+
     .dropdown-item:hover {
       background-color: var(--bg-elevated);
     }
@@ -1468,9 +1469,9 @@
     }
 
     .ticket-action-btn.delete:hover {
-      background: rgba(239,68,68,0.12);
+      background: rgba(239, 68, 68, 0.12);
       color: #ef4444;
-      border-color: rgba(239,68,68,0.3);
+      border-color: rgba(239, 68, 68, 0.3);
     }
 
     .ticket-edit-area {
@@ -1786,7 +1787,9 @@
       gap: 10px;
     }
 
-    .meetings-day-title .day-emoji { font-size: 22px; }
+    .meetings-day-title .day-emoji {
+      font-size: 22px;
+    }
 
     .meetings-day-sub {
       font-size: var(--text-xs);
@@ -1820,7 +1823,7 @@
     .nav-day-btn:hover {
       background: var(--bg-elevated);
       transform: translateY(-1px);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
     }
 
     .nav-day-btn.today-btn {
@@ -1829,7 +1832,9 @@
       border-color: transparent;
     }
 
-    .nav-day-btn.today-btn:hover { filter: brightness(1.1); }
+    .nav-day-btn.today-btn:hover {
+      filter: brightness(1.1);
+    }
 
     /* Progress Bar */
     .meetings-progress-bar {
@@ -1878,7 +1883,9 @@
       transition: transform 0.2s;
     }
 
-    .meetings-kpi-card:hover { transform: translateY(-2px); }
+    .meetings-kpi-card:hover {
+      transform: translateY(-2px);
+    }
 
     .kpi-card-value {
       font-size: var(--text-2xl);
@@ -1927,9 +1934,11 @@
       flex-shrink: 0;
       transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+
     .calendar-date-badge:hover {
       transform: scale(1.05) rotate(2deg);
     }
+
     .calendar-date-badge .calendar-month {
       width: 100%;
       background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -1940,6 +1949,7 @@
       padding: 2px 0;
       letter-spacing: 0.05em;
     }
+
     .calendar-date-badge .calendar-day {
       font-size: 18px;
       font-weight: 800;
@@ -1979,9 +1989,11 @@
     .meeting-card-v2.status-done {
       border-right-color: #10b981;
     }
+
     .meeting-card-v2.status-postponed {
       border-right-color: #ef4444;
     }
+
     .meeting-card-v2.status-pending {
       border-right-color: var(--accent-blue);
     }
@@ -2101,13 +2113,28 @@
       border: 1px solid var(--border-subtle);
     }
 
-    .daily-meetings-table tbody tr:hover { background: var(--bg-subtle) !important; }
-    .daily-meetings-table tbody td { padding: 12px 16px; vertical-align: middle; }
+    .daily-meetings-table tbody tr:hover {
+      background: var(--bg-subtle) !important;
+    }
+
+    .daily-meetings-table tbody td {
+      padding: 12px 16px;
+      vertical-align: middle;
+    }
 
     /* Row Status Colors */
-    .meeting-row.upcoming { background: rgba(16, 185, 129, 0.04); }
-    .meeting-row.ongoing  { background: rgba(245, 158, 11, 0.06); }
-    .meeting-row.completed { background: transparent; opacity: 0.65; }
+    .meeting-row.upcoming {
+      background: rgba(16, 185, 129, 0.04);
+    }
+
+    .meeting-row.ongoing {
+      background: rgba(245, 158, 11, 0.06);
+    }
+
+    .meeting-row.completed {
+      background: transparent;
+      opacity: 0.65;
+    }
 
     /* Ongoing pulse */
     .ongoing-indicator {
@@ -2129,8 +2156,17 @@
     }
 
     @keyframes ongoingPulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50%       { transform: scale(1.5); opacity: 0.6; }
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.5);
+        opacity: 0.6;
+      }
     }
 
     /* Meeting Type Badge */
@@ -2166,11 +2202,30 @@
       white-space: nowrap;
     }
 
-    .rep-hosam   { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
-    .rep-ashraf  { background: rgba(16, 185, 129, 0.12); color: #059669; }
-    .rep-shady   { background: rgba(245, 158, 11, 0.12); color: #d97706; }
-    .rep-mujahid { background: rgba(236, 72, 153, 0.12); color: #db2777; }
-    .rep-none    { background: var(--bg-elevated); color: var(--text-muted); }
+    .rep-hosam {
+      background: rgba(99, 102, 241, 0.12);
+      color: #6366f1;
+    }
+
+    .rep-ashraf {
+      background: rgba(16, 185, 129, 0.12);
+      color: #059669;
+    }
+
+    .rep-shady {
+      background: rgba(245, 158, 11, 0.12);
+      color: #d97706;
+    }
+
+    .rep-mujahid {
+      background: rgba(236, 72, 153, 0.12);
+      color: #db2777;
+    }
+
+    .rep-none {
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+    }
 
     /* Join Button */
     .join-meet-btn {
@@ -2232,7 +2287,10 @@
       border: 1px solid rgba(239, 68, 68, 0.2);
     }
 
-    .status-toggle-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .status-toggle-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
 
     /* Empty meetings state */
     .meetings-empty-state {
@@ -2245,35 +2303,53 @@
       gap: 12px;
     }
 
-    .meetings-empty-state .empty-icon { font-size: 48px; }
-    .meetings-empty-state p { font-size: var(--text-base); font-weight: 600; color: var(--text-secondary); }
-    .meetings-empty-state span { font-size: var(--text-sm); }
+    .meetings-empty-state .empty-icon {
+      font-size: 48px;
+    }
+
+    .meetings-empty-state p {
+      font-size: var(--text-base);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .meetings-empty-state span {
+      font-size: var(--text-sm);
+    }
 
     /* Custom Premium Scrollbar Design */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
+
     ::-webkit-scrollbar-track {
       background: transparent;
     }
+
     ::-webkit-scrollbar-thumb {
       background: var(--border-subtle);
       border-radius: 10px;
     }
+
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-muted);
     }
-    
+
     /* Micro-animations and hover effects */
-    .lead-card, .meeting-card-item, .meetings-kpi-card, .nav-day-btn {
+    .lead-card,
+    .meeting-card-item,
+    .meetings-kpi-card,
+    .nav-day-btn {
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .lead-card:hover, .meeting-card-item:hover {
+
+    .lead-card:hover,
+    .meeting-card-item:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
     }
-    
+
     .meetings-filter-tabs button {
       cursor: pointer;
     }
@@ -2295,9 +2371,20 @@
       font-family: inherit;
     }
 
-    .meetings-refresh-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
-    .meetings-refresh-btn.spinning svg { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .meetings-refresh-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .meetings-refresh-btn.spinning svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
     /* Legacy months-container (keep for safety) */
     .months-container {
@@ -2551,33 +2638,39 @@
     /* Premium UI Upgrades */
     .daily-meetings-table th {
       background: linear-gradient(90deg, rgba(79, 142, 247, 0.08), rgba(79, 142, 247, 0.02));
-      text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
+
     .meeting-row {
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
     .meeting-row:hover {
       background-color: var(--bg-elevated);
       transform: translateY(-1px);
       box-shadow: 0 4px 12px var(--border-subtle);
     }
+
     .join-meet-btn {
       background: linear-gradient(135deg, #10b981, #059669);
       box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
       transition: all 0.2s ease;
       font-weight: 700;
     }
+
     .join-meet-btn:hover {
       background: linear-gradient(135deg, #34d399, #059669);
       transform: translateY(-2px) scale(1.02);
       box-shadow: 0 6px 14px rgba(16, 185, 129, 0.4);
     }
+
     .meetings-kpi-card {
       background: linear-gradient(145deg, var(--bg-surface), var(--bg-elevated));
       border: 1px solid var(--border-subtle);
       box-shadow: var(--shadow-card);
       transition: all 0.3s ease;
     }
+
     .meetings-kpi-card:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow-modal);
@@ -2615,9 +2708,11 @@
     .meeting-list-item-v2.status-done {
       border-right-color: #10b981;
     }
+
     .meeting-list-item-v2.status-postponed {
       border-right-color: #ef4444;
     }
+
     .meeting-list-item-v2.status-pending {
       border-right-color: var(--accent-blue);
     }
@@ -2681,6 +2776,7 @@
         gap: 12px;
         padding: 16px;
       }
+
       .meeting-list-info-v2 {
         flex-direction: column;
         align-items: flex-start;
@@ -2744,13 +2840,27 @@
     }
 
     @keyframes splashFloat {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
     }
 
     @keyframes splashPulse {
-      0% { transform: scale(0.6); opacity: 1; }
-      100% { transform: scale(1.6); opacity: 0; }
+      0% {
+        transform: scale(0.6);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
     }
 
     .splash-title {
@@ -2822,12 +2932,25 @@
       animation: splashLoaderDots 1.4s infinite ease-in-out both;
     }
 
-    .splash-loader .dot:nth-child(1) { animation-delay: -0.32s; }
-    .splash-loader .dot:nth-child(2) { animation-delay: -0.16s; }
+    .splash-loader .dot:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .splash-loader .dot:nth-child(2) {
+      animation-delay: -0.16s;
+    }
 
     @keyframes splashLoaderDots {
-      0%, 80%, 100% { transform: scale(0); }
-      40% { transform: scale(1.0); }
+
+      0%,
+      80%,
+      100% {
+        transform: scale(0);
+      }
+
+      40% {
+        transform: scale(1.0);
+      }
     }
   </style>
   <!-- Responsive Design CSS -->
@@ -2841,7 +2964,8 @@
     <div class="splash-content">
       <div class="splash-logo-container">
         <!-- SVG funnel logo with animation -->
-        <svg width="80" height="80" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="splash-logo">
+        <svg width="80" height="80" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
+          class="splash-logo">
           <path
             d="M4 6C4 4.89543 4.89543 4 6 4H30C31.1046 4 32 4.89543 32 6V9.24264C32 9.77307 31.7893 10.2818 31.4142 10.6569L22 20.0711V29.5C22 30.8807 20.8807 32 19.5 32H16.5C15.1193 32 14 30.8807 14 29.5V20.0711L4.58579 10.6569C4.21071 10.2818 4 9.77307 4 9.24264V6Z"
             fill="url(#logoGrad)" />
@@ -2850,7 +2974,7 @@
       </div>
       <h2 class="splash-title">أهلاً بك مجدداً!</h2>
       <p class="splash-subtitle">جاري التحقق وتوصيلك بالنظام تلقائياً...</p>
-      
+
       <!-- User Profile Card -->
       <div id="splashUserCard" class="splash-user-card" style="display: none;">
         <img id="splashUserAvatar" src="https://www.gravatar.com/avatar/?d=mp" alt="avatar" class="splash-avatar">
@@ -2978,7 +3102,8 @@
             <span>جلب اجتماعات Meet</span>
           </button>
 
-          <button id="reimportMeetBtn" class="btn-reimport" onclick="reimportMeetings()" title="مسح الاجتماعات المستوردة في العمود الأول وإعادة جلبها">
+          <button id="reimportMeetBtn" class="btn-reimport" onclick="reimportMeetings()"
+            title="مسح الاجتماعات المستوردة في العمود الأول وإعادة جلبها">
             <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i>
             <span>إعادة استيراد</span>
           </button>
@@ -3015,36 +3140,46 @@
           </div>
         </section>
 
-         <!-- Search & Filter bar -->
-        <section class="search-filter-row" style="display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin: 4px 0 12px 0; width: 100%;">
+        <!-- Search & Filter bar -->
+        <section class="search-filter-row"
+          style="display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin: 4px 0 12px 0; width: 100%;">
           <div style="display: flex; align-items: center; gap: 16px; width: 100%; flex-wrap: wrap;">
-            <div class="search-input-wrapper" style="flex: 1; max-width: 400px; position: relative; display: flex; align-items: center;">
-              <i data-lucide="search" class="search-icon" style="position: absolute; right: 14px; color: var(--text-secondary); pointer-events: none; width: 16px; height: 16px;"></i>
-              <input type="text" id="kanbanSearchInput" class="search-input-field" placeholder="ابحث باسم العميل، المشروع، Slack، أو الجوال..." oninput="debouncedApplyFilters()" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 10px 42px 10px 16px; border-radius: 8px; font-size: var(--text-sm); outline: none; transition: border-color 0.2s, box-shadow 0.2s;">
+            <div class="search-input-wrapper"
+              style="flex: 1; max-width: 400px; position: relative; display: flex; align-items: center;">
+              <i data-lucide="search" class="search-icon"
+                style="position: absolute; right: 14px; color: var(--text-secondary); pointer-events: none; width: 16px; height: 16px;"></i>
+              <input type="text" id="kanbanSearchInput" class="search-input-field"
+                placeholder="ابحث باسم العميل، المشروع، Slack، أو الجوال..." oninput="debouncedApplyFilters()"
+                style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 10px 42px 10px 16px; border-radius: 8px; font-size: var(--text-sm); outline: none; transition: border-color 0.2s, box-shadow 0.2s;">
             </div>
-            
-             <!-- Month Filter Dropdown -->
-             <div style="position: relative;">
-               <button id="chipMonthBtn" class="date-shortcut-btn" onclick="toggleMonthDropdown(event)" style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: var(--text-sm); color: var(--text-primary); cursor: pointer;">
-                 <i data-lucide="calendar" style="width: 16px; height: 16px; color: var(--accent-blue);"></i>
-                 <span id="selectedMonthLabel">الشهر الحالي</span>
-               </button>
-               <div id="filterMonthDropdown" class="dropdown-content" style="display: none; position: absolute; top: 100%; right: 0; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; box-shadow: var(--shadow-modal); z-index: 200; min-width: 160px; padding: 6px 0; margin-top: 4px;">
-                 <!-- Populated dynamically via JS -->
-               </div>
-             </div>
 
-            <button id="toggleAnalyticsBtn" class="btn-secondary" onclick="toggleAnalytics()" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-subtle); background-color: var(--bg-surface); color: var(--text-primary); cursor: pointer; font-size: var(--text-sm); font-weight: 500; transition: background-color 0.2s;">
+            <!-- Month Filter Dropdown -->
+            <div style="position: relative;">
+              <button id="chipMonthBtn" class="date-shortcut-btn" onclick="toggleMonthDropdown(event)"
+                style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: var(--text-sm); color: var(--text-primary); cursor: pointer;">
+                <i data-lucide="calendar" style="width: 16px; height: 16px; color: var(--accent-blue);"></i>
+                <span id="selectedMonthLabel">الشهر الحالي</span>
+              </button>
+              <div id="filterMonthDropdown" class="dropdown-content"
+                style="display: none; position: absolute; top: 100%; right: 0; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; box-shadow: var(--shadow-modal); z-index: 200; min-width: 160px; padding: 6px 0; margin-top: 4px;">
+                <!-- Populated dynamically via JS -->
+              </div>
+            </div>
+
+            <button id="toggleAnalyticsBtn" class="btn-secondary" onclick="toggleAnalytics()"
+              style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-subtle); background-color: var(--bg-surface); color: var(--text-primary); cursor: pointer; font-size: var(--text-sm); font-weight: 500; transition: background-color 0.2s;">
               <i data-lucide="bar-chart-2" style="width: 16px; height: 16px;"></i>
               <span>التحليلات البصرية</span>
             </button>
           </div>
-          
+
           <!-- Status Bar -->
-          <div id="filterStatusBar" style="font-size: 12px; color: var(--text-secondary); display: none; align-items: center; gap: 8px; margin-top: 2px;">
+          <div id="filterStatusBar"
+            style="font-size: 12px; color: var(--text-secondary); display: none; align-items: center; gap: 8px; margin-top: 2px;">
             <span id="filterStatusText">▸ عرض 12 من 21 عميل</span>
             <span style="color: var(--text-muted);">|</span>
-            <button onclick="clearAllFilters()" style="color: #ef4444; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px;">
+            <button onclick="clearAllFilters()"
+              style="color: #ef4444; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px;">
               <span>مسح جميع الفلاتر ✕</span>
             </button>
           </div>
@@ -3069,7 +3204,8 @@
               <div class="calendar-day" id="calendarDayBadge">--</div>
             </div>
             <div>
-              <div id="meetingsDayTitle" style="font-size: var(--text-lg); font-weight: 800; color: var(--text-primary);">اجتماعات اليوم</div>
+              <div id="meetingsDayTitle"
+                style="font-size: var(--text-lg); font-weight: 800; color: var(--text-primary);">اجتماعات اليوم</div>
               <div class="meetings-day-sub" id="meetingsDaySub">جارٍ التحميل...</div>
             </div>
           </div>
@@ -3080,7 +3216,9 @@
           </div>
           <div class="day-nav-group">
             <button class="nav-day-btn" onclick="navigateMeetingsDay(-1)" id="prevDayBtn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
               اليوم السابق
             </button>
             <button class="nav-day-btn today-btn" onclick="goToMeetingsToday()">
@@ -3088,10 +3226,17 @@
             </button>
             <button class="nav-day-btn" onclick="navigateMeetingsDay(1)" id="nextDayBtn">
               اليوم التالي
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
             </button>
             <button class="meetings-refresh-btn" id="meetingsRefreshBtn" onclick="refreshMeetingsView()" title="تحديث">
-              <svg id="meetingsRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <svg id="meetingsRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
               تحديث
             </button>
           </div>
@@ -3169,7 +3314,8 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="leadClientName">اسم الاجتماع كاملاً (اسم العميل + اسم المشروع إذا وجد)<span class="required">*</span></label>
+            <label for="leadClientName">اسم الاجتماع كاملاً (اسم العميل + اسم المشروع إذا وجد)<span
+                class="required">*</span></label>
             <input type="text" id="leadClientName" class="input-field" placeholder="أدخل الاسم المسؤول أو اسم الاجتماع">
           </div>
           <input type="hidden" id="leadProjectName" value="">
@@ -3278,15 +3424,24 @@
 
         <!-- Meeting Source Section -->
         <div class="details-box" style="margin-top: 16px;">
-          <h3 style="font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">مصدر الاجتماع</h3>
-          <div id="detailMeetingTitle" style="font-size: var(--text-xs); color: var(--text-secondary); opacity: 0.85;">-</div>
+          <h3
+            style="font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
+            مصدر الاجتماع</h3>
+          <div id="detailMeetingTitle" style="font-size: var(--text-xs); color: var(--text-secondary); opacity: 0.85;">-
+          </div>
         </div>
 
         <!-- Closed Details Section -->
-        <div id="detailClosedSection" class="details-box" style="margin-top: 16px; display: none; border-color: rgba(239, 68, 68, 0.3); background-color: rgba(239, 68, 68, 0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
-            <h3 style="font-size: var(--text-sm); font-weight: 600; color: #ef4444; border-bottom: none; margin-bottom: 0; padding-bottom: 0; padding-top: 0;">تفاصيل الإغلاق</h3>
-            <button id="reopenLeadBtn" class="btn-primary" style="padding: 4px 10px; font-size: var(--text-xs); background-color: var(--accent-teal);" onclick="reopenLead()">إعادة فتح العميل</button>
+        <div id="detailClosedSection" class="details-box"
+          style="margin-top: 16px; display: none; border-color: rgba(239, 68, 68, 0.3); background-color: rgba(239, 68, 68, 0.02);">
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
+            <h3
+              style="font-size: var(--text-sm); font-weight: 600; color: #ef4444; border-bottom: none; margin-bottom: 0; padding-bottom: 0; padding-top: 0;">
+              تفاصيل الإغلاق</h3>
+            <button id="reopenLeadBtn" class="btn-primary"
+              style="padding: 4px 10px; font-size: var(--text-xs); background-color: var(--accent-teal);"
+              onclick="reopenLead()">إعادة فتح العميل</button>
           </div>
           <div class="details-info-list">
             <div class="details-info-item">
@@ -3320,14 +3475,17 @@
 
           <!-- Inline quick add form -->
           <div class="inline-ticket-form" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-            <select id="inlineTicketType" class="input-field" style="width: auto; margin: 0; min-width: 110px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px;">
+            <select id="inlineTicketType" class="input-field"
+              style="width: auto; margin: 0; min-width: 110px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px;">
               <option value="call">📞 اتصال</option>
               <option value="whatsapp">💬 واتساب</option>
               <option value="email">📧 إيميل</option>
               <option value="proposal">📄 عرض سعر</option>
               <option value="meeting">🤝 اجتماع</option>
             </select>
-            <input type="text" id="inlineTicketTitle" class="input-field" placeholder="اكتب رد العميل أو تفاصيل المتابعة هنا... مثال: طلب مهلة لتأكيد العقد" style="flex: 1; margin: 0; min-width: 150px;">
+            <input type="text" id="inlineTicketTitle" class="input-field"
+              placeholder="اكتب رد العميل أو تفاصيل المتابعة هنا... مثال: طلب مهلة لتأكيد العقد"
+              style="flex: 1; margin: 0; min-width: 150px;">
             <button class="btn-primary" onclick="saveInlineTicket()" style="padding: 10px 16px; margin: 0;">
               <i data-lucide="send" style="width: 14px; height: 14px;"></i>
               <span>إرسال</span>
@@ -3357,42 +3515,51 @@
       <div class="modal-body" style="gap: 12px;">
         <input type="hidden" id="closingLeadId">
         <input type="hidden" id="closingOriginalColumn">
-        
+
         <div style="display: flex; flex-direction: column; gap: 10px;">
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
             <input type="radio" name="closingReason" value="price" onchange="onClosingReasonChange()"> 💰 السعر مرتفع
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-            <input type="radio" name="closingReason" value="budget" onchange="onClosingReasonChange()"> 📉 لا توجد ميزانية حالياً
+            <input type="radio" name="closingReason" value="budget" onchange="onClosingReasonChange()"> 📉 لا توجد
+            ميزانية حالياً
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-            <input type="radio" name="closingReason" value="competitor" onchange="onClosingReasonChange()"> 🏆 ذهب لمنافس
+            <input type="radio" name="closingReason" value="competitor" onchange="onClosingReasonChange()"> 🏆 ذهب
+            لمنافس
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-            <input type="radio" name="closingReason" value="no_response" onchange="onClosingReasonChange()"> 📵 انقطع التواصل
+            <input type="radio" name="closingReason" value="no_response" onchange="onClosingReasonChange()"> 📵 انقطع
+            التواصل
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-            <input type="radio" name="closingReason" value="postponed" onchange="onClosingReasonChange()"> ⏸️ تأجيل مفتوح بدون موعد
+            <input type="radio" name="closingReason" value="postponed" onchange="onClosingReasonChange()"> ⏸️ تأجيل
+            مفتوح بدون موعد
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-            <input type="radio" name="closingReason" value="internal" onchange="onClosingReasonChange()"> 🏢 قرار داخلي عند العميل
+            <input type="radio" name="closingReason" value="internal" onchange="onClosingReasonChange()"> 🏢 قرار داخلي
+            عند العميل
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-            <input type="radio" name="closingReason" value="scope" onchange="onClosingReasonChange()"> 📋 نطاق العمل لم يتناسب
+            <input type="radio" name="closingReason" value="scope" onchange="onClosingReasonChange()"> 📋 نطاق العمل لم
+            يتناسب
           </label>
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
             <input type="radio" name="closingReason" value="other" onchange="onClosingReasonChange()"> ✏️ أخرى
           </label>
         </div>
-        
+
         <div id="closingNoteGroup" class="form-group" style="display: none; margin-top: 10px;">
           <label for="closingNote">ملاحظة تفصيلية:</label>
           <textarea id="closingNote" class="input-field" placeholder="اكتب التفاصيل هنا..." rows="3"></textarea>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-icon" style="background-color: var(--bg-elevated); color: var(--text-secondary); padding: 10px 18px;" onclick="cancelClosingReason(null)">إلغاء</button>
-        <button id="confirmClosingBtn" class="btn-primary" style="background-color: #ef4444; color: white;" disabled onclick="confirmClosingReason()">تأكيد الإغلاق</button>
+        <button class="btn-icon"
+          style="background-color: var(--bg-elevated); color: var(--text-secondary); padding: 10px 18px;"
+          onclick="cancelClosingReason(null)">إلغاء</button>
+        <button id="confirmClosingBtn" class="btn-primary" style="background-color: #ef4444; color: white;" disabled
+          onclick="confirmClosingReason()">تأكيد الإغلاق</button>
       </div>
     </div>
   </div>
@@ -3569,7 +3736,7 @@
 
     function isLeadStale(lead) {
       if (!lead || lead.column === 'closed') return false;
-      
+
       let lastAct = lead.lastActivityAt;
       if (!lastAct) {
         if (lead.columnHistory && lead.columnHistory.length > 0) {
@@ -3585,7 +3752,7 @@
       if (!lastAct) {
         return true; // Treat as stale if no timestamp at all
       }
-      
+
       const daysLimit = lead.column === 'postponed' ? 30 : 7;
       const msLimit = daysLimit * 24 * 60 * 60 * 1000;
       return (Date.now() - lastAct) > msLimit;
@@ -3967,12 +4134,12 @@
       const phone = document.getElementById("leadPhone").value.trim();
       const totalDeal = parseFloat(document.getElementById("leadTotalDeal").value) || 0;
       let firstPayment = parseFloat(document.getElementById("leadFirstPayment").value) || 0;
-      
+
       // If totalDeal is set, firstPayment defaults to 50% of it if it was not entered
       if (totalDeal > 0 && firstPayment === 0) {
         firstPayment = totalDeal / 2;
       }
-      
+
       const meetingTitle = document.getElementById("leadMeetingTitle").value.trim();
       const meetingDateVal = document.getElementById("leadMeetingDate").value;
 
@@ -4096,12 +4263,12 @@
     function reopenLead() {
       const leadId = document.getElementById("deleteLeadBtn").getAttribute("data-lead-id");
       if (!leadId) return;
-      
+
       const lead = leadsData[leadId];
       if (!lead) return;
-      
+
       if (!confirm("هل أنت متأكد من إعادة فتح هذا العميل ونقله إلى عمود 'جديد'؟")) return;
-      
+
       const history = lead.columnHistory || [];
       const userStr = currentUser ? (currentUser.displayName || currentUser.email) : "غير معروف";
       history.push({
@@ -4109,7 +4276,7 @@
         timestamp: Date.now(),
         movedBy: `إعادة فتح بواسطة ${userStr}`
       });
-      
+
       db.ref(`${getLeadsPath()}/${leadId}`).update({
         column: "new",
         columnHistory: history,
@@ -4151,7 +4318,7 @@
     function toggleAnalytics() {
       const section = document.getElementById("analyticsSection");
       const btn = document.getElementById("toggleAnalyticsBtn");
-      
+
       if (section.style.display === "none") {
         section.style.display = "flex";
         btn.classList.add("active");
@@ -4174,33 +4341,33 @@
       });
 
       const maxCount = Math.max(...Object.values(counts), 1);
-      
+
       const width = 600;
       const height = 180;
       const padding = 30;
       const chartWidth = width - padding * 2;
       const chartHeight = height - padding * 2;
-      
+
       const barWidth = 45;
       const barSpacing = (chartWidth - barWidth * COLUMNS.length) / (COLUMNS.length - 1);
-      
+
       let barsHtml = "";
       let labelsHtml = "";
       let yAxisHtml = "";
-      
+
       for (let i = 0; i <= 3; i++) {
         const yVal = padding + (chartHeight / 3) * i;
         const countLabel = Math.round(maxCount - (maxCount / 3) * i);
         barsHtml += `<line x1="${padding}" y1="${yVal}" x2="${width - padding}" y2="${yVal}" stroke="var(--border-subtle)" stroke-width="1" stroke-dasharray="4" />`;
         yAxisHtml += `<text x="${padding - 8}" y="${yVal + 4}" fill="var(--text-secondary)" font-size="9" text-anchor="end" font-weight="500">${countLabel}</text>`;
       }
-      
+
       COLUMNS.forEach((col, idx) => {
         const count = counts[col.id] || 0;
         const barHeight = (count / maxCount) * chartHeight;
         const x = padding + idx * (barWidth + barSpacing);
         const y = height - padding - barHeight;
-        
+
         barsHtml += `
           <g>
             <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="4" fill="${col.color}" class="chart-bar" title="${col.name}: ${count}">
@@ -4210,10 +4377,10 @@
             <text x="${x + barWidth / 2}" y="${y - 6}" fill="var(--text-primary)" font-size="10" font-weight="600" text-anchor="middle">${count}</text>
           </g>
         `;
-        
+
         labelsHtml += `<text x="${x + barWidth / 2}" y="${height - padding + 16}" fill="var(--text-secondary)" font-size="10" font-weight="500" text-anchor="middle">${col.name}</text>`;
       });
-      
+
       container.innerHTML = `
         <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="direction: ltr;">
           ${barsHtml}
@@ -4243,7 +4410,7 @@
 
         const isMeetingsColumn = col.id === "new";
         let colLeads = [];
-        
+
         if (isMeetingsColumn) {
           // Fetch leads in 'new' stage that are meetings for the current month
           colLeads = Object.values(leadsData).filter(l => {
@@ -4264,7 +4431,7 @@
             });
           }
         }
-        
+
         const sortType = localStorage.getItem(`columnSort_${col.id}`) || 'newest';
         const sortLabels = isMeetingsColumn ? {
           newest: "الأحدث أولاً",
@@ -4366,11 +4533,11 @@
           colLeads.forEach((item) => {
             const card = document.createElement("div");
             const lead = item;
-              card.className = "lead-card";
-              card.draggable = window.innerWidth >= 768; // Only draggable on desktop
-              card.id = `card-${lead.id}`;
-              card.ondragstart = (e) => dragStart(e, lead.id);
-              card.ondragend = (e) => dragEnd(e);
+            card.className = "lead-card";
+            card.draggable = window.innerWidth >= 768; // Only draggable on desktop
+            card.id = `card-${lead.id}`;
+            card.ondragstart = (e) => dragStart(e, lead.id);
+            card.ondragend = (e) => dragEnd(e);
 
             const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(val);
             const openTickets = lead.openTicketsCount || 0;
@@ -4464,9 +4631,9 @@
                   <div class="lead-meeting">
                     <i data-lucide="calendar" style="width: 12px; height: 12px;"></i>
                     <span>${(() => {
-                      const d = new Date(lead.meetingDate);
-                      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getDate()}`;
-                    })()}</span>
+                  const d = new Date(lead.meetingDate);
+                  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getDate()}`;
+                })()}</span>
                   </div>
                 ` : ''}
               </div>
@@ -4520,22 +4687,22 @@
     function updateColumnStats() {
       COLUMNS.forEach(col => {
         let colLeads = Object.values(leadsData).filter(l => l.column === col.id) || [];
-        
+
         const totalFirstPayment = colLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
         const totalTotalDeal = colLeads.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
-        
+
         const formatStat = (val) => {
           if (val === 0) return "—";
           return new Intl.NumberFormat('en-US').format(val) + " ر.س.";
         };
-        
+
         const statsEl = document.getElementById(`stats-${col.id}`);
         if (statsEl) {
           const hasData = totalFirstPayment > 0 || totalTotalDeal > 0;
           statsEl.innerHTML = hasData ? `
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
               <div style="flex: 1; min-width: 0; background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(56,189,248,0.02)); border: 1px solid rgba(56,189,248,0.2); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 1px;">
-                <span style="font-size: 10px; color: var(--accent-blue); font-weight: 600; letter-spacing: 0.02em;">دفعات أولى</span>
+                <span style="font-size: 10px; color: var(--accent-blue); font-weight: 600; letter-spacing: 0.02em;">دفعة أولى</span>
                 <span style="font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatStat(totalFirstPayment)}</span>
               </div>
               <div style="flex: 1; min-width: 0; background: linear-gradient(135deg, rgba(20,184,166,0.08), rgba(20,184,166,0.02)); border: 1px solid rgba(20,184,166,0.2); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 1px;">
@@ -4564,13 +4731,13 @@
     function triggerClosingReasonModal(leadId, origCol) {
       document.getElementById("closingLeadId").value = leadId;
       document.getElementById("closingOriginalColumn").value = origCol;
-      
+
       const radios = document.getElementsByName("closingReason");
       radios.forEach(r => r.checked = false);
       document.getElementById("closingNote").value = "";
       document.getElementById("closingNoteGroup").style.display = "none";
       document.getElementById("confirmClosingBtn").disabled = true;
-      
+
       openModal("closingReasonModal");
     }
 
@@ -4592,43 +4759,43 @@
           val = r.value;
         }
       });
-      
+
       const noteGroup = document.getElementById("closingNoteGroup");
       if (val === "other") {
         noteGroup.style.display = "flex";
       } else {
         noteGroup.style.display = "none";
       }
-      
+
       document.getElementById("confirmClosingBtn").disabled = !selected;
     }
 
     function confirmClosingReason() {
       const leadId = document.getElementById("closingLeadId").value;
       const originalCol = document.getElementById("closingOriginalColumn").value;
-      
+
       const radios = document.getElementsByName("closingReason");
       let reason = "";
       radios.forEach(r => {
         if (r.checked) reason = r.value;
       });
-      
+
       const note = document.getElementById("closingNote").value.trim();
-      
+
       if (!reason) return;
-      
+
       const lead = leadsData[leadId];
       if (!lead) return;
-      
+
       const history = lead.columnHistory || [];
       history.push({
         column: "closed",
         timestamp: Date.now(),
         movedBy: currentUser ? currentUser.email : "غير معروف"
       });
-      
+
       const closedBy = currentUser ? (currentUser.displayName || currentUser.email) : "غير معروف";
-      
+
       db.ref(`${getLeadsPath()}/${leadId}`).update({
         column: "closed",
         columnHistory: history,
@@ -4728,7 +4895,7 @@
       const rect = container.getBoundingClientRect();
       const x = e.clientX;
       const y = e.clientY;
-      
+
       if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
         container.classList.remove("drag-target");
         const placeholder = container.querySelector(".drag-placeholder");
@@ -4742,7 +4909,7 @@
       container.classList.remove("drag-target");
       const placeholder = container.querySelector(".drag-placeholder");
       if (placeholder) placeholder.remove();
-      
+
       document.querySelectorAll(".drag-placeholder").forEach(el => el.remove());
 
       const newColumn = container.getAttribute("data-column-id");
@@ -4891,7 +5058,7 @@
       });
     }
 
-    window.deleteTicketItem = function(ticketId, event) {
+    window.deleteTicketItem = function (ticketId, event) {
       if (event) event.stopPropagation();
       if (!confirm('هل تريد حذف هذه المتابعة؟')) return;
       db.ref(`${getTicketsPath()}/${ticketId}`).remove().then(() => {
@@ -4901,7 +5068,7 @@
       }).catch(err => showToast('فشل الحذف: ' + err.message, 'error'));
     };
 
-    window.editTicketItem = function(ticketId, event) {
+    window.editTicketItem = function (ticketId, event) {
       if (event) event.stopPropagation();
       const itemEl = document.getElementById(`ticket-item-${ticketId}`);
       if (!itemEl) return;
@@ -4916,7 +5083,7 @@
       const editArea = document.createElement('div');
       editArea.className = 'ticket-edit-area';
       editArea.innerHTML = `
-        <input type="text" class="input-field" value="${ticket.title.replace(/"/g,'&quot;')}" id="edit-input-${ticketId}" style="margin:0; font-size: var(--text-sm);">
+        <input type="text" class="input-field" value="${ticket.title.replace(/"/g, '&quot;')}" id="edit-input-${ticketId}" style="margin:0; font-size: var(--text-sm);">
         <div style="display:flex; gap:6px; justify-content:flex-end;">
           <button class="btn-primary" style="padding:5px 12px; font-size:11px;" onclick="saveTicketEdit('${ticketId}')">حفظ</button>
           <button class="btn-primary" style="padding:5px 12px; font-size:11px; background:var(--bg-elevated); color:var(--text-primary);" onclick="this.closest('.ticket-edit-area').remove()">إلغاء</button>
@@ -4926,7 +5093,7 @@
       document.getElementById(`edit-input-${ticketId}`).focus();
     };
 
-    window.saveTicketEdit = function(ticketId) {
+    window.saveTicketEdit = function (ticketId) {
       const input = document.getElementById(`edit-input-${ticketId}`);
       if (!input) return;
       const newTitle = input.value.trim();
@@ -5055,38 +5222,38 @@
       // Returns YYYY-MM-DD in local AST (+03:00)
       const d = date || new Date();
       const offset = 3 * 60 * 60 * 1000;
-      const local  = new Date(d.getTime() + offset);
+      const local = new Date(d.getTime() + offset);
       const yyyy = local.getUTCFullYear();
-      const mm   = String(local.getUTCMonth() + 1).padStart(2, '0');
-      const dd   = String(local.getUTCDate()).padStart(2, '0');
+      const mm = String(local.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(local.getUTCDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
     }
 
     function getMeetingTimeStatus(startTime, endTime) {
-      const now   = new Date();
+      const now = new Date();
       const start = new Date(startTime);
-      const end   = endTime ? new Date(endTime) : new Date(start.getTime() + 60 * 60 * 1000);
+      const end = endTime ? new Date(endTime) : new Date(start.getTime() + 60 * 60 * 1000);
       if (now < start) return 'upcoming';
-      if (now > end)   return 'completed';
+      if (now > end) return 'completed';
       return 'ongoing';
     }
 
     function getSalesRepBadgeClass(rep) {
       if (!rep) return 'rep-none';
-      if (rep === 'م.حسام')  return 'rep-hosam';
+      if (rep === 'م.حسام') return 'rep-hosam';
       if (rep === 'م.أشرف') return 'rep-ashraf';
-      if (rep === 'م.شادي')  return 'rep-shady';
+      if (rep === 'م.شادي') return 'rep-shady';
       if (rep === 'م.اشرف') return 'rep-mujahid';
       return 'rep-none';
     }
 
     function arDayName(date) {
-      const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+      const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
       return days[date.getDay()];
     }
 
     function arMonthName(date) {
-      const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+      const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
       return months[date.getMonth()];
     }
 
@@ -5118,10 +5285,10 @@
 
       // Update header
       const titleEl = document.getElementById('meetingsDayTitle');
-      const subEl   = document.getElementById('meetingsDaySub');
+      const subEl = document.getElementById('meetingsDaySub');
       const monthBadge = document.getElementById('calendarMonthBadge');
-      const dayBadge   = document.getElementById('calendarDayBadge');
-      
+      const dayBadge = document.getElementById('calendarDayBadge');
+
       if (monthBadge) monthBadge.textContent = arMonthName(meetingsCurrentDate);
       if (dayBadge) dayBadge.textContent = meetingsCurrentDate.getDate();
 
@@ -5200,18 +5367,18 @@
     function updateMeetingsProgress() {
       const rows = document.querySelectorAll('.meeting-row[data-event-id]');
       const total = rows.length;
-      let done  = 0;
+      let done = 0;
       rows.forEach(row => {
         const eid = row.dataset.eventId;
         if ((meetingStatuses[eid] || {}).status === 'done') done++;
       });
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
       const fillEl = document.getElementById('meetingsProgressFill');
-      const lblEl  = document.getElementById('meetingsProgressLabel');
-      const pctEl  = document.getElementById('meetingsProgressPct');
+      const lblEl = document.getElementById('meetingsProgressLabel');
+      const pctEl = document.getElementById('meetingsProgressPct');
       if (fillEl) fillEl.style.width = `${pct}%`;
-      if (lblEl)  lblEl.textContent  = `${done} من ${total} اجتماعات مكتملة`;
-      if (pctEl)  pctEl.textContent  = `${pct}%`;
+      if (lblEl) lblEl.textContent = `${done} من ${total} اجتماعات مكتملة`;
+      if (pctEl) pctEl.textContent = `${pct}%`;
     }
 
     async function fetchMonthlyMeetings() {
@@ -5252,11 +5419,11 @@
         for (const event of events) {
           const duplicate = Object.values(leadsData).some(l => l.googleEventId === event.id);
           if (duplicate) continue;
-          
+
           // --- Filter events so employees only see their own clients on the board ---
           const userEmail = currentUser.email.toLowerCase();
           const mySalesRepName = SALES_REP_EMAILS[userEmail];
-          
+
           if (mySalesRepName && event.salesRep !== mySalesRepName) {
             continue; // This event belongs to a different sales rep
           } else if (!mySalesRepName) {
@@ -5316,10 +5483,10 @@
 
       try {
         const leadsToClear = Object.values(leadsData).filter(l => l.column === 'new' && l.googleEventId);
-        
+
         for (const lead of leadsToClear) {
           await db.ref(`${getLeadsPath()}/${lead.id}`).remove();
-          
+
           const assocTickets = Object.values(ticketsData).filter(t => t.leadId === lead.id);
           for (const ticket of assocTickets) {
             await db.ref(`${getTicketsPath()}/${ticket.id}`).remove();
@@ -5495,70 +5662,290 @@
 
       setTimeout(() => {
         try {
-          const headers = [];
-          if (document.getElementById("fieldSlackCode").checked) headers.push("كود Slack");
-          if (document.getElementById("fieldFullName").checked) headers.push("الاسم الكامل");
-          if (document.getElementById("fieldPhone").checked) headers.push("رقم الجوال");
+          // Define all possible columns and check checkboxes
+          const activeCols = [];
 
-          let hasFinancials = false;
-          let firstPaymentColIdx = -1;
-          let totalDealColIdx = -1;
-          if (document.getElementById("fieldFinancials").checked) {
-            hasFinancials = true;
-            headers.push("الدفعة الأولى");
-            firstPaymentColIdx = headers.length - 1;
-            headers.push("إجمالي الصفقة");
-            totalDealColIdx = headers.length - 1;
+          if (document.getElementById("fieldSlackCode").checked) {
+            activeCols.push({
+              header: "كود Slack",
+              key: "slackCode",
+              width: 14,
+              align: "center",
+              type: "s",
+              getValue: (lead) => lead.slackCode || ""
+            });
           }
-          if (document.getElementById("fieldMeeting").checked) headers.push("موعد الاجتماع");
-          if (document.getElementById("fieldColumn").checked) headers.push("المرحلة");
+          if (document.getElementById("fieldFullName").checked) {
+            activeCols.push({
+              header: "الاسم الكامل",
+              key: "fullName",
+              width: 28,
+              align: "right",
+              type: "s",
+              getValue: (lead) => lead.clientName || lead.fullName || ""
+            });
+          }
+          if (document.getElementById("fieldPhone").checked) {
+            activeCols.push({
+              header: "رقم الجوال",
+              key: "phone",
+              width: 18,
+              align: "center",
+              type: "s", // Treat as string to preserve leading zeros
+              getValue: (lead) => lead.phone || ""
+            });
+          }
+          if (document.getElementById("fieldColumn").checked) {
+            activeCols.push({
+              header: "المرحلة",
+              key: "column",
+              width: 18,
+              align: "right",
+              type: "s",
+              getValue: (lead) => COLUMN_TRANSLATIONS[lead.column] || lead.column || ""
+            });
+          }
+          if (document.getElementById("fieldMeeting").checked) {
+            activeCols.push({
+              header: "موعد الاجتماع",
+              key: "meetingDate",
+              width: 16,
+              align: "center",
+              type: "s",
+              getValue: (lead) => {
+                if (!lead.meetingDate) return "";
+                const d = new Date(lead.meetingDate);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
+              }
+            });
+          }
+          if (document.getElementById("fieldFinancials").checked) {
+            activeCols.push({
+              header: "إجمالي الصفقة",
+              key: "totalDeal",
+              width: 18,
+              align: "right",
+              type: "n",
+              numFmt: '#,##0" ر.س"',
+              getValue: (lead) => lead.totalDeal || 0
+            });
+            activeCols.push({
+              header: "الدفعة الأولى",
+              key: "firstPayment",
+              width: 16,
+              align: "right",
+              type: "n",
+              numFmt: '#,##0" ر.س"',
+              getValue: (lead) => lead.firstPayment || 0
+            });
+          }
 
-          const data = [headers];
+          // Optional source and notes columns based on data presence
+          const hasSourceData = filteredLeads.some(l => l.meetingTitle);
+          const hasNotesData = filteredLeads.some(l => l.projectName || l.closingNote || l.closingReason);
 
-          filteredLeads.forEach(lead => {
-            const row = [];
-            if (document.getElementById("fieldSlackCode").checked) row.push(lead.slackCode || "");
-            if (document.getElementById("fieldFullName").checked) row.push(lead.fullName || "");
-            if (document.getElementById("fieldPhone").checked) row.push(lead.phone || "");
-            if (document.getElementById("fieldFinancials").checked) {
-              row.push(lead.firstPayment || 0);
-              row.push(lead.totalDeal || 0);
+          if (hasSourceData) {
+            activeCols.push({
+              header: "المصدر",
+              key: "meetingTitle",
+              width: 28,
+              align: "right",
+              type: "s",
+              getValue: (lead) => lead.meetingTitle || ""
+            });
+          }
+          if (hasNotesData) {
+            activeCols.push({
+              header: "ملاحظات",
+              key: "notes",
+              width: 35,
+              align: "right",
+              type: "s",
+              getValue: (lead) => {
+                let noteParts = [];
+                if (lead.projectName) noteParts.push(lead.projectName);
+                if (lead.closingReason) {
+                  const reasonLabels = {
+                    price: "💰 السعر مرتفع",
+                    budget: "📉 لا توجد ميزانية حالياً",
+                    competitor: "🏆 ذهب لمنافس",
+                    no_response: "📵 انقطع التواصل",
+                    postponed: "⏸️ تأجيل مفتوح بدون موعد",
+                    internal: "🏢 قرار داخلي عند العميل",
+                    scope: "📋 نطاق العمل لم يتناسب",
+                    other: "✏️ أخرى"
+                  };
+                  noteParts.push(`سبب الإغلاق: ${reasonLabels[lead.closingReason] || lead.closingReason}`);
+                }
+                if (lead.closingNote) noteParts.push(`ملاحظة الإغلاق: ${lead.closingNote}`);
+                return noteParts.join(" | ");
+              }
+            });
+          }
+
+          const ws = {};
+          let currentRow = 0;
+
+          // Helper function to insert styled cells
+          const setCell = (r, c, val, type, alignHorizontal = 'right', isHeader = false, isAlternate = false, customNumFmt = null, isBold = false) => {
+            const fontColor = isHeader ? "FFFFFF" : "0F172A";
+            // Deep Indigo header (0F172A), Zebra stripes (F8FAFC)
+            const bgColor = isHeader ? "0F172A" : (isAlternate ? "F8FAFC" : "FFFFFF");
+            const fontSize = isHeader ? 11 : 10;
+
+            const borderStyle = { style: "thin", color: { rgb: isHeader ? "475569" : "E2E8F0" } };
+
+            const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
+            ws[cellRef] = {
+              v: val,
+              t: type,
+              s: {
+                font: {
+                  name: "IBM Plex Sans Arabic",
+                  sz: fontSize,
+                  bold: isHeader || isBold,
+                  color: { rgb: fontColor }
+                },
+                fill: {
+                  fgColor: { rgb: bgColor }
+                },
+                alignment: {
+                  horizontal: alignHorizontal,
+                  vertical: "center",
+                  wrapText: true
+                },
+                border: {
+                  top: borderStyle,
+                  bottom: borderStyle,
+                  left: borderStyle,
+                  right: borderStyle
+                }
+              }
+            };
+            if (customNumFmt !== null && customNumFmt !== undefined) {
+              ws[cellRef].z = customNumFmt;
             }
-            if (document.getElementById("fieldMeeting").checked) {
-              row.push(lead.meetingDate ? new Date(lead.meetingDate).toLocaleString('en-US') : "");
-            }
-            if (document.getElementById("fieldColumn").checked) {
-              row.push(COLUMN_TRANSLATIONS[lead.column] || lead.column);
-            }
-            data.push(row);
+          };
+
+          const maxCols = activeCols.length;
+
+          // 1. Report Title Row
+          const titleText = "تقرير العملاء المحتملين - لوحة تحكم إدارة العملاء";
+          ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(3, maxCols - 1) } }
+          ];
+          for (let c = 0; c <= Math.max(3, maxCols - 1); c++) {
+            setCell(0, c, c === 0 ? titleText : "", "s", "center", true);
+            const cellRef = XLSX.utils.encode_cell({ r: 0, c: c });
+            ws[cellRef].s.font.sz = 14;
+            ws[cellRef].s.font.bold = true;
+          }
+          currentRow++;
+
+          // 2. Summary Info (Row 2: Date & Total Count)
+          const exportDateStr = (() => {
+            const d = new Date();
+            return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          })();
+
+          setCell(currentRow, 0, "تاريخ التصدير", "s", "right", false, false, null, true);
+          ws[XLSX.utils.encode_cell({ r: currentRow, c: 0 })].s.fill.fgColor.rgb = "F1F5F9";
+          setCell(currentRow, 1, exportDateStr, "s", "right", false, false);
+
+          setCell(currentRow, 2, "عدد العملاء", "s", "right", false, false, null, true);
+          ws[XLSX.utils.encode_cell({ r: currentRow, c: 2 })].s.fill.fgColor.rgb = "F1F5F9";
+          setCell(currentRow, 3, filteredLeads.length, "n", "right", false, false);
+
+          for (let c = 4; c < maxCols; c++) {
+            setCell(currentRow, c, "", "s", "right", false, false);
+          }
+          currentRow++;
+
+          // 3. Summary Info (Row 3: Total Deals & Total First Payments)
+          const totalDealSum = filteredLeads.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
+          const totalFirstPaymentSum = filteredLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
+
+          setCell(currentRow, 0, "إجمالي قيمة الصفقات", "s", "right", false, false, null, true);
+          ws[XLSX.utils.encode_cell({ r: currentRow, c: 0 })].s.fill.fgColor.rgb = "F1F5F9";
+          setCell(currentRow, 1, totalDealSum, "n", "right", false, false, '#,##0" ر.س"');
+
+          setCell(currentRow, 2, "إجمالي الدفعات الأولى", "s", "right", false, false, null, true);
+          ws[XLSX.utils.encode_cell({ r: currentRow, c: 2 })].s.fill.fgColor.rgb = "F1F5F9";
+          setCell(currentRow, 3, totalFirstPaymentSum, "n", "right", false, false, '#,##0" ر.س"');
+
+          for (let c = 4; c < maxCols; c++) {
+            setCell(currentRow, c, "", "s", "right", false, false);
+          }
+          currentRow++;
+
+          // 4. Spacer Row
+          for (let c = 0; c < maxCols; c++) {
+            setCell(currentRow, c, "", "s", "right", false, false);
+            const cellRef = XLSX.utils.encode_cell({ r: currentRow, c: c });
+            ws[cellRef].s.border = { top: {}, bottom: {}, left: {}, right: {} };
+          }
+          currentRow++;
+
+          // 5. Table Headers Row
+          activeCols.forEach((col, cIdx) => {
+            setCell(currentRow, cIdx, col.header, "s", "center", true);
+          });
+          const headerRowIdx = currentRow;
+          currentRow++;
+
+          // 6. Data Rows
+          filteredLeads.forEach((lead, rIdx) => {
+            const isAlternate = rIdx % 2 === 1;
+            activeCols.forEach((col, cIdx) => {
+              const val = col.getValue(lead);
+              setCell(currentRow, cIdx, val, col.type, col.align, false, isAlternate, col.numFmt);
+            });
+            currentRow++;
           });
 
-          const wb = XLSX.utils.book_new();
-          const ws = XLSX.utils.aoa_to_sheet(data);
+          // Metadata definitions
+          ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: maxCols - 1, r: currentRow - 1 } });
+          ws['!cols'] = activeCols.map(col => ({ wch: col.width }));
 
-          if (hasFinancials) {
-            const range = XLSX.utils.decode_range(ws['!ref']);
-            for (let r = range.s.r + 1; r <= range.e.r; ++r) {
-              if (firstPaymentColIdx !== -1) {
-                const cellRef1 = XLSX.utils.encode_cell({ r: r, c: firstPaymentColIdx });
-                if (ws[cellRef1]) {
-                  ws[cellRef1].t = 'n';
-                  ws[cellRef1].z = '#,##0" ر.س"';
-                }
-              }
-              if (totalDealColIdx !== -1) {
-                const cellRef2 = XLSX.utils.encode_cell({ r: r, c: totalDealColIdx });
-                if (ws[cellRef2]) {
-                  ws[cellRef2].t = 'n';
-                  ws[cellRef2].z = '#,##0" ر.س"';
-                }
-              }
-            }
+          // Row Heights
+          ws['!rows'] = [];
+          ws['!rows'][0] = { hpt: 35 }; // Title
+          ws['!rows'][1] = { hpt: 20 }; // Summary 1
+          ws['!rows'][2] = { hpt: 20 }; // Summary 2
+          ws['!rows'][3] = { hpt: 15 }; // Spacer
+          ws['!rows'][headerRowIdx] = { hpt: 28 }; // Headers
+          for (let r = headerRowIdx + 1; r < currentRow; r++) {
+            ws['!rows'][r] = { hpt: 22 };
           }
 
-          ws['!views'] = [{ RTL: true }];
+          // AutoFilter
+          ws['!autofilter'] = {
+            ref: XLSX.utils.encode_range({
+              s: { c: 0, r: headerRowIdx },
+              e: { c: maxCols - 1, r: currentRow - 1 }
+            })
+          };
 
-          XLSX.utils.book_append_sheet(wb, ws, "العملاء المحتملين");
+          // Views (Freeze Header + Right-to-Left)
+          ws['!views'] = [{
+            RTL: true,
+            state: "frozen",
+            xSplit: 0,
+            ySplit: headerRowIdx + 1,
+            topLeftCell: XLSX.utils.encode_cell({ r: headerRowIdx + 1, c: 0 }),
+            activePane: "bottomLeft"
+          }];
+
+          const wb = XLSX.utils.book_new();
+          if (!wb.Workbook) wb.Workbook = {};
+          wb.Workbook.Views = [{ RTL: true }];
+
+          XLSX.utils.book_append_sheet(wb, ws, "تقرير العملاء");
           XLSX.writeFile(wb, `leads-export-${new Date().toISOString().split('T')[0]}.xlsx`);
 
           showToast(`تم تصدير ${filteredLeads.length} عملاء بنجاح لـ Excel`, "success");
@@ -5599,7 +5986,7 @@
 
       const totalDealSum = filteredLeadsArr.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
       const signedDealSum = filteredLeadsArr.filter(l => l.column === "signed").reduce((sum, l) => sum + (l.totalDeal || 0), 0);
-      
+
       // Determine what month we are displaying
       let monthStartTimestamp = 0;
       let monthLabelText = "الشهر";
@@ -5613,13 +6000,13 @@
         monthStartTimestamp = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         monthLabelText = now.toLocaleDateString('ar-SA', { month: 'long' });
       }
-      
+
       // Calculate monthly aggregates (filteredLeadsArr is already filtered if month is selected)
       const monthlyLeads = leadsArr.filter(l => {
         const itemTime = l.updatedAt || l.createdAt || 0;
         return itemTime >= monthStartTimestamp;
       });
-      
+
       const monthlyDealSum = monthlyLeads.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
       const monthlyFirstPaymentSum = monthlyLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
 
@@ -5631,7 +6018,7 @@
       const card = document.createElement("div");
       card.className = "kpi-card";
       card.style.gridColumn = "span 3";
-      
+
       card.innerHTML = `
         <div class="kpi-header" style="width: 100%;">
           <span style="font-weight: 600; font-size: var(--text-base);">إجمالي الدفع الأولى للشهر الحالي</span>
@@ -5884,13 +6271,13 @@
       if (!container) return;
 
       let meetings = dailyMeetings || [];
-      
+
       // Filter for current employee meetings
       if (currentMeetingsTabFilter === 'mine' && currentUser) {
         const userEmail = (currentUser.email || '').toLowerCase();
         const userName = (currentUser.displayName || '').toLowerCase();
         const mySalesRepName = (SALES_REP_EMAILS[userEmail] || '').toLowerCase();
-        
+
         meetings = meetings.filter(m => {
           const salesRep = (m.salesRep || '').toLowerCase();
           const isUserRep = mySalesRepName && salesRep.includes(mySalesRepName);
@@ -5903,14 +6290,14 @@
       // ── KPI Cards ──
       const kpiRow = document.getElementById('meetingsKpiRow');
       if (kpiRow) {
-        const online   = meetings.filter(m => (m.meetingType || '').includes('أون') || m.meetLink).length;
-        const offline  = meetings.filter(m => (m.meetingType || '').includes('حضوري')).length;
+        const online = meetings.filter(m => (m.meetingType || '').includes('أون') || m.meetLink).length;
+        const offline = meetings.filter(m => (m.meetingType || '').includes('حضوري')).length;
         const statusDone = meetings.filter(m => (meetingStatuses[m.id] || {}).status === 'done').length;
         kpiRow.innerHTML = [
-          { icon: '🗓️', value: meetings.length,  label: 'إجمالي الاجتماعات' },
-          { icon: '💻', value: online,            label: 'أون لاين' },
-          { icon: '🏢', value: offline,           label: 'حضوري' },
-          { icon: '✅', value: statusDone,        label: 'مكتملة' },
+          { icon: '🗓️', value: meetings.length, label: 'إجمالي الاجتماعات' },
+          { icon: '💻', value: online, label: 'أون لاين' },
+          { icon: '🏢', value: offline, label: 'حضوري' },
+          { icon: '✅', value: statusDone, label: 'مكتملة' },
         ].map(k => `
           <div class="meetings-kpi-card">
             <div class="kpi-card-icon">${k.icon}</div>
@@ -5934,15 +6321,15 @@
       const listHtml = sorted.map((m, idx) => {
         const timeStatus = getMeetingTimeStatus(m.startTime, m.endTime);
         const start = new Date(m.startTime);
-        const end   = m.endTime ? new Date(m.endTime) : null;
+        const end = m.endTime ? new Date(m.endTime) : null;
         const timeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-        const endStr  = end ? end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+        const endStr = end ? end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
         const typeClass = (m.meetingType || '').includes('حضوري') ? 'offline' : 'online';
         const typeLabel = (m.meetingType && m.meetingType !== 'أون لاين') ? m.meetingType : 'أون لاين';
 
-        const repClass  = getSalesRepBadgeClass(m.salesRep);
-        const repLabel  = m.salesRep || 'بدون تابع';
+        const repClass = getSalesRepBadgeClass(m.salesRep);
+        const repLabel = m.salesRep || 'بدون تابع';
 
         const eventStatus = (meetingStatuses[m.id] || {}).status || 'pending';
 
@@ -5976,9 +6363,9 @@
               
               <div>
                 ${['حضوري', 'خارجي'].includes(m.meetingType)
-                  ? `<span class="no-link-badge" style="background:rgba(245,158,11,0.08); color:#d97706; padding:5px 10px; border-radius:6px; font-weight:700; font-size:11px;">🏢 اجتماع حضوري</span>`
-                  : (m.meetLink ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضمام للمكالمة</a>` : `<span class="no-link-badge">أون لاين (بدون رابط)</span>`)
-                }
+            ? `<span class="no-link-badge" style="background:rgba(245,158,11,0.08); color:#d97706; padding:5px 10px; border-radius:6px; font-weight:700; font-size:11px;">🏢 اجتماع حضوري</span>`
+            : (m.meetLink ? `<a href="${m.meetLink}" target="_blank" class="join-meet-btn">🎥 انضمام للمكالمة</a>` : `<span class="no-link-badge">أون لاين (بدون رابط)</span>`)
+          }
               </div>
               
               <select
@@ -6031,32 +6418,32 @@
     }
 
     // Inline Editing handler
-    document.getElementById("kanbanBoard").addEventListener("click", function(e) {
+    document.getElementById("kanbanBoard").addEventListener("click", function (e) {
       const target = e.target.closest(".inline-editable");
       if (!target) return;
-      
+
       e.stopPropagation(); // prevent viewing lead details modal
-      
+
       // If already editing, do nothing
       if (target.querySelector("input")) return;
-      
+
       const leadId = target.getAttribute("data-lead-id");
       const field = target.getAttribute("data-field");
       const lead = leadsData[leadId];
       if (!lead) return;
-      
+
       const card = document.getElementById(`card-${leadId}`);
       if (card) card.draggable = false; // Disable drag temporarily
-      
+
       let rawVal = "";
       if (field === 'clientName') rawVal = lead.clientName || lead.fullName || "";
       else if (field === 'projectName') rawVal = lead.projectName || "";
       else if (field === 'phone') rawVal = lead.phone || "";
       else if (field === 'firstPayment') rawVal = lead.firstPayment || 0;
       else if (field === 'totalDeal') rawVal = lead.totalDeal || 0;
-      
+
       const originalHTML = target.innerHTML;
-      
+
       const input = document.createElement("input");
       input.className = "input-field";
       input.style.width = "100%";
@@ -6068,7 +6455,7 @@
       input.style.backgroundColor = "var(--bg-elevated)";
       input.style.border = "1px solid var(--accent-blue)";
       input.style.borderRadius = "4px";
-      
+
       if (field === 'firstPayment' || field === 'totalDeal') {
         input.type = "number";
         input.value = rawVal;
@@ -6079,45 +6466,45 @@
         input.type = "text";
         input.value = rawVal;
       }
-      
+
       target.innerHTML = "";
       target.appendChild(input);
       input.focus();
-      
+
       let resolved = false;
-      
+
       function finishEdit(save) {
         if (resolved) return;
         resolved = true;
-        
+
         if (card) card.draggable = window.innerWidth >= 768; // restore drag
-        
+
         if (!save) {
           target.innerHTML = originalHTML;
           lucide.createIcons();
           return;
         }
-        
+
         let newVal = input.value.trim();
         if (field === 'firstPayment' || field === 'totalDeal') {
           newVal = parseFloat(newVal) || 0;
         }
-        
+
         if (newVal === rawVal) {
           target.innerHTML = originalHTML;
           lucide.createIcons();
           return;
         }
-        
+
         if ((field === 'clientName' || field === 'projectName') && !newVal) {
           showToast("الاسم لا يمكن أن يكون فارغاً", "warning");
           target.innerHTML = originalHTML;
           lucide.createIcons();
           return;
         }
-        
+
         target.innerHTML = `<span style="font-size: 11px; opacity: 0.6;">جاري الحفظ...</span>`;
-        
+
         const updates = {};
         updates[field] = newVal;
         updates.lastActivityAt = Date.now();
@@ -6125,7 +6512,7 @@
         if (field === 'clientName') {
           updates.fullName = newVal; // Fallback
         }
-        
+
         db.ref(`${getLeadsPath()}/${leadId}`).update(updates).then(() => {
           showToast("تم تحديث الحقل بنجاح", "success");
           if (field === 'totalDeal' && newVal > 0) {
@@ -6137,16 +6524,16 @@
           lucide.createIcons();
         });
       }
-      
-      input.addEventListener("keydown", function(e) {
+
+      input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           finishEdit(true);
         } else if (e.key === "Escape") {
           finishEdit(false);
         }
       });
-      
-      input.addEventListener("blur", function() {
+
+      input.addEventListener("blur", function () {
         finishEdit(true);
       });
     });
@@ -6157,10 +6544,10 @@
     function getReportFilteredLeads() {
       const filterVal = document.getElementById("reportTimeFilter")?.value || "all";
       const now = new Date();
-      
+
       let fromTime = 0;
       let toTime = Infinity;
-      
+
       if (filterVal === 'month') {
         fromTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
       } else if (filterVal === 'last_month') {
@@ -6169,7 +6556,7 @@
       } else if (filterVal === '3months') {
         fromTime = now.getTime() - 90 * 24 * 60 * 60 * 1000;
       }
-      
+
       return Object.values(leadsData).filter(lead => {
         const created = lead.createdAt || 0;
         return created >= fromTime && created <= toTime;
@@ -6179,21 +6566,21 @@
     function renderPipelineOverview(leads) {
       const container = document.getElementById("reportPipelineContainer");
       container.innerHTML = "";
-      
+
       const maxCount = Math.max(...COLUMNS.map(col => leads.filter(l => l.column === col.id).length), 1);
-      
+
       COLUMNS.forEach(col => {
         const colLeads = leads.filter(l => l.column === col.id);
         const count = colLeads.length;
         const firstPayments = colLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
         const totalDeals = colLeads.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
-        
+
         const format = val => new Intl.NumberFormat('en-US').format(val) + " ر.س.";
-        
+
         const percent = (count / maxCount) * 100;
         const barColor = col.color;
         const isClosed = col.id === 'closed';
-        
+
         const item = document.createElement("div");
         item.style.display = "grid";
         item.style.gridTemplateColumns = "120px 1fr 200px";
@@ -6206,14 +6593,14 @@
         } else {
           item.style.backgroundColor = "var(--bg-elevated)";
         }
-        
+
         item.innerHTML = `
           <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${col.name} (${count})</div>
           <div style="height: 12px; background-color: var(--bg-subtle); border-radius: 6px; overflow: hidden; position: relative;">
             <div style="width: ${percent}%; height: 100%; background-color: ${barColor}; border-radius: 6px; transition: width 0.4s ease-out;"></div>
           </div>
           <div style="text-align: left; font-size: 11px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px;">
-            <span>دفعات أولى: <strong>${firstPayments > 0 ? format(firstPayments) : '—'}</strong></span>
+            <span>دفعة أولى: <strong>${firstPayments > 0 ? format(firstPayments) : '—'}</strong></span>
             <span>إجمالي صفقات: <strong>${totalDeals > 0 ? format(totalDeals) : '—'}</strong></span>
           </div>
         `;
@@ -6224,9 +6611,9 @@
     function renderConversionFunnel(leads) {
       const container = document.getElementById("reportFunnelContainer");
       container.innerHTML = "";
-      
+
       const stageOrder = ['new', 'technical', 'closing', 'signed'];
-      
+
       function getHighestForwardStage(lead) {
         const history = lead.columnHistory || [];
         let maxIdx = 0;
@@ -6236,30 +6623,30 @@
         });
         return stageOrder[maxIdx];
       }
-      
+
       const highestStages = leads.map(l => getHighestForwardStage(l));
       const stageCounts = { new: 0, technical: 0, closing: 0, signed: 0 };
-      
+
       highestStages.forEach(stage => {
         const idx = stageOrder.indexOf(stage);
         for (let i = 0; i <= idx; i++) {
           stageCounts[stageOrder[i]]++;
         }
       });
-      
+
       const counts = [
         { key: 'new', label: 'جديد', val: stageCounts.new },
         { key: 'technical', label: 'عرض فني', val: stageCounts.technical },
         { key: 'closing', label: 'تقفيل', val: stageCounts.closing },
         { key: 'signed', label: 'توقيع', val: stageCounts.signed }
       ];
-      
+
       let funnelHtml = "";
-      
+
       for (let i = 0; i < counts.length; i++) {
         const stage = counts[i];
         const nextStage = counts[i + 1];
-        
+
         let rateText = "";
         if (nextStage && stage.val > 0) {
           const rate = Math.round((nextStage.val / stage.val) * 100);
@@ -6269,7 +6656,7 @@
             </div>
           `;
         }
-        
+
         funnelHtml += `
           <div style="display: flex; flex-direction: column; align-items: center; background-color: var(--bg-elevated); padding: 10px 16px; border-radius: 8px; width: 100%; border: 1px solid var(--border-subtle);">
             <div style="display: flex; justify-content: space-between; width: 100%; font-size: 13px; font-weight: 600;">
@@ -6280,31 +6667,31 @@
           ${rateText}
         `;
       }
-      
+
       container.innerHTML = funnelHtml;
     }
 
     function renderStageDelays(leads) {
       const container = document.getElementById("reportDelaysContainer");
       container.innerHTML = "";
-      
+
       const totals = {};
       const counts = {};
-      
+
       leads.forEach(lead => {
         const history = lead.columnHistory || [];
         for (let i = 0; i < history.length - 1; i++) {
           const fromCol = history[i].column;
           const toCol = history[i + 1].column;
           const durationMs = history[i + 1].timestamp - history[i].timestamp;
-          
+
           if (durationMs > 0) {
             totals[fromCol] = (totals[fromCol] || 0) + durationMs;
             counts[fromCol] = (counts[fromCol] || 0) + 1;
           }
         }
       });
-      
+
       const averages = {};
       COLUMNS.forEach(col => {
         if (counts[col.id]) {
@@ -6313,7 +6700,7 @@
           averages[col.id] = 0;
         }
       });
-      
+
       let maxAvg = 0;
       let bottleneckColId = null;
       Object.keys(averages).forEach(colId => {
@@ -6322,19 +6709,19 @@
           bottleneckColId = colId;
         }
       });
-      
+
       COLUMNS.forEach(col => {
         const avg = averages[col.id] || 0;
         const formattedAvg = avg.toFixed(1);
         const isBottleneck = col.id === bottleneckColId && avg > 0;
-        
+
         const item = document.createElement("div");
         item.style.display = "flex";
         item.style.justifyContent = "space-between";
         item.style.alignItems = "center";
         item.style.padding = "8px 12px";
         item.style.borderRadius = "8px";
-        
+
         if (isBottleneck) {
           item.style.backgroundColor = "rgba(245, 158, 11, 0.08)";
           item.style.border = "1px solid rgba(245, 158, 11, 0.3)";
@@ -6342,7 +6729,7 @@
           item.style.backgroundColor = "var(--bg-elevated)";
           item.style.border = "1px solid var(--border-subtle)";
         }
-        
+
         item.innerHTML = `
           <div style="font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
             <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${col.color};"></span>
@@ -6358,16 +6745,16 @@
     function renderWinLossAnalysis(leads) {
       const donutContainer = document.getElementById("reportLossDonutContainer");
       const textContainer = document.getElementById("reportSmartAnalysisText");
-      
+
       const closedLeads = leads.filter(l => l.column === 'closed');
       const totalClosed = closedLeads.length;
-      
+
       if (totalClosed < 5) {
         donutContainer.innerHTML = `<div style="color: var(--text-muted); font-size: 12px;">غير كافٍ لتوليد الرسم البياني (أقل من 5 صفقات مغلقة)</div>`;
         textContainer.textContent = "⚠️ لا تتوفر بيانات كافية بعد للتحليل — يحتاج النظام 5 صفقات مغلقة على الأقل.";
         return;
       }
-      
+
       const reasonCounts = {};
       const reasonDeals = {};
       closedLeads.forEach(l => {
@@ -6375,7 +6762,7 @@
         reasonCounts[r] = (reasonCounts[r] || 0) + 1;
         reasonDeals[r] = (reasonDeals[r] || 0) + (l.totalDeal || 0);
       });
-      
+
       const reasonLabels = {
         price: "💰 السعر مرتفع",
         budget: "📉 لا توجد ميزانية",
@@ -6386,7 +6773,7 @@
         scope: "📋 نطاق العمل",
         other: "✏️ أخرى"
       };
-      
+
       const reasons = Object.keys(reasonCounts).map(key => ({
         key,
         label: reasonLabels[key] || key,
@@ -6394,15 +6781,15 @@
         dealValue: reasonDeals[key],
         percent: (reasonCounts[key] / totalClosed) * 100
       })).sort((a, b) => b.count - a.count);
-      
+
       let cumulativePercent = 0;
       let svgPaths = "";
       const colors = ["#ef4444", "#f59e0b", "#4f8ef7", "#10b981", "#8b5cf6", "#ec4899", "#2dd4bf", "#6b7280"];
-      
+
       reasons.forEach((r, idx) => {
         const startAngle = (cumulativePercent / 100) * 360;
         const endAngle = ((cumulativePercent + r.percent) / 100) * 360;
-        
+
         const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
           const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
           return {
@@ -6410,23 +6797,23 @@
             y: centerY + (radius * Math.sin(angleInRadians))
           };
         };
-        
+
         const cX = 90;
         const cY = 90;
         const rad = 65;
         const start = polarToCartesian(cX, cY, rad, endAngle);
         const end = polarToCartesian(cX, cY, rad, startAngle);
         const largeArcFlag = r.percent > 50 ? 1 : 0;
-        
+
         const d = [
           "M", start.x, start.y,
           "A", rad, rad, 0, largeArcFlag, 0, end.x, end.y
         ].join(" ");
-        
+
         svgPaths += `<path d="${d}" fill="none" stroke="${colors[idx % colors.length]}" stroke-width="20" title="${r.label}: ${r.count}" />`;
         cumulativePercent += r.percent;
       });
-      
+
       let legendHtml = `<div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px; margin-right: 12px; max-height: 160px; overflow-y: auto; text-align: right; direction: rtl;">`;
       reasons.forEach((r, idx) => {
         legendHtml += `
@@ -6437,7 +6824,7 @@
         `;
       });
       legendHtml += `</div>`;
-      
+
       donutContainer.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-around; width: 100%; direction: ltr;">
           ${legendHtml}
@@ -6448,12 +6835,12 @@
           </svg>
         </div>
       `;
-      
+
       const getPct = key => {
         const r = reasons.find(x => x.key === key);
         return r ? r.percent : 0;
       };
-      
+
       const pricePct = getPct('price');
       const budgetPct = getPct('budget');
       const competitorPct = getPct('competitor');
@@ -6461,9 +6848,9 @@
       const postponedPct = getPct('postponed');
       const internalPct = getPct('internal');
       const scopePct = getPct('scope');
-      
+
       const insights = [];
-      
+
       if (pricePct > 40) {
         insights.push("⚠️ السعر هو السبب الأكبر للخسارة — راجع استراتيجية التسعير أو أضف باقات مرنة.");
       }
@@ -6485,27 +6872,27 @@
       if (scopePct > 20) {
         insights.push("⚠️ عدم تناسب نطاق العمل متكرر — وضّح نطاق خدماتك في المراحل الأولى للتأهيل.");
       }
-      
+
       if (insights.length === 0) {
         insights.push("✅ توزيع أسباب الإغلاق متزن ولا توجد عتبات حرجة متجاوزة. استمر بمراقبة المؤشرات.");
       }
-      
+
       textContainer.innerHTML = insights.map(ins => `<div style="margin-bottom: 6px;">${ins}</div>`).join('');
     }
 
     function renderPeriodSummary(leads) {
       const container = document.getElementById("reportPeriodSummaryContainer");
       container.innerHTML = "";
-      
+
       const filterVal = document.getElementById("reportTimeFilter")?.value || "all";
       const now = new Date();
-      
+
       let fromTime = 0;
       let toTime = Infinity;
       let prevFromTime = 0;
       let prevToTime = 0;
       let duration = 0;
-      
+
       if (filterVal === 'month') {
         fromTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         duration = now.getTime() - fromTime;
@@ -6523,14 +6910,14 @@
         prevFromTime = fromTime - duration;
         prevToTime = fromTime - 1;
       }
-      
+
       const currentLeads = leads;
       const allLeadsArr = Object.values(leadsData);
       const prevLeads = allLeadsArr.filter(l => {
         const c = l.createdAt || 0;
         return c >= prevFromTime && c <= prevToTime;
       });
-      
+
       const getStats = (list) => {
         const signed = list.filter(l => l.column === 'signed');
         const closed = list.filter(l => l.column === 'closed');
@@ -6538,31 +6925,31 @@
         const closedCount = closed.length;
         const signedValue = signed.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
         const closedValue = closed.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
-        
+
         const totalDeals = signedCount + closedCount;
         const winRate = totalDeals > 0 ? (signedCount / totalDeals) * 100 : 0;
-        
+
         return { signedCount, signedValue, closedCount, closedValue, winRate };
       };
-      
+
       const currStats = getStats(currentLeads);
       const prevStats = getStats(prevLeads);
-      
+
       const formatCurrency = val => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(val);
-      
+
       const renderCard = (title, valStr, prevVal, isPercentage = false) => {
         let changeHtml = "";
         if (filterVal !== 'all' && prevVal !== undefined) {
           const diff = currStats.winRate - prevStats.winRate;
           const pctDiff = prevVal > 0 ? ((parseFloat(valStr.replace(/[^\d.]/g, '')) - prevVal) / prevVal) * 100 : 0;
-          
+
           const valNum = isPercentage ? diff : pctDiff;
           const sign = valNum >= 0 ? "▲" : "▼";
           const color = valNum >= 0 ? "#10b981" : "#ef4444";
           const formattedDiff = Math.abs(valNum).toFixed(0) + "%";
           changeHtml = `<span style="font-size: 11px; color: ${color}; font-weight: bold; margin-top: 4px;">${sign} ${formattedDiff} مقارنة بالسابق</span>`;
         }
-        
+
         return `
           <div class="kpi-card" style="padding: 14px;">
             <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">${title}</span>
@@ -6571,7 +6958,7 @@
           </div>
         `;
       };
-      
+
       container.innerHTML = `
         ${renderCard("الصفقات الموقعة", `${currStats.signedCount} صفقة (${formatCurrency(currStats.signedValue)})`, prevStats.signedValue)}
         ${renderCard("الصفقات المغلقة (خاسرة)", `${currStats.closedCount} صفقة (${formatCurrency(currStats.closedValue)})`, prevStats.closedValue)}
@@ -6603,7 +6990,7 @@
       selectedMonth: currentMonthKey // default current month
     };
 
-    window.toggleMonthDropdown = function(e) {
+    window.toggleMonthDropdown = function (e) {
       e.stopPropagation();
       const dd = document.getElementById("filterMonthDropdown");
       dd.style.display = dd.style.display === "none" ? "block" : "none";
@@ -6612,11 +6999,11 @@
       }
     };
 
-    window.selectMonthFilter = function(monthKey, label) {
+    window.selectMonthFilter = function (monthKey, label) {
       filters.selectedMonth = monthKey;
       document.getElementById("selectedMonthLabel").textContent = label;
       document.getElementById("filterMonthDropdown").style.display = "none";
-      
+
       // Re-trigger rendering
       updateKPIDashboard();
       renderKanbanBoard(false);
@@ -6654,7 +7041,7 @@
       sortedMonths.forEach(m => {
         const [year, month] = m.split('-');
         const label = `عملاء ${year}/${parseInt(month)}`;
-        
+
         const item = document.createElement("div");
         item.className = "dropdown-item";
         item.style.cssText = "padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between;";
@@ -6674,26 +7061,26 @@
       }
       applyFilters();
     }
-    
+
     function toggleColumnDropdown(e) {
       e.stopPropagation();
       // Hide other dropdowns
       document.getElementById("filterDateDropdown").style.display = "none";
       document.getElementById("filterValueDropdown").style.display = "none";
-      
+
       const dd = document.getElementById("filterColumnDropdown");
       dd.style.display = dd.style.display === "none" ? "block" : "none";
     }
-    
+
     function selectFilterColumn(colId) {
       filters.column = colId;
-      
+
       const columnsList = ["all", "new", "technical", "closing", "signed", "postponed", "closed"];
       columnsList.forEach(c => {
         const check = document.getElementById(`colFilterCheck-${c}`);
         if (check) check.style.display = c === colId ? "inline" : "none";
       });
-      
+
       const btn = document.getElementById("chipColumnBtn");
       if (colId !== "all") {
         btn.classList.add("active");
@@ -6702,37 +7089,37 @@
         btn.classList.remove("active");
         btn.querySelector("span").textContent = `📁 عمود ▾`;
       }
-      
+
       document.getElementById("filterColumnDropdown").style.display = "none";
       applyFilters();
     }
-    
+
     function clearAllFilters() {
       filters = {
         search: "",
         staleOnly: false,
         column: "all"
       };
-      
+
       document.getElementById("kanbanSearchInput").value = "";
       document.getElementById("chipStale").classList.remove("active");
-      
+
       const btnCol = document.getElementById("chipColumnBtn");
       if (btnCol) {
         btnCol.classList.remove("active");
         const span = btnCol.querySelector("span");
         if (span) span.textContent = `📁 عمود ▾`;
       }
-      
+
       const columnsList = ["all", "new", "technical", "closing", "signed", "postponed", "closed"];
       columnsList.forEach(c => {
         const check = document.getElementById(`colFilterCheck-${c}`);
         if (check) check.style.display = c === "all" ? "inline" : "none";
       });
-      
+
       applyFilters();
     }
-    
+
     // Debounced version of applyFilters for the search input
     const debouncedApplyFilters = debounce(applyFilters, 250);
     window.debouncedApplyFilters = debouncedApplyFilters;
@@ -6752,7 +7139,7 @@
     function applyFilters() {
       const rawSearch = (document.getElementById("kanbanSearchInput")?.value || "").trim();
       const searchTerms = normalizeArabic(rawSearch).split(/\s+/).filter(Boolean);
-      
+
       let matchedCount = 0;
       let totalCount = 0;
       const isFiltered = !!(rawSearch || filters.staleOnly || filters.column !== "all");
@@ -6760,35 +7147,35 @@
       // Track visible counts per column for badge update
       const colVisibleCounts = {};
       COLUMNS.forEach(c => colVisibleCounts[c.id] = 0);
-      
+
       Object.values(leadsData).forEach(lead => {
         totalCount++;
         const cardEl = document.getElementById(`card-${lead.id}`);
         if (!cardEl) return;
-        
+
         let match = true;
-        
+
         if (searchTerms.length > 0) {
           const nameNorm = normalizeArabic(lead.clientName || lead.fullName || "");
           const projectNorm = normalizeArabic(lead.projectName || "");
           const slackNorm = normalizeArabic(lead.slackCode || "");
           const phoneNorm = normalizeArabic(lead.phone || "");
-          
+
           const combinedText = `${nameNorm} ${projectNorm} ${slackNorm} ${phoneNorm}`;
           const allTermsMatch = searchTerms.every(term => combinedText.includes(term));
           if (!allTermsMatch) {
             match = false;
           }
         }
-        
+
         if (match && filters.staleOnly) {
           if (!isLeadStale(lead)) match = false;
         }
-        
+
         if (match && filters.column !== "all") {
           if (lead.column !== filters.column) match = false;
         }
-        
+
         if (match) {
           matchedCount++;
           cardEl.style.display = "";
@@ -6818,7 +7205,7 @@
           if (badge) badge.textContent = actualCount;
         });
       }
-      
+
       const statusBar = document.getElementById("filterStatusBar");
       if (isFiltered) {
         statusBar.style.display = "flex";
@@ -6829,7 +7216,7 @@
     }
 
     // Column Sorting helpers
-    window.toggleMonthlyMeetingsSortDropdown = function(e) {
+    window.toggleMonthlyMeetingsSortDropdown = function (e) {
       e.stopPropagation();
       const el = document.getElementById('monthlyMeetingsSortDropdown');
       if (el) {
@@ -6838,25 +7225,25 @@
         if (isHidden) el.style.display = 'block';
       }
     };
-    window.setMonthlyMeetingsSort = function(sortType) {
+    window.setMonthlyMeetingsSort = function (sortType) {
       localStorage.setItem('monthlyMeetingsSort', sortType);
       renderKanbanBoard();
     };
 
-    window.toggleSortDropdown = function(colId, event) {
+    window.toggleSortDropdown = function (colId, event) {
       event.stopPropagation();
       COLUMNS.forEach(c => {
         const dd = document.getElementById(`sortDropdown-${c.id}`);
         if (dd && c.id !== colId) dd.style.display = "none";
       });
-      
+
       const dd = document.getElementById(`sortDropdown-${colId}`);
       if (dd) {
         dd.style.display = dd.style.display === "none" ? "block" : "none";
       }
     };
-    
-    window.setColumnSort = function(colId, sortType) {
+
+    window.setColumnSort = function (colId, sortType) {
       localStorage.setItem(`columnSort_${colId}`, sortType);
       const dd = document.getElementById(`sortDropdown-${colId}`);
       if (dd) dd.style.display = "none";
@@ -6864,7 +7251,7 @@
     };
 
     // Document click to close filter and sort dropdowns
-    document.addEventListener("click", function(e) {
+    document.addEventListener("click", function (e) {
       if (!e.target.closest("#chipMonthBtn") && !e.target.closest("#filterMonthDropdown")) {
         const el = document.getElementById("filterMonthDropdown");
         if (el) el.style.display = "none";
