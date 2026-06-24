@@ -1800,19 +1800,13 @@ function showFloatingMenu(element, overlayType, docType, pageIndex) {
   btnApplyAll.innerHTML = '<i data-lucide="check-check"></i><span>تطبيق الموضع على كل الصفحات</span>';
   btnApplyAll.onclick = () => applyPositionToAll(docType, overlayType, pageIndex);
   
-  const btnApplyNext = document.createElement('button');
-  btnApplyNext.className = 'es-menu-item';
-  btnApplyNext.innerHTML = '<i data-lucide="chevrons-down"></i><span>تطبيق الموضع على الصفحات التالية</span>';
-  btnApplyNext.onclick = () => applyPositionToSubsequent(docType, overlayType, pageIndex);
-  
-  const btnReset = document.createElement('button');
-  btnReset.className = 'es-menu-item es-menu-item-danger';
-  btnReset.innerHTML = '<i data-lucide="rotate-ccw"></i><span>إعادة هذه الصفحة للوضع الافتراضي</span>';
-  btnReset.onclick = () => resetPageToDefault(docType, overlayType, pageIndex);
+  const btnApplyThisPage = document.createElement('button');
+  btnApplyThisPage.className = 'es-menu-item';
+  btnApplyThisPage.innerHTML = '<i data-lucide="check"></i><span>تطبيق الموضع على هذه الصفحة فقط</span>';
+  btnApplyThisPage.onclick = () => applyPositionToThisPageOnly(docType, overlayType, pageIndex);
   
   menu.appendChild(btnApplyAll);
-  menu.appendChild(btnApplyNext);
-  menu.appendChild(btnReset);
+  menu.appendChild(btnApplyThisPage);
   
   const overlayRectTop = parseFloat(element.style.top);
   const overlayRectHeight = parseFloat(element.style.height);
@@ -1832,6 +1826,11 @@ function showFloatingMenu(element, overlayType, docType, pageIndex) {
   if (badge) {
     badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - تعديل هذه الصفحة فقط`;
   }
+}
+
+function applyPositionToThisPageOnly(docType, overlayType, pageIndex) {
+  showToast('تم حفظ موضع التوقيع لهذه الصفحة فقط.', 'success');
+  removeFloatingMenus();
 }
 
 function removeFloatingMenus() {
