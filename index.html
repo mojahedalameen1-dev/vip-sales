@@ -35,6 +35,9 @@
   <!-- Electronic Signature CSS -->
   <link rel="stylesheet" href="assets/css/electronic-signature.css">
 
+  <!-- Responsive Design CSS -->
+  <link rel="stylesheet" href="assets/css/responsive.css">
+
   <style>
     /* ════════════════ SECTION 2: CSS Variables & Reset ════════════════ */
     :root {
@@ -5672,6 +5675,11 @@
           if (t === tab) menu.classList.add("active");
           else menu.classList.remove("active");
         }
+        const navBtn = document.getElementById(`btn-nav-${t}`);
+        if (navBtn) {
+          if (t === tab) navBtn.classList.add("active");
+          else navBtn.classList.remove("active");
+        }
       });
 
       if (tab === 'meetings') {
@@ -6743,8 +6751,38 @@
     });
   </script>
 
+  <!-- Bottom Navigation for Mobile -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-item active" id="btn-nav-dashboard" onclick="switchTab('dashboard')">
+      <i data-lucide="layout-dashboard"></i>
+      <span>لوحة التحكم</span>
+    </div>
+    <div class="bottom-nav-item" id="btn-nav-meetings" onclick="switchTab('meetings')">
+      <i data-lucide="calendar"></i>
+      <span>الاجتماعات</span>
+    </div>
+    <div class="bottom-nav-item" id="btn-nav-reports" onclick="switchTab('reports')">
+      <i data-lucide="bar-chart-2"></i>
+      <span>التقارير</span>
+    </div>
+    <div class="bottom-nav-item" id="btn-nav-esign" onclick="switchTab('esign')">
+      <i data-lucide="signature"></i>
+      <span>التوقيع الإلكتروني</span>
+    </div>
+    <div class="bottom-nav-item" id="btn-nav-export" onclick="openExportModal()">
+      <i data-lucide="download"></i>
+      <span>تصدير البيانات</span>
+    </div>
+  </nav>
+
   <!-- Electronic Signature JavaScript -->
   <script src="assets/js/electronic-signature.js"></script>
+  <script>
+    // Initialize icons in bottom-nav
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  </script>
 </body>
 
 </html>
