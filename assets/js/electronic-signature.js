@@ -728,6 +728,23 @@ function handleDocumentUpload(input, type) {
     return;
   }
   
+  // Document type name mismatch check
+  const fileNameLower = file.name.toLowerCase();
+  const contractKeywords = ['عقد', 'اتفاقية', 'اتفاقيه', 'عقود', 'contract', 'agreement'];
+  const techKeywords = ['عرض', 'فني', 'سعر', 'اسعار', 'أسعار', 'technical', 'offer', 'proposal', 'quotation'];
+  
+  if (type === 'technicalOffer') {
+    const hasContractKeyword = contractKeywords.some(k => fileNameLower.includes(k));
+    if (hasContractKeyword) {
+      showToast('تنبيه: يبدو أن هذا الملف هو (عقد) ولكنك تقوم برفعه في خانة (العرض الفني). يرجى التأكد من صحة الملف.', 'warning');
+    }
+  } else if (type === 'contract') {
+    const hasTechKeyword = techKeywords.some(k => fileNameLower.includes(k));
+    if (hasTechKeyword) {
+      showToast('تنبيه: يبدو أن هذا الملف هو (عرض فني/سعر) ولكنك تقوم برفعه في خانة (العقد). يرجى التأكد من صحة الملف.', 'warning');
+    }
+  }
+  
   esState[type].file = file;
   esState[type].processingStatus = 'loading';
   showUploadedDetails(type, file.name);
@@ -955,17 +972,20 @@ async function parsePdfMetadataOnly(type, workspaceId) {
     container.appendChild(errorDiv);
   }
   
-  const scale = pdf.numPages > 10 ? 1.0 : 1.3;
-  
-  // Quick fetch sizes for placeholders
+  // Quick fetch sizes for placeholders with precise A4 sizing and centering
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: scale * esState.zoomLevel });
-    const pageViewport = page.getViewport({ scale: 1.0 });
+    const pageViewport = page.getPageViewport ? page.getPageViewport({ scale: 1.0 }) : page.getViewport({ scale: 1.0 });
+    const aspect = pageViewport.width / pageViewport.height;
+    
+    // Natural A4 width on screen (800px at 100% zoom)
+    const baseDisplayWidth = 800;
+    const renderedWidth = baseDisplayWidth * esState.zoomLevel;
+    const renderedHeight = renderedWidth / aspect;
     
     state.renderedPages.push({
-      renderedWidth: viewport.width,
-      renderedHeight: viewport.height,
+      renderedWidth: renderedWidth,
+      renderedHeight: renderedHeight,
       pdfPageWidth: pageViewport.width,
       pdfPageHeight: pageViewport.height,
       pageNum: pageNum,
@@ -1053,11 +1073,17 @@ async function lazyRenderPageCanvas(type, index) {
   
   try {
     const page = await state.pdfDocument.getPage(pageData.pageNum);
-    const scale = state.pageCount > 10 ? 1.0 : 1.3;
-    const viewport = page.getViewport({ scale: scale * esState.zoomLevel });
+    
+    // Render at 1.5x display width for premium sharp rendering
+    const renderScale = (pageData.renderedWidth / pageData.pdfPageWidth) * 1.5;
+    const viewport = page.getViewport({ scale: renderScale });
     
     const canvas = document.createElement('canvas');
     canvas.className = 'page-canvas';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.display = 'block';
+    
     const ctx = canvas.getContext('2d');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
@@ -1723,9 +1749,8 @@ async function processAllDocumentsDownload() {
   try {
     if (esState.technicalOffer.file && esState.technicalOffer.pageCount > 1) {
       const docBytes = await generateFinalPdfBytes('technicalOffer');
-      const cleanDate = formatTimestamp(new Date());
-      const originalName = esState.technicalOffer.file.name.replace('.pdf', '');
-      const outputFileName = `signed-${originalName}-${cleanDate}.pdf`;
+      const originalName = esState.technicalOffer.file.name.replace(/\.pdf$/i, '');
+      const outputFileName = `${originalName} - معتمد.pdf`;
       downloads.push({ bytes: docBytes, name: outputFileName, label: 'العرض الفني الموقع' });
       
       await logSignatureOperation({
@@ -1743,9 +1768,8 @@ async function processAllDocumentsDownload() {
     
     if (esState.contract.file) {
       const docBytes = await generateFinalPdfBytes('contract');
-      const cleanDate = formatTimestamp(new Date());
-      const originalName = esState.contract.file.name.replace('.pdf', '');
-      const outputFileName = `signed-${originalName}-${cleanDate}.pdf`;
+      const originalName = esState.contract.file.name.replace(/\.pdf$/i, '');
+      const outputFileName = `${originalName} - معتمد.pdf`;
       downloads.push({ bytes: docBytes, name: outputFileName, label: 'العقد الموقع' });
       
       await logSignatureOperation({
