@@ -893,13 +893,13 @@ async function processStep2Files() {
       await parsePdfMetadataOnly('contract', 'workspace-contract');
     }
     
-    if (spinner) spinner.style.display = 'none';
-    
     switchPreviewSubTab(esState.activePreviewSubTab);
     checkStepValidity();
   } catch (err) {
     console.error(err);
     showToast(err.message || 'حدث خطأ في قراءة ملفات الـ PDF', 'error');
+  } finally {
+    if (spinner) spinner.style.display = 'none';
   }
 }
 
@@ -911,7 +911,7 @@ async function parsePdfMetadataOnly(type, workspaceId) {
   
   container.innerHTML = '';
   
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/js/vendor/pdf.min.js';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/js/vendor/pdf.worker.min.js';
   
   const arrayBuffer = await state.file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
