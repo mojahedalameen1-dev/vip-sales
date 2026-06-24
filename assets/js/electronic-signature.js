@@ -326,6 +326,14 @@ function loadSignatureSettings() {
       if (data.signature) {
         esState.signatureData = data.signature;
         updateAssetUI('signature', data.signature);
+        
+        // Re-initialize ratios and redraw overlays if PDF is already parsed
+        ['technicalOffer', 'contract'].forEach(type => {
+          if (esState[type].pageCount > 0) {
+            initializeDefaultOverlayRatios(type);
+            redrawAllPageOverlays(type, 'signature');
+          }
+        });
       } else {
         esState.signatureData = null;
         clearAssetUI('signature');
@@ -334,6 +342,12 @@ function loadSignatureSettings() {
       if (data.stamp) {
         esState.stampData = data.stamp;
         updateAssetUI('stamp', data.stamp);
+        
+        // Re-initialize ratios and redraw overlays if PDF is already parsed
+        if (esState.contract.pageCount > 0) {
+          initializeDefaultOverlayRatios('contract');
+          redrawAllPageOverlays('contract', 'stamp');
+        }
       } else {
         esState.stampData = null;
         clearAssetUI('stamp');
@@ -611,10 +625,10 @@ function nextStep() {
   } else if (esState.currentStep === 2) {
     if (hasTech && hasContract) {
       if (esState.wizardStep === 1) {
-        esState.reviewedFiles.technicalOffer = true;
+        esState.reviewedFiles.contract = true;
         goToWizardSubStep(2);
       } else if (esState.wizardStep === 2) {
-        esState.reviewedFiles.contract = true;
+        esState.reviewedFiles.technicalOffer = true;
         goToStep(3);
       }
     } else {
@@ -835,29 +849,29 @@ function renderStep2(container) {
   const hasTech = esState.technicalOffer.file !== null;
   const hasContract = esState.contract.file !== null;
   
-  if (hasTech) {
-    esState.activePreviewSubTab = 'technical';
-  } else {
+  if (hasContract) {
     esState.activePreviewSubTab = 'contract';
+  } else {
+    esState.activePreviewSubTab = 'technical';
   }
   
   let tabsHtml = '';
   if (hasTech && hasContract) {
     tabsHtml = `
       <div class="es-wizard-stepper">
-        <div class="es-wizard-step active" id="wizard-step-technical" onclick="goToWizardSubStep(1)">
+        <div class="es-wizard-step active" id="wizard-step-contract" onclick="goToWizardSubStep(1)">
           <div class="es-wizard-icon">1</div>
-          <div class="es-wizard-text">
-            <span class="es-wizard-title">العرض الفني</span>
-            <span class="es-wizard-status" id="wizard-status-technical">بانتظار المراجعة</span>
-          </div>
-        </div>
-        <div class="es-wizard-line"></div>
-        <div class="es-wizard-step" id="wizard-step-contract" onclick="goToWizardSubStep(2)">
-          <div class="es-wizard-icon">2</div>
           <div class="es-wizard-text">
             <span class="es-wizard-title">العقد الرسمي</span>
             <span class="es-wizard-status" id="wizard-status-contract">بانتظار المراجعة</span>
+          </div>
+        </div>
+        <div class="es-wizard-line"></div>
+        <div class="es-wizard-step" id="wizard-step-technical" onclick="goToWizardSubStep(2)">
+          <div class="es-wizard-icon">2</div>
+          <div class="es-wizard-text">
+            <span class="es-wizard-title">العرض الفني</span>
+            <span class="es-wizard-status" id="wizard-status-technical">بانتظار المراجعة</span>
           </div>
         </div>
         <div class="es-wizard-line"></div>
@@ -957,29 +971,29 @@ function goToWizardSubStep(stepNum) {
   if (!hasTech || !hasContract) return;
   
   // Warn if leaving unreviewed files
-  if (esState.wizardStep === 1 && stepNum > 1 && !esState.reviewedFiles.technicalOffer) {
-    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العرض الفني وتحديد مواضع التوقيع. هل تريد الانتقال على أي حال؟')) {
+  if (esState.wizardStep === 1 && stepNum > 1 && !esState.reviewedFiles.contract) {
+    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العقد والختم. هل تريد الانتقال على أي حال؟')) {
       return;
     }
   }
-  if (esState.wizardStep === 2 && stepNum === 3 && !esState.reviewedFiles.contract) {
-    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العقد والختم. هل تريد الانتقال على أي حال؟')) {
+  if (esState.wizardStep === 2 && stepNum === 3 && !esState.reviewedFiles.technicalOffer) {
+    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العرض الفني وتحديد مواضع التوقيع. هل تريد الانتقال على أي حال؟')) {
       return;
     }
   }
   
   // Set reviewed state
-  if (esState.wizardStep === 1) esState.reviewedFiles.technicalOffer = true;
-  if (esState.wizardStep === 2) esState.reviewedFiles.contract = true;
+  if (esState.wizardStep === 1) esState.reviewedFiles.contract = true;
+  if (esState.wizardStep === 2) esState.reviewedFiles.technicalOffer = true;
   
   esState.wizardStep = stepNum;
   
   updateWizardStepperUI();
   
   if (stepNum === 1) {
-    switchPreviewSubTab('technical');
-  } else if (stepNum === 2) {
     switchPreviewSubTab('contract');
+  } else if (stepNum === 2) {
+    switchPreviewSubTab('technical');
   } else if (stepNum === 3) {
     goToStep(3);
   }
@@ -1009,13 +1023,13 @@ function updateWizardStepperUI() {
   }
   
   if (esState.wizardStep === 1) {
-    stepTech.classList.add('active');
-  } else if (esState.wizardStep === 2) {
-    stepTech.classList.add('completed');
     stepContract.classList.add('active');
-  } else if (esState.wizardStep === 3) {
-    stepTech.classList.add('completed');
+  } else if (esState.wizardStep === 2) {
     stepContract.classList.add('completed');
+    stepTech.classList.add('active');
+  } else if (esState.wizardStep === 3) {
+    stepContract.classList.add('completed');
+    stepTech.classList.add('completed');
     stepFinal.classList.add('active');
   }
   
@@ -1023,7 +1037,7 @@ function updateWizardStepperUI() {
   const nextBtn = document.getElementById('btn-next-step');
   if (nextBtn) {
     if (esState.wizardStep === 1) {
-      nextBtn.innerHTML = '<span>التالي — مراجعة العقد</span><i data-lucide="arrow-left"></i>';
+      nextBtn.innerHTML = '<span>التالي — مراجعة العرض الفني</span><i data-lucide="arrow-left"></i>';
     } else if (esState.wizardStep === 2) {
       nextBtn.innerHTML = '<span>التالي — المراجعة النهائية</span><i data-lucide="arrow-left"></i>';
     }
@@ -1877,12 +1891,24 @@ function resetPageToDefault(docType, overlayType, pageIndex) {
 function redrawAllPageOverlays(docType, overlayType) {
   const state = esState[docType];
   const isTech = docType === 'technicalOffer';
+  const lastIndex = state.renderedPages.length - 1;
   
   state.renderedPages.forEach((pageData, index) => {
     if (isTech && index === 0) return;
     
-    const el = document.getElementById(`overlay-${docType}-${overlayType}-page-${index}`);
-    if (el) {
+    const wrapper = document.getElementById(`page-wrapper-${docType}-${index}`);
+    if (!wrapper || !pageData.isRendered) return;
+    
+    let el = document.getElementById(`overlay-${docType}-${overlayType}-page-${index}`);
+    if (!el) {
+      if (overlayType === 'signature' && esState.signatureData) {
+        const sigOverlay = createEsOverlayElement('signature', index, pageData.renderedWidth, pageData.renderedHeight, docType);
+        wrapper.appendChild(sigOverlay);
+      } else if (overlayType === 'stamp' && esState.stampData && !isTech && index === lastIndex) {
+        const stampOverlay = createEsOverlayElement('stamp', index, pageData.renderedWidth, pageData.renderedHeight, docType);
+        wrapper.appendChild(stampOverlay);
+      }
+    } else {
       const overlayState = getOverlayState(docType, overlayType, index);
       updateOverlayUI(el, overlayState, pageData.renderedWidth, pageData.renderedHeight);
       
