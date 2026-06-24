@@ -35,9 +35,6 @@
   <!-- Electronic Signature CSS -->
   <link rel="stylesheet" href="assets/css/electronic-signature.css">
 
-  <!-- Responsive Design CSS -->
-  <link rel="stylesheet" href="assets/css/responsive.css">
-
   <style>
     /* ════════════════ SECTION 2: CSS Variables & Reset ════════════════ */
     :root {
@@ -2691,6 +2688,8 @@
       }
     }
   </style>
+  <!-- Responsive Design CSS -->
+  <link rel="stylesheet" href="assets/css/responsive.css">
 </head>
 
 <body>
@@ -2755,10 +2754,6 @@
           <div class="menu-item" id="menu-meetings" onclick="switchTab('meetings')">
             <i data-lucide="calendar"></i>
             <span>الاجتماعات</span>
-          </div>
-          <div class="menu-item" id="menu-reports" onclick="switchTab('reports')">
-            <i data-lucide="bar-chart-3"></i>
-            <span>التقارير</span>
           </div>
           <div class="menu-item" id="menu-esign" onclick="switchTab('esign')">
             <i data-lucide="pen-tool"></i>
@@ -2954,77 +2949,7 @@
         <div id="meetingsMonthsContainer" style="display:none"></div>
       </div>
 
-      <!-- Reports View -->
-      <div id="reportsView" class="content-container" style="display: none; overflow-y: auto;">
-        <div class="view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-          <div>
-            <h2 style="font-size: var(--text-lg); font-weight: 700; color: var(--text-primary);">📊 التقارير والتحليلات المتقدمة</h2>
-            <p style="color: var(--text-secondary); margin-top: 4px; font-size: var(--text-xs);">تحليلات الأداء، قمع التحويل، ومتوسط أوقات المراحل وأسباب خسارة الصفقات</p>
-          </div>
-          <!-- Section 5: Time Filter -->
-          <div style="display: flex; gap: 8px; align-items: center; background-color: var(--bg-surface); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-subtle);">
-            <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">الفترة الزمنية:</label>
-            <select id="reportTimeFilter" class="input-field" style="width: auto; padding: 4px 10px; font-size: 12px; margin: 0; border: 1px solid var(--border-subtle); border-radius: 6px; background-color: var(--bg-elevated);" onchange="renderReports()">
-              <option value="month">هذا الشهر</option>
-              <option value="last_month">الشهر الماضي</option>
-              <option value="3months">آخر 3 أشهر</option>
-              <option value="all" selected>جميع العملاء</option>
-            </select>
-          </div>
-        </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; align-items: start; margin-bottom: 30px;">
-          
-          <!-- Section 1: Pipeline Overview -->
-          <div class="details-box" style="grid-column: span 2;">
-            <h3 style="font-size: var(--text-base); font-weight: 600; margin-bottom: 12px;">📈 Pipeline Overview (إحصائيات الأعمدة)</h3>
-            <div id="reportPipelineContainer" style="display: flex; flex-direction: column; gap: 12px;">
-              <!-- Horizontal SVG Bar Charts will go here -->
-            </div>
-          </div>
-          
-          <!-- Section 2: Conversion Funnel -->
-          <div class="details-box">
-            <h3 style="font-size: var(--text-base); font-weight: 600; margin-bottom: 12px;">🎯 Conversion Funnel (معدل التحويل للأمام)</h3>
-            <div id="reportFunnelContainer" style="display: flex; flex-direction: column; gap: 14px; padding: 10px 0;">
-              <!-- Funnel display -->
-            </div>
-          </div>
-
-          <!-- Section 3: Stage delays -->
-          <div class="details-box">
-            <h3 style="font-size: var(--text-base); font-weight: 600; margin-bottom: 12px;">⏳ متوسط وقت التوقف لكل مرحلة (أيام)</h3>
-            <div id="reportDelaysContainer" style="display: flex; flex-direction: column; gap: 10px;">
-              <!-- Stage delays list -->
-            </div>
-          </div>
-
-          <!-- Section 4: Win/Loss Analysis -->
-          <div class="details-box" style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center;">
-            <div>
-              <h3 style="font-size: var(--text-base); font-weight: 600; margin-bottom: 12px;">💔 Win/Loss Analysis (توزيع أسباب الخسارة)</h3>
-              <div id="reportLossDonutContainer" style="display: flex; justify-content: center; align-items: center; height: 180px;">
-                <!-- SVG Donut Chart -->
-              </div>
-            </div>
-            <div>
-              <h3 style="font-size: var(--text-sm); font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">📝 التحليل الذكي التلقائي</h3>
-              <div id="reportSmartAnalysisText" style="padding: 16px; border-radius: 8px; border: 1px solid var(--border-subtle); background-color: var(--bg-elevated); font-size: var(--text-sm); line-height: 1.6; color: var(--text-primary); text-align: right; direction: rtl;">
-                لا تتوفر بيانات كافية للتحليل حالياً.
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 5: Summary -->
-          <div class="details-box" style="grid-column: span 2;">
-            <h3 style="font-size: var(--text-base); font-weight: 600; margin-bottom: 12px;">📊 ملخص الفترة والمقارنة بالفترة السابقة</h3>
-            <div id="reportPeriodSummaryContainer" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
-              <!-- Summary cards -->
-            </div>
-          </div>
-
-        </div>
-      </div>
 
       <!-- Electronic Signature View -->
       <div id="esignView" class="content-container" style="display: none; overflow-y: auto;">
@@ -5659,7 +5584,7 @@
     function switchTab(tab) {
       window.location.hash = tab === 'dashboard' ? '' : tab;
 
-      const tabs = ['dashboard', 'meetings', 'reports', 'esign'];
+      const tabs = ['dashboard', 'meetings', 'esign'];
       tabs.forEach(t => {
         const view = document.getElementById(`${t}View`);
         const menu = document.getElementById(`menu-${t}`);
@@ -5685,8 +5610,6 @@
       if (tab === 'meetings') {
         if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
         fetchMeetingsForDay();
-      } else if (tab === 'reports') {
-        renderReports();
       } else if (tab === 'esign') {
         initElectronicSignature();
       }
@@ -5694,9 +5617,7 @@
 
     window.addEventListener("hashchange", () => {
       const hash = window.location.hash.replace('#', '');
-      if (hash === 'reports') {
-        switchTab('reports');
-      } else if (hash === 'meetings') {
+      if (hash === 'meetings') {
         switchTab('meetings');
       } else if (hash === 'esign') {
         switchTab('esign');
@@ -5707,8 +5628,7 @@
 
     setTimeout(() => {
       const hash = window.location.hash.replace('#', '');
-      if (hash === 'reports') switchTab('reports');
-      else if (hash === 'meetings') switchTab('meetings');
+      if (hash === 'meetings') switchTab('meetings');
       else if (hash === 'esign') switchTab('esign');
     }, 100);
 
@@ -6760,10 +6680,6 @@
     <div class="bottom-nav-item" id="btn-nav-meetings" onclick="switchTab('meetings')">
       <i data-lucide="calendar"></i>
       <span>الاجتماعات</span>
-    </div>
-    <div class="bottom-nav-item" id="btn-nav-reports" onclick="switchTab('reports')">
-      <i data-lucide="bar-chart-2"></i>
-      <span>التقارير</span>
     </div>
     <div class="bottom-nav-item" id="btn-nav-esign" onclick="switchTab('esign')">
       <i data-lucide="signature"></i>
