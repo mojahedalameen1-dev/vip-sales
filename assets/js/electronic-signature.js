@@ -712,7 +712,10 @@ function renderStep1(container) {
         
         <div class="upload-zone" id="zone-contract" onclick="document.getElementById('input-contract').click()">
           <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
-          <p>اسحب ملف العقد هنا أو انقر للاختيار</p>
+          <p>
+            <span class="desktop-only-inline">اسحب ملف العقد هنا أو انقر للاختيار</span>
+            <span class="mobile-only-inline">اضغط هنا لاختيار ملف العقد</span>
+          </p>
           <span>PDF فقط</span>
           <input type="file" id="input-contract" accept="application/pdf" style="display:none" onchange="handleDocumentUpload(this, 'contract')">
         </div>
@@ -734,7 +737,10 @@ function renderStep1(container) {
         
         <div class="upload-zone" id="zone-technical" onclick="document.getElementById('input-technical').click()">
           <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
-          <p>اسحب ملف العرض الفني هنا أو انقر للاختيار</p>
+          <p>
+            <span class="desktop-only-inline">اسحب ملف العرض الفني هنا أو انقر للاختيار</span>
+            <span class="mobile-only-inline">اضغط هنا لاختيار العرض الفني</span>
+          </p>
           <span>PDF فقط</span>
           <input type="file" id="input-technical" accept="application/pdf" style="display:none" onchange="handleDocumentUpload(this, 'technicalOffer')">
         </div>
@@ -746,6 +752,14 @@ function renderStep1(container) {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Mobile Only Reset Button -->
+    <div class="mobile-only-reset-container" style="text-align: center; margin-top: 1.5rem; display: none;">
+      <button class="btn-es btn-es-danger" style="background: none; border: none; padding: 0; box-shadow: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;" onclick="resetEsignFlow()">
+        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+        <span>إزالة الملفات والبدء من جديد</span>
+      </button>
     </div>
   `;
   

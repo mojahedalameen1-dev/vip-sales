@@ -27,6 +27,13 @@ img, svg, canvas, iframe, video {
   height: auto !important;
 }
 
+.desktop-only-inline {
+  display: inline !important;
+}
+.mobile-only-inline {
+  display: none !important;
+}
+
 /* Bottom Navigation Base Styles (Hidden by default, shown on mobile) */
 .bottom-nav {
   display: none !important; /* Default hidden on Desktop/Laptop/Tablet */
@@ -156,6 +163,13 @@ img, svg, canvas, iframe, video {
 
 /* Mobile Screens */
 @media (max-width: 767px) {
+  .desktop-only-inline {
+    display: none !important;
+  }
+  .mobile-only-inline {
+    display: inline !important;
+  }
+
   .sidebar {
     display: none !important; /* Hide Sidebar on mobile */
   }
@@ -166,9 +180,12 @@ img, svg, canvas, iframe, video {
 
   .main-area {
     width: 100% !important;
+    max-width: 100% !important;
     min-height: 100vh !important;
     padding-bottom: 140px !important; /* Ensure enough space for action bar + bottom nav */
     padding-bottom: calc(140px + env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   /* Header adjustments */
@@ -217,7 +234,9 @@ img, svg, canvas, iframe, video {
   .content-container {
     padding: 12px 16px !important;
     height: auto !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* KPI cards */
@@ -282,14 +301,19 @@ img, svg, canvas, iframe, video {
 
   /* Electronic Signature Responsiveness */
   .esign-section {
-    padding: 1rem 0.5rem !important;
+    padding: 1rem 0.25rem !important;
     gap: 1rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .esign-header-container {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0.75rem !important;
+    width: 100% !important;
   }
 
   .esign-title-area h1 {
@@ -340,6 +364,15 @@ img, svg, canvas, iframe, video {
   .upload-grid-container {
     grid-template-columns: 1fr !important;
     gap: 1rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .document-file-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .asset-card {
@@ -349,12 +382,21 @@ img, svg, canvas, iframe, video {
   /* Stepper responsive layout */
   .step-wizard {
     position: relative !important;
-    padding: 1rem !important;
+    padding: 1rem 0.75rem !important;
     gap: 1rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .step-indicator-list {
     max-width: 100% !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+
+  .step-item {
+    min-width: 0 !important; /* Allow shrinking */
   }
 
   .step-indicator-list::before {
@@ -370,12 +412,18 @@ img, svg, canvas, iframe, video {
   .step-label {
     font-size: 0.7rem !important;
     text-align: center !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    max-width: 80px !important;
   }
 
   /* Compact Es Wizard Stepper inside Step 2 */
   .es-wizard-stepper {
     padding: 0.5rem 0.75rem !important;
     gap: 0.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
   .es-wizard-line {
     display: none !important;
@@ -408,6 +456,8 @@ img, svg, canvas, iframe, video {
     align-items: center !important;
     justify-content: center !important;
     gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
   .upload-zone i {
     width: 18px !important;
@@ -420,9 +470,6 @@ img, svg, canvas, iframe, video {
     color: var(--accent-blue) !important;
     margin: 0 !important;
   }
-  .upload-zone p::before {
-    content: "اضغط هنا لاختيار ";
-  }
   .upload-zone span {
     display: none !important;
   }
@@ -433,6 +480,8 @@ img, svg, canvas, iframe, video {
     min-height: 50vh !important;
     max-height: 60vh !important;
     gap: 1rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .pdf-toolbar {
@@ -496,29 +545,13 @@ img, svg, canvas, iframe, video {
     justify-content: space-between !important;
   }
 
-  /* Reset flow button as neat link at top left corner of step-wizard */
+  /* Fixed reset button style is hidden on mobile */
   #btn-reset-esign {
-    background: none !important;
-    border: none !important;
-    color: #ef4444 !important;
-    font-size: 0.8rem !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    position: absolute !important;
-    top: 16px !important;
-    left: 16px !important;
-    z-index: 100 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    height: auto !important;
-    width: auto !important;
+    display: none !important; 
   }
-  #btn-reset-esign span {
-    display: inline !important;
-  }
-  #btn-reset-esign i {
-    width: 14px !important;
-    height: 14px !important;
+
+  /* Mobile reset container styling */
+  .mobile-only-reset-container {
+    display: block !important;
   }
 }
