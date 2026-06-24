@@ -522,11 +522,16 @@ img, svg, canvas, iframe, video {
     background-color: var(--accent-blue) !important;
     border: 2px solid white !important;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+    touch-action: none !important; /* Critical to prevent browser scroll during touch drag */
   }
   .resize-handle-nw { top: -14px !important; left: -14px !important; }
   .resize-handle-ne { top: -14px !important; right: -14px !important; }
   .resize-handle-se { bottom: -14px !important; right: -14px !important; }
   .resize-handle-sw { bottom: -14px !important; left: -14px !important; }
+
+  .overlay-element {
+    touch-action: none !important;
+  }
 
   /* Sticky Stepper Action Buttons above Bottom Nav */
   .step-actions-container {

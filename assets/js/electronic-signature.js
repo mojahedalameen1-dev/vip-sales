@@ -1380,6 +1380,9 @@ function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedH
   el.dataset.docType = docType;
   el.dataset.pageIndex = pageIndex;
   
+  const badge = document.createElement('div');
+  badge.className = 'overlay-badge';
+  
   if (overlayType === 'signature') {
     const isCustom = state.pageSignatureOverlays?.[pageIndex] !== null;
     badge.textContent = `توقيع المدير - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
@@ -1418,8 +1421,6 @@ function initPointerDrag(element, overlayType, docType) {
   element.addEventListener('pointerdown', (e) => {
     if (e.target.classList.contains('resize-handle')) return;
     
-    e.preventDefault();
-    
     document.querySelectorAll('.overlay-element').forEach(o => o.classList.remove('selected'));
     element.classList.add('selected');
     
@@ -1445,7 +1446,11 @@ function initPointerDrag(element, overlayType, docType) {
     const elementWidth = startRatios.widthRatio * renderedWidth;
     const elementHeight = startRatios.heightRatio * renderedHeight;
     
-    element.setPointerCapture(e.pointerId);
+    try {
+      element.setPointerCapture(e.pointerId);
+    } catch (err) {
+      console.warn("Could not set pointer capture", err);
+    }
     
     const onPointerMove = (moveEvent) => {
       const dx = moveEvent.clientX - startX;
@@ -1469,9 +1474,12 @@ function initPointerDrag(element, overlayType, docType) {
     };
     
     const onPointerUp = (upEvent) => {
-      element.releasePointerCapture(upEvent.pointerId);
+      try {
+        element.releasePointerCapture(upEvent.pointerId);
+      } catch (err) {}
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('pointerup', onPointerUp);
+      element.removeEventListener('pointercancel', onPointerUp);
       
       if (overlayType !== 'stamp') {
         showFloatingMenu(element, overlayType, docType, pageIndex);
@@ -1480,13 +1488,13 @@ function initPointerDrag(element, overlayType, docType) {
     
     element.addEventListener('pointermove', onPointerMove);
     element.addEventListener('pointerup', onPointerUp);
+    element.addEventListener('pointercancel', onPointerUp);
   });
 }
 
 function initPointerResize(handle, element, direction, overlayType, docType) {
   handle.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
-    e.preventDefault();
     
     removeFloatingMenus();
     
@@ -1512,7 +1520,11 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
     let startWidth = startRatios.widthRatio * renderedWidth;
     let startHeight = startRatios.heightRatio * renderedHeight;
     
-    handle.setPointerCapture(e.pointerId);
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch (err) {
+      console.warn("Could not set pointer capture for handle", err);
+    }
     
     const onPointerMove = (moveEvent) => {
       const dx = moveEvent.clientX - startX;
@@ -1600,9 +1612,12 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
     };
     
     const onPointerUp = (upEvent) => {
-      handle.releasePointerCapture(upEvent.pointerId);
+      try {
+        handle.releasePointerCapture(upEvent.pointerId);
+      } catch (err) {}
       handle.removeEventListener('pointermove', onPointerMove);
       handle.removeEventListener('pointerup', onPointerUp);
+      handle.removeEventListener('pointercancel', onPointerUp);
       
       if (overlayType !== 'stamp') {
         showFloatingMenu(element, overlayType, docType, pageIndex);
