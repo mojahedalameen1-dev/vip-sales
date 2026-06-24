@@ -26,6 +26,15 @@
   <!-- SheetJS for Excel Export (Local) -->
   <script src="assets/js/xlsx.full.min.js"></script>
 
+  <!-- PDF.js v3.11.174 -->
+  <script src="assets/js/vendor/pdf.min.js"></script>
+
+  <!-- pdf-lib v1.17.1 -->
+  <script src="assets/js/vendor/pdf-lib.min.js"></script>
+
+  <!-- Electronic Signature CSS -->
+  <link rel="stylesheet" href="assets/css/electronic-signature.css">
+
   <style>
     /* ════════════════ SECTION 2: CSS Variables & Reset ════════════════ */
     :root {
@@ -2748,6 +2757,10 @@
             <i data-lucide="bar-chart-3"></i>
             <span>التقارير</span>
           </div>
+          <div class="menu-item" id="menu-esign" onclick="switchTab('esign')">
+            <i data-lucide="pen-tool"></i>
+            <span>التوقيع الإلكتروني</span>
+          </div>
           <div class="menu-item" onclick="openExportModal()">
             <i data-lucide="download"></i>
             <span>تصدير البيانات</span>
@@ -3008,6 +3021,11 @@
           </div>
 
         </div>
+      </div>
+
+      <!-- Electronic Signature View -->
+      <div id="esignView" class="content-container" style="display: none; overflow-y: auto;">
+        <!-- Content will be injected dynamically -->
       </div>
 
     </main>
@@ -5638,7 +5656,7 @@
     function switchTab(tab) {
       window.location.hash = tab === 'dashboard' ? '' : tab;
 
-      const tabs = ['dashboard', 'meetings', 'reports'];
+      const tabs = ['dashboard', 'meetings', 'reports', 'esign'];
       tabs.forEach(t => {
         const view = document.getElementById(`${t}View`);
         const menu = document.getElementById(`menu-${t}`);
@@ -5654,6 +5672,8 @@
         fetchMeetingsForDay();
       } else if (tab === 'reports') {
         renderReports();
+      } else if (tab === 'esign') {
+        initElectronicSignature();
       }
     }
 
@@ -5663,6 +5683,8 @@
         switchTab('reports');
       } else if (hash === 'meetings') {
         switchTab('meetings');
+      } else if (hash === 'esign') {
+        switchTab('esign');
       } else {
         switchTab('dashboard');
       }
@@ -5672,6 +5694,7 @@
       const hash = window.location.hash.replace('#', '');
       if (hash === 'reports') switchTab('reports');
       else if (hash === 'meetings') switchTab('meetings');
+      else if (hash === 'esign') switchTab('esign');
     }, 100);
 
     function toggleMonthSection(monthKey) {
@@ -6712,6 +6735,9 @@
       }
     });
   </script>
+
+  <!-- Electronic Signature JavaScript -->
+  <script src="assets/js/electronic-signature.js"></script>
 </body>
 
 </html>
