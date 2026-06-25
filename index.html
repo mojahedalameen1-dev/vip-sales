@@ -1757,6 +1757,19 @@
       }
     }
 
+    @media (min-width: 1200px) {
+      .kanban-board {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 16px;
+        overflow-x: hidden;
+      }
+      .kanban-column {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+
     /* ════════════════ SECTION: Daily Meetings Table Styles ════════════════ */
 
     /* Header & Navigation */
@@ -3774,6 +3787,9 @@
           const app = firebase.initializeApp(FIREBASE_CONFIG);
           db = firebase.database(app, FIREBASE_CONFIG.databaseURL);
           auth = firebase.auth();
+          auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => {
+            console.error("Failed to set auth persistence:", err);
+          });
           firebaseInitialized = true;
 
           // Listen for Firebase Auth State Changes
