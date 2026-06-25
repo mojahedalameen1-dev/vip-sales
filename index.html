@@ -16,21 +16,12 @@
   <link href="assets/css/ibm-plex-arabic.css" rel="stylesheet">
 
   <!-- Firebase SDK Compat (v9.22.0) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
   <!-- Lucide Icons (Local) -->
-  <script src="assets/js/lucide.min.js"></script>
-
-  <!-- SheetJS fork (xlsx-js-style) for styled Excel Export (Local) -->
-  <script src="assets/js/vendor/xlsx-js-style.js"></script>
-
-  <!-- PDF.js v3.11.174 -->
-  <script src="assets/js/vendor/pdf.min.js"></script>
-
-  <!-- pdf-lib v1.17.1 -->
-  <script src="assets/js/vendor/pdf-lib.min.js"></script>
+  <script defer src="assets/js/lucide.min.js"></script>
 
   <!-- Electronic Signature CSS -->
   <link rel="stylesheet" href="assets/css/electronic-signature.css">
@@ -2870,6 +2861,7 @@
       margin-bottom: 0.5rem;
       background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
@@ -3675,6 +3667,21 @@
 
   <!-- ════════════════ JAVASCRIPT LOGIC ════════════════ -->
   <script>
+    // Helper function to load scripts dynamically
+    function loadScript(url) {
+      return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${url}"]`)) {
+          resolve();
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+        document.head.appendChild(script);
+      });
+    }
+
     // ════════════════ SECTION 5: Configuration Constants ════════════════
     // 🔧 CONFIGURATION — Replace with your actual credentials
     const FIREBASE_CONFIG = {
@@ -5660,8 +5667,10 @@
       btn.innerHTML = `<i data-lucide="loader" class="animate-spin"></i> جارٍ التصدير...`;
       lucide.createIcons();
 
-      setTimeout(() => {
-        try {
+      loadScript('assets/js/vendor/xlsx-js-style.js')
+        .then(() => {
+          setTimeout(() => {
+            try {
           // Define all possible columns and check checkboxes
           const activeCols = [];
 
@@ -5953,12 +5962,20 @@
         } catch (err) {
           console.error("Excel export error:", err);
           showToast("حدث خطأ أثناء التصدير: " + err.message, "error");
-        } finally {
+            } finally {
+              btn.disabled = false;
+              btn.innerHTML = originalText;
+              lucide.createIcons();
+            }
+          }, 500);
+        })
+        .catch(err => {
+          console.error(err);
+          showToast("تعذر تحميل مكتبة التصدير لـ Excel", "error");
           btn.disabled = false;
           btn.innerHTML = originalText;
           lucide.createIcons();
-        }
-      }, 500);
+        });
     });
 
     // ════════════════ SECTION 13: KPI Dashboard Module ════════════════
@@ -6221,7 +6238,36 @@
         if (!meetingsCurrentDate) meetingsCurrentDate = new Date();
         fetchMeetingsForDay();
       } else if (tab === 'esign') {
-        initElectronicSignature();
+        const esignView = document.getElementById('esignView');
+        let loadingMsg = null;
+        if (esignView && !window.initElectronicSignature) {
+          loadingMsg = document.createElement('div');
+          loadingMsg.id = 'esign-loading-indicator';
+          loadingMsg.style.cssText = 'display:flex; align-items:center; justify-content:center; height:100%; font-size:16px; color:var(--text-secondary); gap:8px;';
+          loadingMsg.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> جارٍ تحميل نظام التوقيع الإلكتروني...';
+          esignView.appendChild(loadingMsg);
+          if (window.lucide) window.lucide.createIcons();
+        }
+
+        Promise.all([
+          loadScript('assets/js/vendor/pdf.min.js'),
+          loadScript('assets/js/vendor/pdf-lib.min.js')
+        ]).then(() => {
+          return loadScript('assets/js/electronic-signature.js');
+        }).then(() => {
+          if (loadingMsg && loadingMsg.parentNode) {
+            loadingMsg.parentNode.removeChild(loadingMsg);
+          }
+          if (typeof initElectronicSignature === 'function') {
+            initElectronicSignature();
+          }
+        }).catch(err => {
+          console.error("Failed to load e-signature libraries:", err);
+          if (loadingMsg && loadingMsg.parentNode) {
+            loadingMsg.innerHTML = '<span style="color:var(--col-closed);">تعذر تحميل نظام التوقيع الإلكتروني. يرجى إعادة المحاولة.</span>';
+          }
+          showToast("حدث خطأ أثناء تحميل مكتبات التوقيع الإلكتروني", "error");
+        });
       }
     }
 
@@ -7301,8 +7347,6 @@
     </div>
   </nav>
 
-  <!-- Electronic Signature JavaScript -->
-  <script src="assets/js/electronic-signature.js"></script>
   <script>
     // Initialize icons in bottom-nav
     if (window.lucide) {
