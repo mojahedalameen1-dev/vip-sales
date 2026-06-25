@@ -1758,6 +1758,9 @@
     }
 
     @media (min-width: 1200px) {
+      body {
+        zoom: 0.8;
+      }
       .kanban-board {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
@@ -4500,7 +4503,7 @@
           <div class="column-stats" id="stats-${col.id}" style="padding: 0 16px 10px; font-size: var(--text-xs); color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px;">
             <!-- stats populated here -->
           </div>
-          <div class="column-cards-container" id="column-${col.id}" data-column-id="${col.id}" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event)" style="flex: 1; overflow-y: auto; min-height: 0;">
+          <div class="column-cards-container" id="column-${col.id}" data-column-id="${col.id}" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event)" style="max-height: 550px; overflow-y: auto;">
             <!-- Cards populated dynamically -->
           </div>
           ${isMeetingsColumn ? "" : `
