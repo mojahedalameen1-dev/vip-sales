@@ -649,54 +649,7 @@
       box-shadow: 0 0 0 3px var(--border-focus);
     }
 
-    /* Analytics Card */
-    .analytics-card {
-      background-color: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-card);
-      padding: 16px 20px;
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 8px;
-      animation: cardSlideIn 0.3s ease both;
-    }
 
-    .analytics-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .analytics-header h3 {
-      font-size: var(--text-base);
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .chart-container {
-      width: 100%;
-      height: 180px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .chart-bar {
-      transition: height 0.4s ease, y 0.4s ease;
-      cursor: pointer;
-    }
-
-    .chart-bar:hover {
-      opacity: 0.85;
-    }
-
-    #toggleAnalyticsBtn.active {
-      border-color: var(--accent-blue) !important;
-      background-color: var(--bg-elevated) !important;
-      color: var(--accent-blue) !important;
-    }
 
     /* Inline Ticket Quick Add */
     .inline-ticket-form {
@@ -1759,7 +1712,7 @@
 
     @media (min-width: 1200px) {
       html {
-        zoom: 0.9;
+        zoom: 0.8;
       }
       .kanban-board {
         display: grid;
@@ -3135,18 +3088,7 @@
           <!-- Generated dots -->
         </div>
 
-        <!-- Analytics Section -->
-        <section id="analyticsSection" class="analytics-card" style="display: none;">
-          <div class="analytics-header">
-            <h3>توزيع العملاء والصفقات حسب المرحلة</h3>
-            <button class="btn-icon" onclick="toggleAnalytics()" style="padding: 4px;" title="إغلاق التحليلات">
-              <i data-lucide="x" style="width: 16px; height: 16px;"></i>
-            </button>
-          </div>
-          <div class="chart-container" id="svgChartContainer">
-            <!-- SVG rendered dynamically -->
-          </div>
-        </section>
+
 
         <!-- Search & Filter bar -->
         <section class="search-filter-row"
@@ -3174,11 +3116,7 @@
               </div>
             </div>
 
-            <button id="toggleAnalyticsBtn" class="btn-secondary" onclick="toggleAnalytics()"
-              style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-subtle); background-color: var(--bg-surface); color: var(--text-primary); cursor: pointer; font-size: var(--text-sm); font-weight: 500; transition: background-color 0.2s;">
-              <i data-lucide="bar-chart-2" style="width: 16px; height: 16px;"></i>
-              <span>التحليلات البصرية</span>
-            </button>
+
           </div>
 
           <!-- Status Bar -->
@@ -4060,10 +3998,7 @@
         leadsData = snapshot.val() || {};
         updateKPIDashboard();
 
-        const analyticsSec = document.getElementById("analyticsSection");
-        if (analyticsSec && analyticsSec.style.display !== "none") {
-          renderAnalyticsChart();
-        }
+
 
         // Staggered Render Logic upon initial load
         if (!initialLoadComplete) {
@@ -4341,80 +4276,7 @@
       }
     });
 
-    function toggleAnalytics() {
-      const section = document.getElementById("analyticsSection");
-      const btn = document.getElementById("toggleAnalyticsBtn");
 
-      if (section.style.display === "none") {
-        section.style.display = "flex";
-        btn.classList.add("active");
-        renderAnalyticsChart();
-      } else {
-        section.style.display = "none";
-        btn.classList.remove("active");
-      }
-      lucide.createIcons();
-    }
-
-    function renderAnalyticsChart() {
-      const container = document.getElementById("svgChartContainer");
-      if (!container) return;
-
-      const leadsArr = Object.values(leadsData);
-      const counts = {};
-      COLUMNS.forEach(c => {
-        counts[c.id] = leadsArr.filter(l => l.column === c.id).length;
-      });
-
-      const maxCount = Math.max(...Object.values(counts), 1);
-
-      const width = 600;
-      const height = 180;
-      const padding = 30;
-      const chartWidth = width - padding * 2;
-      const chartHeight = height - padding * 2;
-
-      const barWidth = 45;
-      const barSpacing = (chartWidth - barWidth * COLUMNS.length) / (COLUMNS.length - 1);
-
-      let barsHtml = "";
-      let labelsHtml = "";
-      let yAxisHtml = "";
-
-      for (let i = 0; i <= 3; i++) {
-        const yVal = padding + (chartHeight / 3) * i;
-        const countLabel = Math.round(maxCount - (maxCount / 3) * i);
-        barsHtml += `<line x1="${padding}" y1="${yVal}" x2="${width - padding}" y2="${yVal}" stroke="var(--border-subtle)" stroke-width="1" stroke-dasharray="4" />`;
-        yAxisHtml += `<text x="${padding - 8}" y="${yVal + 4}" fill="var(--text-secondary)" font-size="9" text-anchor="end" font-weight="500">${countLabel}</text>`;
-      }
-
-      COLUMNS.forEach((col, idx) => {
-        const count = counts[col.id] || 0;
-        const barHeight = (count / maxCount) * chartHeight;
-        const x = padding + idx * (barWidth + barSpacing);
-        const y = height - padding - barHeight;
-
-        barsHtml += `
-          <g>
-            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="4" fill="${col.color}" class="chart-bar" title="${col.name}: ${count}">
-              <animate attributeName="height" from="0" to="${barHeight}" dur="0.4s" fill="freeze" />
-              <animate attributeName="y" from="${height - padding}" to="${y}" dur="0.4s" fill="freeze" />
-            </rect>
-            <text x="${x + barWidth / 2}" y="${y - 6}" fill="var(--text-primary)" font-size="10" font-weight="600" text-anchor="middle">${count}</text>
-          </g>
-        `;
-
-        labelsHtml += `<text x="${x + barWidth / 2}" y="${height - padding + 16}" fill="var(--text-secondary)" font-size="10" font-weight="500" text-anchor="middle">${col.name}</text>`;
-      });
-
-      container.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="direction: ltr;">
-          ${barsHtml}
-          ${labelsHtml}
-          ${yAxisHtml}
-        </svg>
-      `;
-    }
 
     function filterKanbanBoard() {
       renderKanbanBoard(false);
@@ -6044,7 +5906,7 @@
       });
 
       const monthlyDealSum = monthlyLeads.reduce((sum, l) => sum + (l.totalDeal || 0), 0);
-      const monthlyFirstPaymentSum = monthlyLeads.reduce((sum, l) => sum + (l.firstPayment || 0), 0);
+      const monthlyFirstPaymentSum = monthlyLeads.filter(l => l.column === "signed").reduce((sum, l) => sum + (l.firstPayment || 0), 0);
 
       const targetVal = 115000;
       const pctOfTarget = Math.min(100, Math.round((monthlyFirstPaymentSum / targetVal) * 100));
