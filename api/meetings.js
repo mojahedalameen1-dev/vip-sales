@@ -120,7 +120,7 @@ function fetchSlackLeadInfo() {
 
     const options = {
       hostname: 'slack.com',
-      path: `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=150`,
+      path: `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=1000`,
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
