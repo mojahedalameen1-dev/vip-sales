@@ -130,6 +130,18 @@ module.exports = async (req, res) => {
     const linkMatch = (foundMsg.text || '').match(/https:\/\/e\.aait\.sa\/web[^\s>]*/i);
     if (linkMatch) crmLink = linkMatch[0].replace(/&amp;/g, '&');
 
+    const USER_MAP = {
+      'U090T02NUET': 'م. حسام',
+      'U097P6M4B18': 'م. شادي العربي',
+      'U0918T4HBNF': 'م. أشرف',
+      'U098ZR2PESW': 'م. مجاهد',
+      'U0AM55APV27': 'نظام المتابعة الآلي',
+      'U09C3NQ7E05': 'تذكير المواعيد',
+      'U097PK072H2': 'فريق المتابعة',
+      'U0918BRF4RL': 'مساعد المبيعات',
+      'U0917H5R0HH': 'ممثل المبيعات'
+    };
+
     // Fetch thread replies if any
     let thread = [];
     if (foundMsg.reply_count && foundMsg.reply_count > 0) {
@@ -141,12 +153,15 @@ module.exports = async (req, res) => {
       if (repliesData.ok && repliesData.messages) {
         thread = repliesData.messages
           .filter(r => r.ts !== foundMsg.ts) // Exclude parent message
-          .map(r => ({
-            text: cleanSlackText(r.text),
-            ts: r.ts,
-            user: r.user || 'Unknown',
-            timestamp: parseFloat(r.ts) * 1000
-          }));
+          .map(r => {
+            const mappedUser = USER_MAP[r.user] || r.user || 'Unknown';
+            return {
+              text: cleanSlackText(r.text),
+              ts: r.ts,
+              user: mappedUser,
+              timestamp: parseFloat(r.ts) * 1000
+            };
+          });
       }
     }
 

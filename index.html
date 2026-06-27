@@ -3324,7 +3324,7 @@
 
   <!-- 2. Lead Details Modal -->
   <div id="detailsModal" class="modal-backdrop">
-    <div class="modal-content" style="max-width: 680px;">
+    <div class="modal-content" style="max-width: 1050px; width: 95vw;">
       <div class="modal-header">
         <h2 class="modal-title">تفاصيل العميل</h2>
         <div style="display: flex; gap: 8px;">
@@ -3336,129 +3336,148 @@
           </button>
         </div>
       </div>
-      <div class="modal-body">
-        <!-- Details grid -->
-        <div class="details-grid">
+      <div class="modal-body" style="padding: 20px; overflow-y: auto; max-height: calc(90vh - 120px);">
+        
+        <div style="display: flex; gap: 24px; flex-wrap: wrap; direction: rtl;">
+          
+          <!-- Right Column (RTL): Mada'a/Tickets (60% width) -->
+          <div style="flex: 1.5; min-width: 350px; display: flex; flex-direction: column; gap: 16px;">
+            <div class="details-box" style="height: 100%; display: flex; flex-direction: column;">
+              <div class="tickets-header" style="margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: var(--text-base); font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; border: none; padding: 0; color: var(--text-primary);">
+                  <i data-lucide="message-square" style="color: var(--accent-blue);"></i>
+                  توثيق المتابعات وودود العملاء
+                </h3>
+              </div>
 
-          <!-- Basic Info -->
-          <div class="details-box">
-            <h3>المعلومات الأساسية</h3>
-            <div class="details-info-list">
-              <div class="details-info-item">
-                <span class="info-label">كود Slack:</span>
-                <span id="detailSlackCode" class="info-val">-</span>
+              <!-- Inline quick add form -->
+              <div class="inline-ticket-form" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
+                <select id="inlineTicketType" class="input-field"
+                  style="width: auto; margin: 0; min-width: 110px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px; font-size: 13px;">
+                  <option value="call">📞 اتصال</option>
+                  <option value="whatsapp">💬 واتساب</option>
+                  <option value="email">📧 إيميل</option>
+                  <option value="proposal">📄 عرض سعر</option>
+                  <option value="meeting">🤝 اجتماع</option>
+                </select>
+                <input type="text" id="inlineTicketTitle" class="input-field"
+                  placeholder="اكتب رد العميل أو تفاصيل المتابعة هنا... مثال: طلب مهلة لتأكيد العقد"
+                  style="flex: 1; margin: 0; min-width: 150px; font-size: 13px;">
+                <button class="btn-primary" onclick="saveInlineTicket()" style="padding: 10px 16px; margin: 0;">
+                  <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+                  <span>إرسال</span>
+                </button>
               </div>
-              <div class="details-info-item">
-                <span class="info-label">اسم العميل:</span>
-                <span id="detailClientName" class="info-val">-</span>
-              </div>
-              <div class="details-info-item">
-                <span class="info-label">رقم الجوال:</span>
-                <span id="detailPhone" class="info-val">-</span>
-              </div>
-              <div class="details-info-item">
-                <span class="info-label">الدفعة الأولى:</span>
-                <span id="detailFirstPayment" class="info-val" style="color: var(--accent-teal);">-</span>
-              </div>
-              <div class="details-info-item">
-                <span class="info-label">إجمالي الصفقة:</span>
-                <span id="detailTotalDeal" class="info-val" style="color: var(--accent-teal);">-</span>
-              </div>
-              <div class="details-info-item">
-                <span class="info-label">تاريخ الاجتماع:</span>
-                <span id="detailMeetingDate" class="info-val">-</span>
-              </div>
-              <div class="details-info-item" id="detailCrmLinkItem" style="display: none;">
-                <span class="info-label">رابط CRM (أودو):</span>
-                <span class="info-val"><a id="detailCrmLink" href="#" target="_blank" style="color: var(--accent-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">فتح في أودو <i data-lucide="external-link" style="width: 12px; height: 12px;"></i></a></span>
+
+              <div id="ticketsList" class="tickets-list" style="flex: 1; min-height: 350px; max-height: 500px; overflow-y: auto; padding-left: 8px;">
+                <!-- Dynamic tickets populated here -->
               </div>
             </div>
           </div>
 
-          <!-- Customer Journey Timeline -->
-          <div class="details-box">
-            <h3>رحلة العميل (تحركات الحالة)</h3>
-            <div id="detailTimeline" class="timeline">
-              <!-- Timeline items populated dynamically -->
+          <!-- Left Column (RTL): Info & Timeline (40% width) -->
+          <div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 16px;">
+            
+            <!-- Basic Info -->
+            <div class="details-box">
+              <h3>المعلومات الأساسية</h3>
+              <div class="details-info-list" style="margin-bottom: 16px;">
+                <div class="details-info-item">
+                  <span class="info-label">كود Slack:</span>
+                  <span id="detailSlackCode" class="info-val">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">اسم العميل:</span>
+                  <span id="detailClientName" class="info-val" style="font-weight: 700; color: var(--text-primary);">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">رقم الجوال:</span>
+                  <span id="detailPhone" class="info-val">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">الدفعة الأولى:</span>
+                  <span id="detailFirstPayment" class="info-val" style="color: var(--accent-teal); font-weight: 600;">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">إجمالي الصفقة:</span>
+                  <span id="detailTotalDeal" class="info-val" style="color: var(--accent-teal); font-weight: 600;">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">تاريخ الاجتماع:</span>
+                  <span id="detailMeetingDate" class="info-val">-</span>
+                </div>
+              </div>
+
+              <!-- Quick Action Row -->
+              <div id="modalQuickActions" style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+                <a id="actionCall" href="#" class="btn-icon" style="flex: 1; min-width: 70px; display: inline-flex; justify-content: center; align-items: center; gap: 6px; padding: 10px; border-radius: 8px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--accent-blue); text-decoration: none; font-size: 13px;" title="اتصال مباشر">
+                  <i data-lucide="phone-call" style="width: 14px; height: 14px;"></i>
+                  <span>اتصال</span>
+                </a>
+                <a id="actionWhatsapp" href="#" target="whatsapp_chat" class="btn-icon" style="flex: 1; min-width: 80px; display: inline-flex; justify-content: center; align-items: center; gap: 6px; padding: 10px; border-radius: 8px; background-color: #25d366; color: white; text-decoration: none; font-size: 13px; font-weight: 600;" title="محادثة واتساب">
+                  <i data-lucide="message-square" style="width: 14px; height: 14px;"></i>
+                  <span>واتساب</span>
+                </a>
+                <a id="actionOdoo" href="#" target="_blank" class="btn-icon" style="flex: 1.2; min-width: 90px; display: none; justify-content: center; align-items: center; gap: 6px; padding: 10px; border-radius: 8px; background-color: #875A7B; color: white; text-decoration: none; font-size: 13px; font-weight: 600;" title="فتح في أودو">
+                  <i data-lucide="external-link" style="width: 14px; height: 14px;"></i>
+                  <span>رابط أودو</span>
+                </a>
+              </div>
             </div>
+
+            <!-- Customer Journey Timeline -->
+            <div class="details-box">
+              <h3>رحلة العميل (تحركات الحالة)</h3>
+              <div id="detailTimeline" class="timeline">
+                <!-- Timeline items populated dynamically -->
+              </div>
+            </div>
+
+            <!-- Meeting Source Section -->
+            <div class="details-box">
+              <h3 style="font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
+                مصدر الاجتماع</h3>
+              <div id="detailMeetingTitle" style="font-size: var(--text-xs); color: var(--text-secondary); opacity: 0.85;">-
+              </div>
+            </div>
+
+            <!-- Closed Details Section -->
+            <div id="detailClosedSection" class="details-box"
+              style="display: none; border-color: rgba(239, 68, 68, 0.3); background-color: rgba(239, 68, 68, 0.02);">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
+                <h3 style="font-size: var(--text-sm); font-weight: 600; color: #ef4444; border-bottom: none; margin-bottom: 0; padding-bottom: 0; padding-top: 0;">
+                  تفاصيل الإغلاق</h3>
+                <button id="reopenLeadBtn" class="btn-primary"
+                  style="padding: 4px 10px; font-size: var(--text-xs); background-color: var(--accent-teal);"
+                  onclick="reopenLead()">إعادة فتح العميل</button>
+              </div>
+              <div class="details-info-list">
+                <div class="details-info-item">
+                  <span class="info-label">السبب:</span>
+                  <span id="detailClosedReason" class="info-val" style="font-weight: 600;">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">ملاحظات الإغلاق:</span>
+                  <span id="detailClosedNote" class="info-val">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">تاريخ الإغلاق:</span>
+                  <span id="detailClosedAt" class="info-val">-</span>
+                </div>
+                <div class="details-info-item">
+                  <span class="info-label">تم الإغلاق بواسطة:</span>
+                  <span id="detailClosedBy" class="info-val">-</span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </div>
 
-        <!-- Meeting Source Section -->
-        <div class="details-box" style="margin-top: 16px;">
-          <h3
-            style="font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
-            مصدر الاجتماع</h3>
-          <div id="detailMeetingTitle" style="font-size: var(--text-xs); color: var(--text-secondary); opacity: 0.85;">-
-          </div>
-        </div>
-
-        <!-- Closed Details Section -->
-        <div id="detailClosedSection" class="details-box"
-          style="margin-top: 16px; display: none; border-color: rgba(239, 68, 68, 0.3); background-color: rgba(239, 68, 68, 0.02);">
-          <div
-            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 8px;">
-            <h3
-              style="font-size: var(--text-sm); font-weight: 600; color: #ef4444; border-bottom: none; margin-bottom: 0; padding-bottom: 0; padding-top: 0;">
-              تفاصيل الإغلاق</h3>
-            <button id="reopenLeadBtn" class="btn-primary"
-              style="padding: 4px 10px; font-size: var(--text-xs); background-color: var(--accent-teal);"
-              onclick="reopenLead()">إعادة فتح العميل</button>
-          </div>
-          <div class="details-info-list">
-            <div class="details-info-item">
-              <span class="info-label">السبب:</span>
-              <span id="detailClosedReason" class="info-val" style="font-weight: 600;">-</span>
-            </div>
-            <div class="details-info-item">
-              <span class="info-label">ملاحظات الإغلاق:</span>
-              <span id="detailClosedNote" class="info-val">-</span>
-            </div>
-            <div class="details-info-item">
-              <span class="info-label">تاريخ الإغلاق:</span>
-              <span id="detailClosedAt" class="info-val">-</span>
-            </div>
-            <div class="details-info-item">
-              <span class="info-label">تم الإغلاق بواسطة:</span>
-              <span id="detailClosedBy" class="info-val">-</span>
-            </div>
-          </div>
-        </div>
-
-
-        <!-- Follow-up Tickets section -->
-        <div style="margin-top: 24px; border-top: 1px solid var(--border-subtle); padding-top: 20px;">
-          <div class="tickets-header" style="margin-bottom: 12px;">
-            <h3 style="font-size: var(--text-base); font-weight: 600; display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="ticket" style="color: var(--accent-blue);"></i>
-              توثيق المتابعات وردود العملاء
-            </h3>
-          </div>
-
-          <!-- Inline quick add form -->
-          <div class="inline-ticket-form" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-            <select id="inlineTicketType" class="input-field"
-              style="width: auto; margin: 0; min-width: 110px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px;">
-              <option value="call">📞 اتصال</option>
-              <option value="whatsapp">💬 واتساب</option>
-              <option value="email">📧 إيميل</option>
-              <option value="proposal">📄 عرض سعر</option>
-              <option value="meeting">🤝 اجتماع</option>
-            </select>
-            <input type="text" id="inlineTicketTitle" class="input-field"
-              placeholder="اكتب رد العميل أو تفاصيل المتابعة هنا... مثال: طلب مهلة لتأكيد العقد"
-              style="flex: 1; margin: 0; min-width: 150px;">
-            <button class="btn-primary" onclick="saveInlineTicket()" style="padding: 10px 16px; margin: 0;">
-              <i data-lucide="send" style="width: 14px; height: 14px;"></i>
-              <span>إرسال</span>
-            </button>
-          </div>
-
-          <div id="ticketsList" class="tickets-list">
-            <!-- Dynamic tickets populated here -->
-          </div>
-        </div>
+      </div>
+    </div>
+  </div>
 
       </div>
     </div>
@@ -4191,13 +4210,31 @@
       document.getElementById("detailMeetingTitle").textContent = lead.meetingTitle || "-";
       document.getElementById("detailMeetingDate").textContent = lead.meetingDate ? new Date(lead.meetingDate).toLocaleString('en-US') : "-";
 
-      // CRM Link logic
-      const crmLinkItem = document.getElementById("detailCrmLinkItem");
-      if (lead.crmLink) {
-        crmLinkItem.style.display = "flex";
-        document.getElementById("detailCrmLink").href = lead.crmLink;
+      // Populating Quick Actions
+      const actionCall = document.getElementById("actionCall");
+      const actionWhatsapp = document.getElementById("actionWhatsapp");
+      const actionOdoo = document.getElementById("actionOdoo");
+
+      if (lead.phone) {
+        const rawPhones = lead.phone.split('-');
+        const primaryPhone = rawPhones[0].trim();
+        const cleanPhoneForWa = primaryPhone.replace(/^[0]/, '966').replace(/\+/g, '').replace(/\s/g, '');
+
+        actionCall.href = `tel:${primaryPhone}`;
+        actionCall.style.display = "inline-flex";
+
+        actionWhatsapp.href = `https://web.whatsapp.com/send?phone=${cleanPhoneForWa}`;
+        actionWhatsapp.style.display = "inline-flex";
       } else {
-        crmLinkItem.style.display = "none";
+        actionCall.style.display = "none";
+        actionWhatsapp.style.display = "none";
+      }
+
+      if (lead.crmLink) {
+        actionOdoo.href = lead.crmLink;
+        actionOdoo.style.display = "inline-flex";
+      } else {
+        actionOdoo.style.display = "none";
       }
 
       // Closed info logic
@@ -4527,10 +4564,10 @@
                   </span>
                   ${lead.phone ? `
                     <div style="display: flex; gap: 6px;" onclick="event.stopPropagation()">
-                      <a href="tel:${lead.phone}" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated);" title="اتصال">
+                      <a href="tel:${lead.phone.split('-')[0].trim()}" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated);" title="اتصال">
                         <i data-lucide="phone-call" style="width: 12px; height: 12px; color: var(--accent-blue);"></i>
                       </a>
-                      <a href="https://wa.me/${lead.phone.replace(/^[0]/, '966')}" target="_blank" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated);" title="واتساب">
+                      <a href="https://web.whatsapp.com/send?phone=${lead.phone.split('-')[0].trim().replace(/^[0]/, '966').replace(/\+/g, '').replace(/\s/g, '')}" target="whatsapp_chat" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated);" title="واتساب">
                         <i data-lucide="message-square" style="width: 12px; height: 12px; color: var(--accent-teal);"></i>
                       </a>
                     </div>
