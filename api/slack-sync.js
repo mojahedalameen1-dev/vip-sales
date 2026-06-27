@@ -84,34 +84,55 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // Fetch full channel history (up to 1000 messages)
-    const historyData = await new Promise((resolve) => {
-      const options = {
-        hostname: 'slack.com',
-        path: `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=1000`,
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      };
-      const httpReq = https.request(options, (r) => {
-        let data = '';
-        r.on('data', (c) => data += c);
-        r.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { console.error('slack-sync: JSON parse error:', e.message); resolve({ ok: false, error: 'JSON parse error' }); }
+    // Fetch full channel history (up to 3000 messages via pagination)
+    let messages = [];
+    let cursor = null;
+    let pagesFetched = 0;
+    const maxPages = 3;
+
+    while (pagesFetched < maxPages) {
+      const pageData = await new Promise((resolve) => {
+        let apiPath = `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=1000`;
+        if (cursor) {
+          apiPath += `&cursor=${encodeURIComponent(cursor)}`;
+        }
+        const options = {
+          hostname: 'slack.com',
+          path: apiPath,
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        };
+        const httpReq = https.request(options, (r) => {
+          let data = '';
+          r.on('data', (c) => data += c);
+          r.on('end', () => {
+            try { resolve(JSON.parse(data)); }
+            catch (e) { resolve({ ok: false, error: 'JSON parse error' }); }
+          });
         });
+        httpReq.on('error', (e) => resolve({ ok: false, error: e.message }));
+        httpReq.end();
       });
-      httpReq.on('error', (e) => { console.error('slack-sync: HTTP error:', e.message); resolve({ ok: false, error: e.message }); });
-      httpReq.end();
-    });
 
-    if (!historyData.ok) {
-      console.error('slack-sync: Slack API error:', historyData.error);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: historyData.error || 'Slack API failed' }));
-      return;
+      if (!pageData.ok) {
+        console.error('slack-sync: Slack API page fetch failed:', pageData.error);
+        if (messages.length === 0) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: pageData.error || 'Slack API failed' }));
+          return;
+        }
+        break;
+      }
+
+      const pageMsgs = pageData.messages || [];
+      messages = messages.concat(pageMsgs);
+      
+      cursor = pageData.response_metadata && pageData.response_metadata.next_cursor;
+      if (!cursor || pageMsgs.length === 0) {
+        break;
+      }
+      pagesFetched++;
     }
-
-    const messages = historyData.messages || [];
     const lookupMap = {};
 
     // Find all messages with a slack code
