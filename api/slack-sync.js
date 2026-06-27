@@ -135,40 +135,76 @@ module.exports = async (req, res) => {
     }
     const lookupMap = {};
 
-    // Find all messages with a slack code
-    const toProcess = [];
+    // Group messages by slackCode
+    const groupedMessages = {};
     for (const msg of messages) {
       const text = msg.text || '';
       const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
       if (codeMatch) {
         const slackCode = codeMatch[0].toUpperCase();
-        if (!lookupMap[slackCode]) {
-          toProcess.push({ msg, slackCode });
+        if (!groupedMessages[slackCode]) {
+          groupedMessages[slackCode] = [];
         }
+        groupedMessages[slackCode].push(msg);
       }
     }
 
-    // Fetch threads in parallel for messages that have replies
-    await Promise.all(toProcess.map(async ({ msg, slackCode }) => {
-      let threadReplies = [];
-      if (msg.reply_count && msg.reply_count > 0) {
-        const replies = await fetchSlackReplies(token, channelId, msg.ts);
-        threadReplies = replies
-          .filter(r => r.ts !== msg.ts)
-          .map(r => ({
-            text: cleanSlackText(r.text),
-            ts: r.ts,
-            user: r.user || 'Unknown',
-            timestamp: parseFloat(r.ts) * 1000
-          }));
+    // Process each group in parallel
+    const slackCodes = Object.keys(groupedMessages);
+    await Promise.all(slackCodes.map(async (slackCode) => {
+      const msgs = groupedMessages[slackCode];
+      let phone = '';
+      let crmLink = '';
+      const allReplies = [];
+
+      for (const msg of msgs) {
+        // Extract phone if not already found
+        const msgPhone = extractAndFormatPhones(msg.text);
+        if (msgPhone) {
+          if (!phone) {
+            phone = msgPhone;
+          } else {
+            const existing = phone.split(' - ');
+            const newNums = msgPhone.split(' - ');
+            newNums.forEach(n => {
+              if (!existing.includes(n)) existing.push(n);
+            });
+            phone = existing.join(' - ');
+          }
+        }
+
+        // Extract CRM Link if not already found
+        if (!crmLink) {
+          const linkMatch = (msg.text || '').match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
+          if (linkMatch) {
+            crmLink = linkMatch[0].replace(/&amp;/g, '&');
+          }
+        }
+
+        // Fetch thread replies if any
+        if (msg.reply_count && msg.reply_count > 0) {
+          const replies = await fetchSlackReplies(token, channelId, msg.ts);
+          const threadReplies = replies
+            .filter(r => r.ts !== msg.ts)
+            .map(r => ({
+              text: cleanSlackText(r.text),
+              ts: r.ts,
+              user: r.user || 'Unknown',
+              timestamp: parseFloat(r.ts) * 1000
+            }));
+          
+          threadReplies.forEach(reply => {
+            if (!allReplies.some(r => r.ts === reply.ts)) {
+              allReplies.push(reply);
+            }
+          });
+        }
       }
 
-      const phone = extractAndFormatPhones(msg.text);
-      let crmLink = '';
-      const linkMatch = (msg.text || '').match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
-      if (linkMatch) crmLink = linkMatch[0].replace(/&amp;/g, '&');
+      // Sort replies chronologically
+      allReplies.sort((a, b) => a.timestamp - b.timestamp);
 
-      lookupMap[slackCode] = { phone, crmLink, thread: threadReplies };
+      lookupMap[slackCode] = { phone, crmLink, thread: allReplies };
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
