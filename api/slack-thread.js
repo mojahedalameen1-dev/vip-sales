@@ -9,8 +9,25 @@ function setCors(res) {
 
 function cleanSlackText(text) {
   if (!text) return '';
-  return text
-    .replace(/<@U[A-Z0-9]+>/g, '')
+  const USER_MAP = {
+    'U090T02NUET': 'م. حسام',
+    'U097P6M4B18': 'م. شادي العربي',
+    'U0918T4HBNF': 'م. أشرف',
+    'U098ZR2PESW': 'م. مجاهد',
+    'U0AM55APV27': 'نظام المتابعة الآلي',
+    'U09C3NQ7E05': 'تذكير المواعيد',
+    'U097PK072H2': 'فريق المتابعة',
+    'U0918BRF4RL': 'مساعد المبيعات',
+    'U0917H5R0HH': 'ممثل المبيعات'
+  };
+
+  let cleaned = text;
+  const mentionRegex = /<@(U[A-Z0-9]+)>/g;
+  cleaned = cleaned.replace(mentionRegex, (match, userId) => {
+    return '@' + (USER_MAP[userId] || userId);
+  });
+
+  return cleaned
     .replace(/<!subteam\^[A-Z0-9|a-z\-_\s]+>/g, '')
     .replace(/<tel:[^|]+\|([^>]+)>/g, '$1')
     .replace(/<http[^|]+\|([^>]+)>/g, '$1')
