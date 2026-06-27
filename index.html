@@ -5324,70 +5324,75 @@
       if (!currentUser) { showToast('يرجى تسجيل الدخول أولاً.', 'error'); return; }
       const btn = document.getElementById('syncSlackBtn');
       const btnText = document.getElementById('syncSlackBtnText');
-      if (btn) { btn.disabled = true; btnText.textContent = 'جارٍ المزامنة...'; }
+      if (btn) btn.disabled = true;
+
+      let updatedCount = 0;
+      let ticketCount = 0;
 
       try {
-        // Gather all active slack codes from the Kanban board to prevent rate-limiting the Slack API
-        const activeCodes = Object.values(leadsData)
-          .map(l => l.slackCode)
-          .filter(Boolean)
-          .join(',');
+        // Get all leads that have a slackCode
+        const leadsWithCode = Object.values(leadsData).filter(l => l.slackCode);
 
-        // Call the dedicated Slack-only endpoint (no Google Calendar dependency)
-        const response = await fetch(`/api/slack-sync?codes=${encodeURIComponent(activeCodes)}`);
-        if (!response.ok) throw new Error(`فشل الاتصال بخادم Slack (${response.status})`);
-        const slackMap = await response.json();
-
-        if (Object.keys(slackMap).length === 0) {
-          showToast('⚠️ لم يتم العثور على بيانات من Slack. تأكد من إعداد المتغيرات البيئية.', 'warning');
+        if (leadsWithCode.length === 0) {
+          showToast('⚠️ لا يوجد عملاء بكود Slack لمزامنتهم.', 'warning');
           return;
         }
 
-        let updatedCount = 0;
-        let ticketCount = 0;
-
-        // Go through ALL existing leads and update them by slackCode
-        for (const lead of Object.values(leadsData)) {
+        // Process each lead sequentially (one at a time) to avoid Slack rate limits
+        for (let i = 0; i < leadsWithCode.length; i++) {
+          const lead = leadsWithCode[i];
           const code = lead.slackCode;
-          if (!code || !slackMap[code]) continue;
 
-          const slackInfo = slackMap[code];
-          const updates = {};
+          // Update button text to show progress
+          if (btnText) btnText.textContent = `${i + 1}/${leadsWithCode.length} جارٍ...`;
 
-          if (slackInfo.phone && lead.phone !== slackInfo.phone) {
-            updates.phone = slackInfo.phone;
-          }
-          if (slackInfo.crmLink && lead.crmLink !== slackInfo.crmLink) {
-            updates.crmLink = slackInfo.crmLink;
-          }
+          try {
+            // Fetch thread data for this specific lead code
+            const resp = await fetch(`/api/slack-thread?code=${encodeURIComponent(code)}`);
+            if (!resp.ok) continue; // Skip on error, don't abort all
 
-          if (Object.keys(updates).length > 0) {
-            await db.ref(`${getLeadsPath()}/${lead.id}`).update(updates);
-            updatedCount++;
-          }
+            const slackInfo = await resp.json();
 
-          // Import thread replies as tickets (avoid duplicates by slackTs)
-          if (slackInfo.thread && slackInfo.thread.length > 0) {
-            for (const reply of slackInfo.thread) {
-              const dup = Object.values(ticketsData || {}).some(t => t.slackTs === reply.ts && t.leadId === lead.id);
-              if (!dup) {
-                const ticketKey = db.ref(getTicketsPath()).push().key;
-                await db.ref(`${getTicketsPath()}/${ticketKey}`).set({
-                  id: ticketKey,
-                  leadId: lead.id,
-                  type: 'slack',
-                  title: reply.text,
-                  note: `المرسل: ${reply.user}`,
-                  addedAt: reply.timestamp,
-                  scheduledAt: reply.timestamp,
-                  status: 'completed',
-                  completedAt: reply.timestamp,
-                  slackTs: reply.ts
-                });
-                ticketCount++;
+            // Update phone/crmLink if found and different
+            const updates = {};
+            if (slackInfo.phone && lead.phone !== slackInfo.phone) updates.phone = slackInfo.phone;
+            if (slackInfo.crmLink && lead.crmLink !== slackInfo.crmLink) updates.crmLink = slackInfo.crmLink;
+            if (Object.keys(updates).length > 0) {
+              await db.ref(`${getLeadsPath()}/${lead.id}`).update(updates);
+              updatedCount++;
+            }
+
+            // Save thread replies as tickets (avoid duplicates by slackTs)
+            if (slackInfo.thread && slackInfo.thread.length > 0) {
+              for (const reply of slackInfo.thread) {
+                if (!reply.text || reply.text.trim() === '') continue; // Skip empty replies
+                const dup = Object.values(ticketsData || {}).some(
+                  t => t.slackTs === reply.ts && t.leadId === lead.id
+                );
+                if (!dup) {
+                  const ticketKey = db.ref(getTicketsPath()).push().key;
+                  await db.ref(`${getTicketsPath()}/${ticketKey}`).set({
+                    id: ticketKey,
+                    leadId: lead.id,
+                    type: 'slack',
+                    title: reply.text,
+                    note: `المرسل: ${reply.user}`,
+                    addedAt: reply.timestamp,
+                    scheduledAt: reply.timestamp,
+                    status: 'completed',
+                    completedAt: reply.timestamp,
+                    slackTs: reply.ts
+                  });
+                  ticketCount++;
+                }
               }
             }
+          } catch (leadErr) {
+            console.warn(`Slack sync skipped lead ${code}:`, leadErr.message);
           }
+
+          // Small delay to avoid Slack rate limits (50ms between requests)
+          await new Promise(r => setTimeout(r, 50));
         }
 
         showToast(`✅ تمت المزامنة: تحديث ${updatedCount} عميل، إضافة ${ticketCount} متابعة من Slack`, 'success');
@@ -5396,7 +5401,8 @@
         console.error('Slack sync error:', err);
         showToast('حدث خطأ أثناء مزامنة Slack: ' + err.message, 'error');
       } finally {
-        if (btn) { btn.disabled = false; btnText.textContent = 'مزامنة Slack'; }
+        if (btn) { btn.disabled = false; }
+        if (btnText) btnText.textContent = 'مزامنة Slack';
       }
     }
 

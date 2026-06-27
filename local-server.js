@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const meetingsHandler = require('./api/meetings');
 const slackSyncHandler = require('./api/slack-sync');
+const slackThreadHandler = require('./api/slack-thread');
 
 const PORT = 8080;
 
@@ -30,6 +31,10 @@ const serverHandler = async (req, res) => {
 
   if (pathname === '/api/slack-sync') {
     return slackSyncHandler(req, res);
+  }
+
+  if (pathname === '/api/slack-thread') {
+    return slackThreadHandler(req, res);
   }
 
   // Static File Serving

@@ -1,0 +1,161 @@
+const https = require('https');
+const url = require('url');
+
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+function cleanSlackText(text) {
+  if (!text) return '';
+  return text
+    .replace(/<@U[A-Z0-9]+>/g, '')
+    .replace(/<!subteam\^[A-Z0-9|a-z\-_\s]+>/g, '')
+    .replace(/<tel:[^|]+\|([^>]+)>/g, '$1')
+    .replace(/<http[^|]+\|([^>]+)>/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractAndFormatPhones(text) {
+  if (!text) return '';
+  const cleanedText = text.replace(/[<>|]/g, ' ');
+  const digitSeqRegex = /\+?\d+/g;
+  const matches = [];
+  let match;
+  while ((match = digitSeqRegex.exec(cleanedText)) !== null) {
+    let num = match[0];
+    if (num.startsWith('+966')) num = num.substring(4);
+    else if (num.startsWith('966')) num = num.substring(3);
+    if (num.startsWith('05') && num.length === 10) {
+      if (!matches.includes(num)) matches.push(num);
+    } else if (num.startsWith('5') && num.length === 9) {
+      const f = '0' + num;
+      if (!matches.includes(f)) matches.push(f);
+    }
+  }
+  return matches.join(' - ');
+}
+
+function slackGet(path, token) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'slack.com',
+      path,
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    };
+    const req = https.request(options, (r) => {
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { resolve({ ok: false, error: 'JSON parse error' }); }
+      });
+    });
+    req.on('error', e => resolve({ ok: false, error: e.message }));
+    req.end();
+  });
+}
+
+module.exports = async (req, res) => {
+  setCors(res);
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200); res.end(); return;
+  }
+
+  const token = process.env.SLACK_USER_TOKEN;
+  const channelId = process.env.SLACK_CHANNEL_ID;
+
+  if (!token || !channelId) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Missing env vars' }));
+    return;
+  }
+
+  // Parse the target slackCode from query string
+  const parsedUrl = url.parse(req.url, true);
+  const targetCode = (parsedUrl.query.code || '').toUpperCase().trim();
+
+  if (!targetCode) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Missing ?code= parameter' }));
+    return;
+  }
+
+  try {
+    // Paginate through history to find the target message
+    let foundMsg = null;
+    let cursor = null;
+
+    while (!foundMsg) {
+      let apiPath = `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=200`;
+      if (cursor) apiPath += `&cursor=${encodeURIComponent(cursor)}`;
+
+      const pageData = await slackGet(apiPath, token);
+
+      if (!pageData.ok) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: pageData.error || 'Slack history error' }));
+        return;
+      }
+
+      const msgs = pageData.messages || [];
+      for (const msg of msgs) {
+        const text = msg.text || '';
+        const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
+        if (codeMatch && codeMatch[0].toUpperCase() === targetCode) {
+          foundMsg = msg;
+          break;
+        }
+      }
+
+      cursor = pageData.response_metadata && pageData.response_metadata.next_cursor;
+      if (!cursor || msgs.length === 0) break;
+    }
+
+    if (!foundMsg) {
+      // Not found in Slack history - return empty result
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ thread: [], phone: '', crmLink: '' }));
+      return;
+    }
+
+    // Extract phone and CRM link from the parent message
+    const phone = extractAndFormatPhones(foundMsg.text);
+    let crmLink = '';
+    const linkMatch = (foundMsg.text || '').match(/https:\/\/e\.aait\.sa\/web[^\s>]*/i);
+    if (linkMatch) crmLink = linkMatch[0].replace(/&amp;/g, '&');
+
+    // Fetch thread replies if any
+    let thread = [];
+    if (foundMsg.reply_count && foundMsg.reply_count > 0) {
+      const repliesData = await slackGet(
+        `/api/conversations.replies?channel=${encodeURIComponent(channelId)}&ts=${foundMsg.ts}&limit=200`,
+        token
+      );
+
+      if (repliesData.ok && repliesData.messages) {
+        thread = repliesData.messages
+          .filter(r => r.ts !== foundMsg.ts) // Exclude parent message
+          .map(r => ({
+            text: cleanSlackText(r.text),
+            ts: r.ts,
+            user: r.user || 'Unknown',
+            timestamp: parseFloat(r.ts) * 1000
+          }));
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ phone, crmLink, thread }));
+
+  } catch (err) {
+    console.error('slack-thread error:', err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+};
