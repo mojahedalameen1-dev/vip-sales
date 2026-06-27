@@ -3363,6 +3363,10 @@
                 <span class="info-label">تاريخ الاجتماع:</span>
                 <span id="detailMeetingDate" class="info-val">-</span>
               </div>
+              <div class="details-info-item" id="detailCrmLinkItem" style="display: none;">
+                <span class="info-label">رابط CRM (أودو):</span>
+                <span class="info-val"><a id="detailCrmLink" href="#" target="_blank" style="color: var(--accent-blue); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">فتح في أودو <i data-lucide="external-link" style="width: 12px; height: 12px;"></i></a></span>
+              </div>
             </div>
           </div>
 
@@ -4182,6 +4186,15 @@
       document.getElementById("detailMeetingTitle").textContent = lead.meetingTitle || "-";
       document.getElementById("detailMeetingDate").textContent = lead.meetingDate ? new Date(lead.meetingDate).toLocaleString('en-US') : "-";
 
+      // CRM Link logic
+      const crmLinkItem = document.getElementById("detailCrmLinkItem");
+      if (lead.crmLink) {
+        crmLinkItem.style.display = "flex";
+        document.getElementById("detailCrmLink").href = lead.crmLink;
+      } else {
+        crmLinkItem.style.display = "none";
+      }
+
       // Closed info logic
       const closedSec = document.getElementById("detailClosedSection");
       if (lead.column === 'closed') {
@@ -4487,6 +4500,11 @@
                     <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
                     <span>${lead.slackCode || 'بدون كود'}</span>
                   </span>
+                  ${lead.crmLink ? `
+                    <a href="${lead.crmLink}" target="_blank" onclick="event.stopPropagation()" class="btn-icon" style="padding: 4px; display: inline-flex; align-items: center;" title="فتح في Odoo CRM">
+                      <i data-lucide="external-link" style="width: 12px; height: 12px; color: var(--accent-blue);"></i>
+                    </a>
+                  ` : ''}
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                   <button class="btn-icon" style="padding: 4px;" onclick="openEditLeadModal('${lead.id}')">
@@ -5335,7 +5353,9 @@
           const payload = {
             id: leadKey, slackCode: slackCodeToUse,
             clientName: parsed.clientName, projectName: parsed.projectName,
-            fullName: parsed.clientName, phone: "",
+            fullName: parsed.clientName,
+            phone: event.phone || "",
+            crmLink: event.crmLink || "",
             firstPayment: 0, totalDeal: 0,
             meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
             needsReview: parsed.needsReview || false,

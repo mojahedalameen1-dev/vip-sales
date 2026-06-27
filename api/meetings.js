@@ -29,6 +29,89 @@ function determineSalesRep(attendees) {
   return null;
 }
 
+// ════════════════ Slack Channel Parser Helper ════════════════
+function fetchSlackLeadInfo() {
+  return new Promise((resolve) => {
+    const token = process.env.SLACK_USER_TOKEN;
+    const channelId = process.env.SLACK_CHANNEL_ID;
+
+    if (!token || !channelId) {
+      console.warn("Slack configuration (SLACK_USER_TOKEN or SLACK_CHANNEL_ID) is missing.");
+      return resolve({});
+    }
+
+    const options = {
+      hostname: 'slack.com',
+      path: `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=150`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsedRes = JSON.parse(data);
+          if (!parsedRes.ok) {
+            console.error("Slack API error:", parsedRes.error);
+            return resolve({});
+          }
+
+          const lookupMap = {};
+          const messages = parsedRes.messages || [];
+
+          for (const msg of messages) {
+            const text = msg.text || '';
+            const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
+            if (!codeMatch) continue;
+            const slackCode = codeMatch[0].toUpperCase();
+
+            // Extract Phone Number
+            let phone = '';
+            const telMatch = text.match(/tel:(\+?\d+)/i);
+            if (telMatch) {
+              phone = telMatch[1];
+            } else {
+              const generalPhoneMatch = text.match(/(\+?966\d+|0?5\d{8})/);
+              if (generalPhoneMatch) {
+                phone = generalPhoneMatch[0];
+              }
+            }
+
+            // Extract CRM Link
+            let crmLink = '';
+            const linkMatch = text.match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
+            if (linkMatch) {
+              crmLink = linkMatch[0].replace(/&amp;/g, '&');
+            }
+
+            // Avoid overwriting if we already have newer info (since history returns newest first)
+            if (!lookupMap[slackCode]) {
+              lookupMap[slackCode] = { phone, crmLink };
+            }
+          }
+
+          resolve(lookupMap);
+        } catch (e) {
+          console.error("Error parsing Slack history response:", e);
+          resolve({});
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error("Slack request error:", err);
+      resolve({});
+    });
+
+    req.end();
+  });
+}
+
 // ════════════════ JWT / Auth helpers ════════════════
 function base64url(stringOrBuffer) {
   const buf = Buffer.isBuffer(stringOrBuffer) ? stringOrBuffer : Buffer.from(stringOrBuffer);
@@ -191,6 +274,8 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const slackLookupMap = await fetchSlackLeadInfo();
+
     let keyJson;
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       keyJson = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -235,6 +320,8 @@ module.exports = async (req, res) => {
             const attendees = event.attendees || [];
             const salesRep  = determineSalesRep(attendees);
 
+            const slackInfo = (parsed.slackCode && slackLookupMap[parsed.slackCode]) || {};
+
             return {
               id:          event.id,
               summary:     event.summary || 'اجتماع',
@@ -249,7 +336,9 @@ module.exports = async (req, res) => {
               needsReview: parsed.needsReview,
               slackCode:   parsed.slackCode,
               meetingType: parsed.meetingType,
-              salesRep
+              salesRep,
+              phone:       slackInfo.phone || "",
+              crmLink:     slackInfo.crmLink || ""
             };
           });
 
