@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const meetingsHandler = require('./api/meetings');
+const slackSyncHandler = require('./api/slack-sync');
 
 const PORT = 8080;
 
@@ -25,6 +26,10 @@ const serverHandler = async (req, res) => {
   // API Route
   if (pathname === '/api/meetings') {
     return meetingsHandler(req, res);
+  }
+
+  if (pathname === '/api/slack-sync') {
+    return slackSyncHandler(req, res);
   }
 
   // Static File Serving

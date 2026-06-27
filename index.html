@@ -5327,28 +5327,20 @@
       if (btn) { btn.disabled = true; btnText.textContent = 'جارٍ المزامنة...'; }
 
       try {
-        // Fetch Slack data via the existing API
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const response = await fetch(`/api/meetings?month=${yyyy}-${mm}&email=${encodeURIComponent(currentUser.email)}`);
-        if (!response.ok) throw new Error('فشل الاتصال بالخادم');
-        const events = await response.json();
+        // Call the dedicated Slack-only endpoint (no Google Calendar dependency)
+        const response = await fetch('/api/slack-sync');
+        if (!response.ok) throw new Error(`فشل الاتصال بخادم Slack (${response.status})`);
+        const slackMap = await response.json();
 
-        // Build a map of slackCode => {phone, crmLink, thread} from API
-        const slackMap = {};
-        for (const ev of events) {
-          const parsed = parseMeetingSummary(ev.summary);
-          const code = parsed.slackCode || ev.slackCode;
-          if (code && (ev.phone || ev.crmLink || (ev.thread && ev.thread.length > 0))) {
-            slackMap[code] = { phone: ev.phone || '', crmLink: ev.crmLink || '', thread: ev.thread || [] };
-          }
+        if (Object.keys(slackMap).length === 0) {
+          showToast('⚠️ لم يتم العثور على بيانات من Slack. تأكد من إعداد المتغيرات البيئية.', 'warning');
+          return;
         }
 
         let updatedCount = 0;
         let ticketCount = 0;
 
-        // Go through ALL existing leads and update them
+        // Go through ALL existing leads and update them by slackCode
         for (const lead of Object.values(leadsData)) {
           const code = lead.slackCode;
           if (!code || !slackMap[code]) continue;
