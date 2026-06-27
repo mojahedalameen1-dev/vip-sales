@@ -29,7 +29,85 @@ function determineSalesRep(attendees) {
   return null;
 }
 
+
 // ════════════════ Slack Channel Parser Helper ════════════════
+function fetchSlackReplies(token, channelId, ts) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'slack.com',
+      path: `/api/conversations.replies?channel=${channelId}&ts=${ts}`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsedRes = JSON.parse(data);
+          if (parsedRes.ok && parsedRes.messages) {
+            resolve(parsedRes.messages);
+          } else {
+            resolve([]);
+          }
+        } catch (e) {
+          resolve([]);
+        }
+      });
+    });
+
+    req.on('error', () => resolve([]));
+    req.end();
+  });
+}
+
+function cleanSlackText(text) {
+  if (!text) return '';
+  return text
+    .replace(/<@U[A-Z0-9]+>/g, '') // remove user mentions
+    .replace(/<!subteam\^[A-Z0-9|a-z-_\s]+>/g, '') // remove subteam mentions
+    .replace(/<tel:[^|]+\|([^>]+)>/g, '$1') // format tel links
+    .replace(/<http[^|]+\|([^>]+)>/g, '$1') // format http links
+    .replace(/\s+/g, ' ') // normalize whitespace
+    .trim();
+}
+
+function extractAndFormatPhones(text) {
+  if (!text) return '';
+  
+  const cleanedText = text.replace(/[<>|]/g, ' ');
+  const digitSeqRegex = /\+?\d+/g;
+  const matches = [];
+  let match;
+  
+  while ((match = digitSeqRegex.exec(cleanedText)) !== null) {
+    let num = match[0];
+    
+    if (num.startsWith('+966')) {
+      num = num.substring(4);
+    } else if (num.startsWith('966')) {
+      num = num.substring(3);
+    }
+    
+    if (num.startsWith('05') && num.length === 10) {
+      if (!matches.includes(num)) {
+        matches.push(num);
+      }
+    } else if (num.startsWith('5') && num.length === 9) {
+      const formatted = '0' + num;
+      if (!matches.includes(formatted)) {
+        matches.push(formatted);
+      }
+    }
+  }
+  
+  return matches.join(' - ');
+}
+
 function fetchSlackLeadInfo() {
   return new Promise((resolve) => {
     const token = process.env.SLACK_USER_TOKEN;
@@ -53,7 +131,7 @@ function fetchSlackLeadInfo() {
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
+      res.on('end', async () => {
         try {
           const parsedRes = JSON.parse(data);
           if (!parsedRes.ok) {
@@ -61,39 +139,50 @@ function fetchSlackLeadInfo() {
             return resolve({});
           }
 
-          const lookupMap = {};
           const messages = parsedRes.messages || [];
+          const lookupMap = {};
 
+          // Find messages with slack code to process
+          const messagesToProcess = [];
           for (const msg of messages) {
             const text = msg.text || '';
             const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
-            if (!codeMatch) continue;
-            const slackCode = codeMatch[0].toUpperCase();
+            if (codeMatch) {
+              const slackCode = codeMatch[0].toUpperCase();
+              messagesToProcess.push({ msg, slackCode });
+            }
+          }
+
+          // Fetch threads in parallel
+          await Promise.all(messagesToProcess.map(async ({ msg, slackCode }) => {
+            let threadReplies = [];
+            if (msg.reply_count && msg.reply_count > 0) {
+              const replies = await fetchSlackReplies(token, channelId, msg.ts);
+              // Filter out the parent message itself
+              threadReplies = replies
+                .filter(r => r.ts !== msg.ts)
+                .map(r => ({
+                  text: cleanSlackText(r.text),
+                  ts: r.ts,
+                  user: r.user || 'Unknown',
+                  timestamp: parseFloat(r.ts) * 1000
+                }));
+            }
 
             // Extract Phone Number
-            let phone = '';
-            const telMatch = text.match(/tel:(\+?\d+)/i);
-            if (telMatch) {
-              phone = telMatch[1];
-            } else {
-              const generalPhoneMatch = text.match(/(\+?966\d+|0?5\d{8})/);
-              if (generalPhoneMatch) {
-                phone = generalPhoneMatch[0];
-              }
-            }
+            const phone = extractAndFormatPhones(msg.text);
 
             // Extract CRM Link
             let crmLink = '';
-            const linkMatch = text.match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
+            const linkMatch = (msg.text || '').match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
             if (linkMatch) {
               crmLink = linkMatch[0].replace(/&amp;/g, '&');
             }
 
-            // Avoid overwriting if we already have newer info (since history returns newest first)
             if (!lookupMap[slackCode]) {
-              lookupMap[slackCode] = { phone, crmLink };
+              lookupMap[slackCode] = { phone, crmLink, thread: threadReplies };
             }
-          }
+          }));
 
           resolve(lookupMap);
         } catch (e) {

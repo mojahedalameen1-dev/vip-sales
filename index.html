@@ -4901,7 +4901,8 @@
         whatsapp: "💬",
         email: "📧",
         proposal: "📄",
-        meeting: "🤝"
+        meeting: "🤝",
+        slack: "💬"
       };
 
       leadTickets.sort((a, b) => (b.addedAt || b.scheduledAt || 0) - (a.addedAt || a.scheduledAt || 0)).forEach(ticket => {
@@ -5331,44 +5332,94 @@
         renderMeetingsTab();
         let importedCount = 0;
         for (const event of events) {
-          const duplicate = Object.values(leadsData).some(l => l.googleEventId === event.id);
-          if (duplicate) continue;
-
-          // --- Filter events so employees only see their own clients on the board ---
-          const userEmail = currentUser.email.toLowerCase();
-          const mySalesRepName = SALES_REP_EMAILS[userEmail];
-
-          if (mySalesRepName && event.salesRep !== mySalesRepName) {
-            continue; // This event belongs to a different sales rep
-          } else if (!mySalesRepName) {
-            // Fallback for other users not in the priority list
-            const isAttendee = event.attendees && event.attendees.some(a => a.email && a.email.toLowerCase() === userEmail);
-            if (!isAttendee) continue;
-          }
-          // -------------------------------------------------------------------------
-
           const parsed = parseMeetingSummary(event.summary);
           const slackCodeToUse = parsed.slackCode || (await getNextSlackCode());
-          const leadKey = db.ref(getLeadsPath()).push().key;
-          const payload = {
-            id: leadKey, slackCode: slackCodeToUse,
-            clientName: parsed.clientName, projectName: parsed.projectName,
-            fullName: parsed.clientName,
-            phone: event.phone || "",
-            crmLink: event.crmLink || "",
-            firstPayment: 0, totalDeal: 0,
-            meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
-            needsReview: parsed.needsReview || false,
-            meetingDate: event.startTime ? new Date(event.startTime).getTime() : Date.now(),
-            column: 'new', googleEventId: event.id,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            lastActivityAt: Date.now(),
-            columnHistory: [{ column: 'new', timestamp: Date.now(), movedBy: 'Google Calendar Service Account' }],
-            openTicketsCount: 0
-          };
-          await db.ref(`${getLeadsPath()}/${leadKey}`).set(payload);
-          importedCount++;
+
+          let existingLead = Object.values(leadsData).find(l => l.googleEventId === event.id);
+          if (!existingLead && slackCodeToUse) {
+            existingLead = Object.values(leadsData).find(l => l.slackCode === slackCodeToUse);
+          }
+
+          let currentLeadId;
+
+          if (existingLead) {
+            currentLeadId = existingLead.id;
+            let needsUpdate = false;
+            const updates = {};
+            if (existingLead.phone !== event.phone && event.phone) {
+              updates.phone = event.phone;
+              needsUpdate = true;
+            }
+            if (existingLead.crmLink !== event.crmLink && event.crmLink) {
+              updates.crmLink = event.crmLink;
+              needsUpdate = true;
+            }
+            if (!existingLead.googleEventId) {
+              updates.googleEventId = event.id;
+              needsUpdate = true;
+            }
+            if (needsUpdate) {
+              await db.ref(`${getLeadsPath()}/${existingLead.id}`).update(updates);
+            }
+          } else {
+            // --- Filter events so employees only see their own clients on the board ---
+            const userEmail = currentUser.email.toLowerCase();
+            const mySalesRepName = SALES_REP_EMAILS[userEmail];
+
+            if (mySalesRepName && event.salesRep !== mySalesRepName) {
+              continue; // This event belongs to a different sales rep
+            } else if (!mySalesRepName) {
+              // Fallback for other users not in the priority list
+              const isAttendee = event.attendees && event.attendees.some(a => a.email && a.email.toLowerCase() === userEmail);
+              if (!isAttendee) continue;
+            }
+            // -------------------------------------------------------------------------
+
+            const leadKey = db.ref(getLeadsPath()).push().key;
+            currentLeadId = leadKey;
+            const payload = {
+              id: leadKey, slackCode: slackCodeToUse,
+              clientName: parsed.clientName, projectName: parsed.projectName,
+              fullName: parsed.clientName,
+              phone: event.phone || "",
+              crmLink: event.crmLink || "",
+              firstPayment: 0, totalDeal: 0,
+              meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
+              needsReview: parsed.needsReview || false,
+              meetingDate: event.startTime ? new Date(event.startTime).getTime() : Date.now(),
+              column: 'new', googleEventId: event.id,
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              updatedAt: firebase.database.ServerValue.TIMESTAMP,
+              lastActivityAt: Date.now(),
+              columnHistory: [{ column: 'new', timestamp: Date.now(), movedBy: 'Google Calendar Service Account' }],
+              openTicketsCount: 0
+            };
+            await db.ref(`${getLeadsPath()}/${leadKey}`).set(payload);
+            importedCount++;
+          }
+
+          // Import thread replies if available
+          if (event.thread && event.thread.length > 0) {
+            for (const reply of event.thread) {
+              const duplicateTicket = Object.values(ticketsData || {}).some(t => t.slackTs === reply.ts && t.leadId === currentLeadId);
+              if (!duplicateTicket) {
+                const ticketKey = db.ref(getTicketsPath()).push().key;
+                const payload = {
+                  id: ticketKey,
+                  leadId: currentLeadId,
+                  type: 'slack',
+                  title: reply.text,
+                  note: `المرسل: ${reply.user}`,
+                  addedAt: reply.timestamp,
+                  scheduledAt: reply.timestamp,
+                  status: "completed",
+                  completedAt: reply.timestamp,
+                  slackTs: reply.ts
+                };
+                await db.ref(`${getTicketsPath()}/${ticketKey}`).set(payload);
+              }
+            }
+          }
         }
         document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
         updateAutoRefreshIndicator();
