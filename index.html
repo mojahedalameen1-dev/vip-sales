@@ -3071,6 +3071,11 @@
             <span>جلب اجتماعات Meet</span>
           </button>
 
+          <button id="syncSlackBtn" class="btn-primary" onclick="syncSlackData()" title="تحديث أرقام الجوال والمتابعات من Slack لجميع العملاء" style="background: linear-gradient(135deg, #4A154B, #7C3AAD); border: none;">
+            <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+            <span id="syncSlackBtnText">مزامنة Slack</span>
+          </button>
+
           <button id="reimportMeetBtn" class="btn-reimport" onclick="reimportMeetings()"
             title="مسح الاجتماعات المستوردة في العمود الأول وإعادة جلبها">
             <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i>
@@ -5311,6 +5316,89 @@
         renderKanbanBoard();
       } catch (err) {
         console.error("Failed to fetch monthly meetings:", err);
+      }
+    }
+
+    // ════════════════ Standalone Slack Sync Function ════════════════
+    async function syncSlackData() {
+      if (!currentUser) { showToast('يرجى تسجيل الدخول أولاً.', 'error'); return; }
+      const btn = document.getElementById('syncSlackBtn');
+      const btnText = document.getElementById('syncSlackBtnText');
+      if (btn) { btn.disabled = true; btnText.textContent = 'جارٍ المزامنة...'; }
+
+      try {
+        // Fetch Slack data via the existing API
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const response = await fetch(`/api/meetings?month=${yyyy}-${mm}&email=${encodeURIComponent(currentUser.email)}`);
+        if (!response.ok) throw new Error('فشل الاتصال بالخادم');
+        const events = await response.json();
+
+        // Build a map of slackCode => {phone, crmLink, thread} from API
+        const slackMap = {};
+        for (const ev of events) {
+          const parsed = parseMeetingSummary(ev.summary);
+          const code = parsed.slackCode || ev.slackCode;
+          if (code && (ev.phone || ev.crmLink || (ev.thread && ev.thread.length > 0))) {
+            slackMap[code] = { phone: ev.phone || '', crmLink: ev.crmLink || '', thread: ev.thread || [] };
+          }
+        }
+
+        let updatedCount = 0;
+        let ticketCount = 0;
+
+        // Go through ALL existing leads and update them
+        for (const lead of Object.values(leadsData)) {
+          const code = lead.slackCode;
+          if (!code || !slackMap[code]) continue;
+
+          const slackInfo = slackMap[code];
+          const updates = {};
+
+          if (slackInfo.phone && lead.phone !== slackInfo.phone) {
+            updates.phone = slackInfo.phone;
+          }
+          if (slackInfo.crmLink && lead.crmLink !== slackInfo.crmLink) {
+            updates.crmLink = slackInfo.crmLink;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await db.ref(`${getLeadsPath()}/${lead.id}`).update(updates);
+            updatedCount++;
+          }
+
+          // Import thread replies as tickets (avoid duplicates by slackTs)
+          if (slackInfo.thread && slackInfo.thread.length > 0) {
+            for (const reply of slackInfo.thread) {
+              const dup = Object.values(ticketsData || {}).some(t => t.slackTs === reply.ts && t.leadId === lead.id);
+              if (!dup) {
+                const ticketKey = db.ref(getTicketsPath()).push().key;
+                await db.ref(`${getTicketsPath()}/${ticketKey}`).set({
+                  id: ticketKey,
+                  leadId: lead.id,
+                  type: 'slack',
+                  title: reply.text,
+                  note: `المرسل: ${reply.user}`,
+                  addedAt: reply.timestamp,
+                  scheduledAt: reply.timestamp,
+                  status: 'completed',
+                  completedAt: reply.timestamp,
+                  slackTs: reply.ts
+                });
+                ticketCount++;
+              }
+            }
+          }
+        }
+
+        showToast(`✅ تمت المزامنة: تحديث ${updatedCount} عميل، إضافة ${ticketCount} متابعة من Slack`, 'success');
+        renderKanbanBoard(false);
+      } catch (err) {
+        console.error('Slack sync error:', err);
+        showToast('حدث خطأ أثناء مزامنة Slack: ' + err.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btnText.textContent = 'مزامنة Slack'; }
       }
     }
 
