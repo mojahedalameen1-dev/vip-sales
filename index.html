@@ -5327,8 +5327,14 @@
       if (btn) { btn.disabled = true; btnText.textContent = 'جارٍ المزامنة...'; }
 
       try {
+        // Gather all active slack codes from the Kanban board to prevent rate-limiting the Slack API
+        const activeCodes = Object.values(leadsData)
+          .map(l => l.slackCode)
+          .filter(Boolean)
+          .join(',');
+
         // Call the dedicated Slack-only endpoint (no Google Calendar dependency)
-        const response = await fetch('/api/slack-sync');
+        const response = await fetch(`/api/slack-sync?codes=${encodeURIComponent(activeCodes)}`);
         if (!response.ok) throw new Error(`فشل الاتصال بخادم Slack (${response.status})`);
         const slackMap = await response.json();
 

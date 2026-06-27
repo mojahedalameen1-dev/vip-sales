@@ -135,6 +135,14 @@ module.exports = async (req, res) => {
     }
     const lookupMap = {};
 
+    // Parse target codes from query to avoid rate limiting Slack API
+    const targetCodesStr = req.query.codes || '';
+    const targetCodes = new Set(
+      targetCodesStr.split(',')
+        .map(c => c.trim().toUpperCase())
+        .filter(Boolean)
+    );
+
     // Group messages by slackCode
     const groupedMessages = {};
     for (const msg of messages) {
@@ -142,6 +150,12 @@ module.exports = async (req, res) => {
       const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
       if (codeMatch) {
         const slackCode = codeMatch[0].toUpperCase();
+        
+        // If target codes are specified, only process those
+        if (targetCodes.size > 0 && !targetCodes.has(slackCode)) {
+          continue;
+        }
+
         if (!groupedMessages[slackCode]) {
           groupedMessages[slackCode] = [];
         }
