@@ -695,6 +695,7 @@
     .kanban-column {
       width: 280px;
       min-width: 280px;
+      flex: 1;
       background-color: var(--bg-subtle);
       border-radius: 14px;
       display: flex;
@@ -1748,29 +1749,7 @@
       }
     }
 
-    @media (min-width: 1200px) {
-      html {
-        zoom: 0.8;
-      }
-      .app-container {
-        height: 100vh;
-        min-height: 100vh;
-      }
-      .sidebar {
-        height: 100vh;
-        min-height: 100vh;
-      }
-      .kanban-board {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 16px;
-        overflow-x: hidden;
-      }
-      .kanban-column {
-        width: 100%;
-        min-width: 0;
-      }
-    }
+
 
     /* ════════════════ SECTION: Daily Meetings Table Styles ════════════════ */
 
