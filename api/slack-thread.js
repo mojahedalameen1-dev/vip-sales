@@ -115,34 +115,50 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Paginate through history to find the target message
+    // 1. Try to search directly using search.messages API (fast, handles old messages, avoids rate limits)
     let foundMsg = null;
-    let cursor = null;
-
-    while (!foundMsg) {
-      let apiPath = `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=200`;
-      if (cursor) apiPath += `&cursor=${encodeURIComponent(cursor)}`;
-
-      const pageData = await slackGet(apiPath, token);
-
-      if (!pageData.ok) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: pageData.error || 'Slack history error' }));
-        return;
-      }
-
-      const msgs = pageData.messages || [];
-      for (const msg of msgs) {
-        const text = msg.text || '';
-        const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
-        if (codeMatch && codeMatch[0].toUpperCase() === targetCode) {
-          foundMsg = msg;
-          break;
+    try {
+      const searchRes = await slackGet(`/api/search.messages?query=${encodeURIComponent(targetCode)}&count=20`, token);
+      if (searchRes.ok && searchRes.messages && searchRes.messages.matches) {
+        const match = searchRes.messages.matches.find(m => m.channel && m.channel.id === channelId);
+        if (match) {
+          foundMsg = match;
+          foundMsg.is_search_result = true; // flag to force-check replies
         }
       }
+    } catch (e) {
+      console.warn("Slack search API failed, falling back to history pagination:", e.message);
+    }
 
-      cursor = pageData.response_metadata && pageData.response_metadata.next_cursor;
-      if (!cursor || msgs.length === 0) break;
+    // 2. Fallback: Paginate through conversations.history if not found via search API
+    if (!foundMsg) {
+      let cursor = null;
+      let pagesCount = 0;
+      while (!foundMsg && pagesCount < 25) {
+        pagesCount++;
+        let apiPath = `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=200`;
+        if (cursor) apiPath += `&cursor=${encodeURIComponent(cursor)}`;
+
+        const pageData = await slackGet(apiPath, token);
+
+        if (!pageData.ok) {
+          console.error("Slack history error during pagination:", pageData.error);
+          break;
+        }
+
+        const msgs = pageData.messages || [];
+        for (const msg of msgs) {
+          const text = msg.text || '';
+          const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
+          if (codeMatch && codeMatch[0].toUpperCase() === targetCode) {
+            foundMsg = msg;
+            break;
+          }
+        }
+
+        cursor = pageData.response_metadata && pageData.response_metadata.next_cursor;
+        if (!cursor || msgs.length === 0) break;
+      }
     }
 
     if (!foundMsg) {
@@ -172,7 +188,7 @@ module.exports = async (req, res) => {
 
     // Fetch thread replies if any
     let thread = [];
-    if (foundMsg.reply_count && foundMsg.reply_count > 0) {
+    if ((foundMsg.reply_count && foundMsg.reply_count > 0) || foundMsg.is_search_result) {
       const repliesData = await slackGet(
         `/api/conversations.replies?channel=${encodeURIComponent(channelId)}&ts=${foundMsg.ts}&limit=200`,
         token
