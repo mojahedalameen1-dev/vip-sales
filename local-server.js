@@ -50,7 +50,10 @@ const serverHandler = async (req, res) => {
             res.writeHead(500);
             res.end('Error loading index.html');
           } else {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.writeHead(200, {
+              'Content-Type': 'text/html; charset=utf-8',
+              'Cache-Control': 'no-cache, no-store, must-revalidate'
+            });
             res.end(htmlContent, 'utf-8');
           }
         });
@@ -59,7 +62,19 @@ const serverHandler = async (req, res) => {
         res.end(`Server Error: ${error.code}`);
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      const headers = {
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*'
+      };
+
+      // Cache static assets like JS, CSS, Fonts, Images for 1 year
+      if (pathname !== '/' && extname !== '.html') {
+        headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+      } else {
+        headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      }
+
+      res.writeHead(200, headers);
       res.end(content, 'utf-8');
     }
   });

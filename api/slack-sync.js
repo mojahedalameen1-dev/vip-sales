@@ -1,5 +1,8 @@
 const https = require('https');
 
+const slackSyncCache = new Map();
+const SLACK_SYNC_CACHE_TTL = 30000; // 30 seconds
+
 // ════════════════ CORS helper ════════════════
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -101,6 +104,19 @@ module.exports = async (req, res) => {
     return;
   }
 
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const targetCodesStr = req.query?.codes || parsedUrl.searchParams.get('codes') || '';
+  const cacheKey = targetCodesStr || 'all';
+
+  const cached = slackSyncCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < SLACK_SYNC_CACHE_TTL)) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(cached.data));
+    return;
+  }
+
+  req.targetCodesStr = targetCodesStr; // save it to avoid parsing again
+
   try {
     const token = process.env.SLACK_USER_TOKEN;
     const channelId = process.env.SLACK_CHANNEL_ID;
@@ -164,7 +180,7 @@ module.exports = async (req, res) => {
     const lookupMap = {};
 
     // Parse target codes from query to avoid rate limiting Slack API
-    const targetCodesStr = req.query.codes || '';
+    const targetCodesStr = req.targetCodesStr || '';
     const targetCodes = new Set(
       targetCodesStr.split(',')
         .map(c => c.trim().toUpperCase())
@@ -257,6 +273,11 @@ module.exports = async (req, res) => {
 
       lookupMap[slackCode] = { phone, crmLink, thread: allReplies };
     }));
+
+    slackSyncCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: lookupMap
+    });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(lookupMap));

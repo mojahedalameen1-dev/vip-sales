@@ -1,6 +1,9 @@
 const https = require('https');
 const url = require('url');
 
+const slackThreadCache = new Map();
+const SLACK_THREAD_CACHE_TTL = 30000; // 30 seconds
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -114,6 +117,13 @@ module.exports = async (req, res) => {
     return;
   }
 
+  const cached = slackThreadCache.get(targetCode);
+  if (cached && (Date.now() - cached.timestamp < SLACK_THREAD_CACHE_TTL)) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(cached.data));
+    return;
+  }
+
   try {
     // 1. Try to search directly using search.messages API (fast, handles old messages, avoids rate limits)
     let foundMsg = null;
@@ -221,8 +231,14 @@ module.exports = async (req, res) => {
       }
     }
 
+    const responseData = { phone, crmLink, thread };
+    slackThreadCache.set(targetCode, {
+      timestamp: Date.now(),
+      data: responseData
+    });
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ phone, crmLink, thread }));
+    res.end(JSON.stringify(responseData));
 
   } catch (err) {
     console.error('slack-thread error:', err);

@@ -3,6 +3,9 @@ const path = require('path');
 const crypto = require('crypto');
 const https = require('https');
 
+const meetingsCache = new Map();
+const MEETINGS_CACHE_TTL = 30000; // 30 seconds
+
 const KEY_PATH = path.join(process.cwd(), 'node_modules', 'sales-491201-b6d22a6beded.json');
 
 // ════════════════ Sales Rep Assignment Logic ════════════════
@@ -368,6 +371,15 @@ module.exports = async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const dateParam = req.query?.date || parsedUrl.searchParams.get('date'); // YYYY-MM-DD
   const monthParam = req.query?.month || parsedUrl.searchParams.get('month'); // YYYY-MM
+  const emailParam = req.query?.email || parsedUrl.searchParams.get('email');
+
+  const cacheKey = `${dateParam || ''}_${monthParam || ''}_${emailParam || ''}`;
+  const cached = meetingsCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < MEETINGS_CACHE_TTL)) {
+    res.writeHead(200);
+    res.end(JSON.stringify(cached.data));
+    return;
+  }
 
   let dayStart, dayEnd;
 
@@ -480,7 +492,6 @@ module.exports = async (req, res) => {
             };
           });
 
-          const emailParam = req.query?.email || parsedUrl.searchParams.get('email');
           if (emailParam) {
             const emailLower = emailParam.toLowerCase();
             result = result.filter(r => {
@@ -488,6 +499,11 @@ module.exports = async (req, res) => {
               return isAttendee;
             });
           }
+
+          meetingsCache.set(cacheKey, {
+            timestamp: Date.now(),
+            data: result
+          });
 
           res.writeHead(200);
           res.end(JSON.stringify(result));
