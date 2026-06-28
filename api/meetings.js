@@ -119,7 +119,7 @@ function extractCrmLink(text) {
 
 function fetchSlackLeadInfo(targetCodes) {
   if (!targetCodes || targetCodes.length === 0) return Promise.resolve({});
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const token = process.env.SLACK_USER_TOKEN;
     const channelId = process.env.SLACK_CHANNEL_ID;
 
@@ -129,7 +129,62 @@ function fetchSlackLeadInfo(targetCodes) {
     }
 
     const lookupMap = {};
-    Promise.all(targetCodes.map(targetCode => {
+    const missingCodes = new Set(targetCodes);
+    
+    try {
+      const historyOptions = {
+        hostname: 'slack.com',
+        path: `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=1000`,
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      };
+      const historyData = await new Promise((reqRes) => {
+        const req = https.request(historyOptions, (httpRes) => {
+          let data = ''; 
+          httpRes.on('data', c => data += c);
+          httpRes.on('end', () => {
+            try { reqRes(JSON.parse(data)); } catch (e) { reqRes({}); }
+          });
+        });
+        req.on('error', () => reqRes({}));
+        req.end();
+      });
+      
+      if (historyData.ok && historyData.messages) {
+        const historyMatches = [];
+        for (const msg of historyData.messages) {
+          const text = msg.text || '';
+          const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
+          if (codeMatch) {
+            const slackCode = codeMatch[0].toUpperCase();
+            if (missingCodes.has(slackCode)) {
+              historyMatches.push({ msg, slackCode });
+              missingCodes.delete(slackCode);
+            }
+          }
+        }
+        
+        await Promise.all(historyMatches.map(async ({ msg, slackCode }) => {
+           const phone = extractAndFormatPhones(msg.text);
+           let crmLink = extractCrmLink(msg.text);
+           
+           if (msg.reply_count && msg.reply_count > 0) {
+             const replies = await fetchSlackReplies(token, channelId, msg.ts);
+             if (!crmLink) {
+               for (const r of replies) {
+                 const link = extractCrmLink(r.text);
+                 if (link) { crmLink = link; break; }
+               }
+             }
+           }
+           lookupMap[slackCode] = { phone, crmLink, thread: [] };
+        }));
+      }
+    } catch (e) {
+      console.warn("Error fetching recent history", e);
+    }
+
+    await Promise.all([...missingCodes].map(targetCode => {
       return new Promise(async (res) => {
         let foundMsg = null;
         try {
@@ -166,8 +221,9 @@ function fetchSlackLeadInfo(targetCodes) {
            const phone = extractAndFormatPhones(foundMsg.text);
            let crmLink = extractCrmLink(foundMsg.text);
            
+           const correctTs = foundMsg.thread_ts || foundMsg.ts;
            if (foundMsg.reply_count > 0 || foundMsg.is_search_result) {
-             const replies = await fetchSlackReplies(token, channelId, foundMsg.ts);
+             const replies = await fetchSlackReplies(token, channelId, correctTs);
              if (!crmLink) {
                for (const r of replies) {
                  const link = extractCrmLink(r.text);
@@ -179,7 +235,9 @@ function fetchSlackLeadInfo(targetCodes) {
         }
         res();
       });
-    })).then(() => resolve(lookupMap));
+    }));
+    
+    resolve(lookupMap);
   });
 }
 

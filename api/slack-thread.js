@@ -189,8 +189,9 @@ module.exports = async (req, res) => {
     // Fetch thread replies if any
     let thread = [];
     if ((foundMsg.reply_count && foundMsg.reply_count > 0) || foundMsg.is_search_result) {
+      const correctTs = foundMsg.thread_ts || foundMsg.ts;
       const repliesData = await slackGet(
-        `/api/conversations.replies?channel=${encodeURIComponent(channelId)}&ts=${foundMsg.ts}&limit=200`,
+        `/api/conversations.replies?channel=${encodeURIComponent(channelId)}&ts=${correctTs}&limit=200`,
         token
       );
 
