@@ -117,7 +117,8 @@ function extractCrmLink(text) {
   return '';
 }
 
-function fetchSlackLeadInfo() {
+function fetchSlackLeadInfo(targetCodes) {
+  if (!targetCodes || targetCodes.length === 0) return Promise.resolve({});
   return new Promise((resolve) => {
     const token = process.env.SLACK_USER_TOKEN;
     const channelId = process.env.SLACK_CHANNEL_ID;
@@ -127,93 +128,58 @@ function fetchSlackLeadInfo() {
       return resolve({});
     }
 
-    const options = {
-      hostname: 'slack.com',
-      path: `/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=1000`,
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', async () => {
+    const lookupMap = {};
+    Promise.all(targetCodes.map(targetCode => {
+      return new Promise(async (res) => {
+        let foundMsg = null;
         try {
-          const parsedRes = JSON.parse(data);
-          if (!parsedRes.ok) {
-            console.error("Slack API error:", parsedRes.error);
-            return resolve({});
-          }
-
-          const messages = parsedRes.messages || [];
-          const lookupMap = {};
-
-          // Find messages with slack code to process
-          const messagesToProcess = [];
-          for (const msg of messages) {
-            const text = msg.text || '';
-            const codeMatch = text.match(/(?:AA|SLK|SLK-|CS)\d+/i);
-            if (codeMatch) {
-              const slackCode = codeMatch[0].toUpperCase();
-              messagesToProcess.push({ msg, slackCode });
+          const searchOptions = {
+            hostname: 'slack.com',
+            path: `/api/search.messages?query=${encodeURIComponent(targetCode)}&count=20`,
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+          };
+          const searchData = await new Promise((reqRes) => {
+            const req = https.request(searchOptions, (httpRes) => {
+              let data = ''; 
+              httpRes.on('data', c => data += c);
+              httpRes.on('end', () => {
+                try { reqRes(JSON.parse(data)); } catch (e) { reqRes({}); }
+              });
+            });
+            req.on('error', () => reqRes({}));
+            req.end();
+          });
+          
+          if (searchData.ok && searchData.messages && searchData.messages.matches) {
+            const match = searchData.messages.matches.find(m => m.channel && m.channel.id === channelId);
+            if (match) {
+              foundMsg = match;
+              foundMsg.is_search_result = true;
             }
           }
-
-          // Fetch threads in parallel
-          await Promise.all(messagesToProcess.map(async ({ msg, slackCode }) => {
-            let threadReplies = [];
-            let crmLink = extractCrmLink(msg.text);
-
-            if (msg.reply_count && msg.reply_count > 0) {
-              const replies = await fetchSlackReplies(token, channelId, msg.ts);
-              
-              // Also look for CRM Link in replies if not found in parent
-              if (!crmLink) {
-                for (const r of replies) {
-                  const link = extractCrmLink(r.text);
-                  if (link) {
-                    crmLink = link;
-                    break;
-                  }
-                }
-              }
-
-              // Filter out the parent message itself
-              threadReplies = replies
-                .filter(r => r.ts !== msg.ts)
-                .map(r => ({
-                  text: cleanSlackText(r.text),
-                  ts: r.ts,
-                  user: r.user || 'Unknown',
-                  timestamp: parseFloat(r.ts) * 1000
-                }));
-            }
-
-            // Extract Phone Number
-            const phone = extractAndFormatPhones(msg.text);
-
-            if (!lookupMap[slackCode]) {
-              lookupMap[slackCode] = { phone, crmLink, thread: threadReplies };
-            }
-          }));
-
-          resolve(lookupMap);
         } catch (e) {
-          console.error("Error parsing Slack history response:", e);
-          resolve({});
+          console.warn("Slack search failed for", targetCode);
         }
+
+        if (foundMsg) {
+           const phone = extractAndFormatPhones(foundMsg.text);
+           let crmLink = extractCrmLink(foundMsg.text);
+           
+           if (foundMsg.reply_count > 0 || foundMsg.is_search_result) {
+             const replies = await fetchSlackReplies(token, channelId, foundMsg.ts);
+             if (!crmLink) {
+               for (const r of replies) {
+                 const link = extractCrmLink(r.text);
+                 if (link) { crmLink = link; break; }
+               }
+             }
+           }
+           lookupMap[targetCode] = { phone, crmLink, thread: [] };
+        }
+        res();
       });
-    });
-
-    req.on('error', (err) => {
-      console.error("Slack request error:", err);
-      resolve({});
-    });
-
-    req.end();
+    })).then(() => resolve(lookupMap));
   });
 }
 
@@ -379,8 +345,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const slackLookupMap = await fetchSlackLeadInfo();
-
     let keyJson;
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       keyJson = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -404,7 +368,7 @@ module.exports = async (req, res) => {
     }, (apiRes) => {
       const chunks = [];
       apiRes.on('data', chunk => chunks.push(chunk));
-      apiRes.on('end', () => {
+      apiRes.on('end', async () => {
         try {
           const body = Buffer.concat(chunks).toString('utf8');
           const data = JSON.parse(body);
@@ -418,10 +382,21 @@ module.exports = async (req, res) => {
           }
 
           const events = data.items || [];
-          let result = events.map(event => {
+          
+          // Pre-parse to find all unique Slack codes
+          const parsedEvents = events.map(event => ({
+            event,
+            parsed: parseMeetingSummary(event.summary || '')
+          }));
+          
+          const targetCodes = [...new Set(parsedEvents.map(e => e.parsed.slackCode).filter(Boolean))];
+          
+          // Fetch Slack Info ONLY for target codes (Fast & handles old Slack messages)
+          const slackLookupMap = await fetchSlackLeadInfo(targetCodes);
+
+          let result = parsedEvents.map(({ event, parsed }) => {
             const meetLink = event.hangoutLink ||
               (event.conferenceData?.entryPoints?.[0]?.uri) || '';
-            const parsed    = parseMeetingSummary(event.summary || '');
             const attendees = event.attendees || [];
             const salesRep  = determineSalesRep(attendees);
 
