@@ -84,9 +84,9 @@ function extractAndFormatPhones(text) {
 
 function extractCrmLink(text) {
   if (!text) return '';
-  const match = text.match(/https?:\/\/[^\s>]*e\.aait\.sa[^\s>]*/i) || text.match(/https?:\/\/[^\s>]*odoo[^\s>]*/i);
+  const match = text.match(/https?:\/\/[^\s>|]*e\.aait\.sa[^\s>|]*/i) || text.match(/https?:\/\/[^\s>|]*odoo[^\s>|]*/i);
   if (match) {
-    return match[0].replace(/&amp;/g, '&').replace(/[>\|]/g, '').trim();
+    return match[0].replace(/&amp;/g, '&').trim();
   }
   return '';
 }
