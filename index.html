@@ -4025,6 +4025,7 @@
         if (currentUser && currentUser.email) {
           fetchGoogleMeetings(true);
           fetchMonthlyMeetings();
+          syncSlackData(true); // background sync
         }
       }, 2000);
 
@@ -4033,6 +4034,7 @@
         if (currentUser && currentUser.email) {
           fetchGoogleMeetings(true);
           fetchMonthlyMeetings();
+          syncSlackData(true); // background sync
           updateAutoRefreshIndicator();
         }
       }, 5 * 60 * 1000);
@@ -4066,6 +4068,14 @@
           clearSkeletons();
           // Render with staggered delay
           renderKanbanBoard(true);
+
+          // Alert user on startup if there are stale leads
+          setTimeout(() => {
+            const staleCount = Object.values(leadsData).filter(l => isLeadStale(l)).length;
+            if (staleCount > 0) {
+              showToast(`⚠️ تنبيه: لديك عدد (${staleCount}) عملاء ساكنين بدون تحديث لمتابعتهم!`, 'warning', 6000);
+            }
+          }, 2500);
         } else {
           renderKanbanBoard(false);
         }
@@ -5419,11 +5429,11 @@
     }
 
     // ════════════════ Standalone Slack Sync Function ════════════════
-    async function syncSlackData() {
-      if (!currentUser) { showToast('يرجى تسجيل الدخول أولاً.', 'error'); return; }
+    async function syncSlackData(isSilent = false) {
+      if (!currentUser) { if (!isSilent) showToast('يرجى تسجيل الدخول أولاً.', 'error'); return; }
       const btn = document.getElementById('syncSlackBtn');
       const btnText = document.getElementById('syncSlackBtnText');
-      if (btn) btn.disabled = true;
+      if (btn && !isSilent) btn.disabled = true;
 
       let updatedCount = 0;
       let ticketCount = 0;
@@ -5433,7 +5443,7 @@
         const leadsWithCode = Object.values(leadsData).filter(l => l.slackCode);
 
         if (leadsWithCode.length === 0) {
-          showToast('⚠️ لا يوجد عملاء بكود Slack لمزامنتهم.', 'warning');
+          if (!isSilent) showToast('⚠️ لا يوجد عملاء بكود Slack لمزامنتهم.', 'warning');
           return;
         }
 
@@ -5443,7 +5453,7 @@
           const code = lead.slackCode;
 
           // Update button text to show progress
-          if (btnText) btnText.textContent = `${i + 1}/${leadsWithCode.length} جارٍ...`;
+          if (btnText && !isSilent) btnText.textContent = `${i + 1}/${leadsWithCode.length} جارٍ...`;
 
           try {
             // Fetch thread data for this specific lead code
@@ -5494,14 +5504,16 @@
           await new Promise(r => setTimeout(r, 50));
         }
 
-        showToast(`✅ تمت المزامنة: تحديث ${updatedCount} عميل، إضافة ${ticketCount} متابعة من Slack`, 'success');
+        if (!isSilent && (updatedCount > 0 || ticketCount > 0)) {
+          showToast(`✅ تمت المزامنة: تحديث ${updatedCount} عميل، إضافة ${ticketCount} متابعة من Slack`, 'success');
+        }
         renderKanbanBoard(false);
       } catch (err) {
         console.error('Slack sync error:', err);
-        showToast('حدث خطأ أثناء مزامنة Slack: ' + err.message, 'error');
+        if (!isSilent) showToast('حدث خطأ أثناء مزامنة Slack: ' + err.message, 'error');
       } finally {
-        if (btn) { btn.disabled = false; }
-        if (btnText) btnText.textContent = 'مزامنة Slack';
+        if (btn && !isSilent) { btn.disabled = false; }
+        if (btnText && !isSilent) btnText.textContent = 'مزامنة Slack';
       }
     }
 
@@ -6228,19 +6240,49 @@
       // Card 3: Active pipeline / conversions
       const activeLeadsCount = filteredLeadsArr.filter(l => l.column !== "closed" && l.column !== "signed").length;
       const signedCount = filteredLeadsArr.filter(l => l.column === "signed").length;
+      
+      // Calculate conversion rate
+      const conversionRate = totalCount > 0 ? Math.round((signedCount / totalCount) * 100) : 0;
+      
+      // Calculate average close time in days
+      const signedLeads = filteredLeadsArr.filter(l => l.column === "signed");
+      let totalCloseTimeMs = 0;
+      let closedLeadsWithTimeCount = 0;
+      
+      signedLeads.forEach(l => {
+        const createdTime = l.createdAt || (l.columnHistory && l.columnHistory[0]?.timestamp);
+        const signedHistoryItem = l.columnHistory?.find(h => h.column === "signed");
+        const signedTime = signedHistoryItem ? signedHistoryItem.timestamp : l.updatedAt;
+        
+        if (createdTime && signedTime && signedTime > createdTime) {
+          totalCloseTimeMs += (signedTime - createdTime);
+          closedLeadsWithTimeCount++;
+        }
+      });
+      
+      const avgCloseDays = closedLeadsWithTimeCount > 0 
+        ? Math.round(totalCloseTimeMs / (closedLeadsWithTimeCount * 24 * 60 * 60 * 1000)) 
+        : 0;
+
       const card3 = document.createElement("div");
       card3.className = "kpi-card premium-kpi";
       card3.style.minHeight = "110px";
       card3.innerHTML = `
         <div class="kpi-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: 700; font-size: var(--text-sm); color: var(--text-primary);">العملاء النشطون وتوقيع العقود</span>
+          <span style="font-weight: 700; font-size: var(--text-sm); color: var(--text-primary);">تحليلات الأداء والتحويل</span>
           <div class="kpi-icon" style="color: #8b5cf6; background-color: rgba(139, 92, 246, 0.08); padding: 5px; border-radius: 6px;">
-            <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+            <i data-lucide="trending-up" style="width: 16px; height: 16px;"></i>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: 6px;">
-          <span class="kpi-value" style="font-size: var(--text-xl); font-weight: 800; color: #8b5cf6;">${activeLeadsCount} عملاء نشطين</span>
-          <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600;">تم إغلاق وتوقيع صفقات لـ ${signedCount} عملاء</span>
+        <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="kpi-value" style="font-size: var(--text-xl); font-weight: 800; color: #8b5cf6;">تحويل: ${conversionRate}%</span>
+            <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600;">النشطون: ${activeLeadsCount}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: var(--text-xs); color: var(--text-muted); font-weight: 600;">إغلاق: ${avgCloseDays > 0 ? `${avgCloseDays} يوم` : 'فوري/غير متوفر'}</span>
+            <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600;">الموقعون: ${signedCount}</span>
+          </div>
         </div>
       `;
       container.appendChild(card3);
@@ -6644,14 +6686,19 @@
           ? `<div class="ongoing-indicator" style="margin-left: 6px;"><div class="ongoing-dot"></div>يجري الآن</div>` : '';
 
         const projectDisplay = [m.clientName, m.projectName].filter(Boolean).join(' — ');
+        const matchingLead = Object.values(leadsData).find(l => l.googleEventId === m.id || (m.slackCode && l.slackCode === m.slackCode));
+        const leadLink = matchingLead 
+          ? `<button class="btn-icon" style="padding: 2px; color: var(--accent-blue); display: inline-flex; align-items: center;" onclick="viewLeadDetails('${matchingLead.id}')" title="عرض بطاقة العميل"><i data-lucide="user" style="width: 14px; height: 14px;"></i></button>`
+          : '';
 
         return `
           <div class="meeting-list-item-v2 meeting-row ${timeStatus} status-${eventStatus} ${eventStatus === 'done' ? 'completed' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
             <div class="meeting-list-info-v2">
               <div class="meeting-index-badge">${idx + 1}</div>
               <div style="flex: 1; min-width: 0;">
-                <div class="meeting-card-title-v2">
-                  ${projectDisplay || m.summary || '—'}
+                <div class="meeting-card-title-v2" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span>${projectDisplay || m.summary || '—'}</span>
+                  ${leadLink}
                 </div>
                 <div class="meeting-list-meta-v2" style="margin-top: 6px;">
                   <span class="sales-rep-badge ${repClass}">${repLabel}</span>
