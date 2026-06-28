@@ -30,57 +30,59 @@
     /* ════════════════ SECTION 2: CSS Variables & Reset ════════════════ */
     :root {
       /* Light Mode (Default) */
-      --bg-primary: #f8fafc;
+      --bg-primary: #f1f5f9;
       --bg-surface: #ffffff;
-      --bg-elevated: #f1f5f9;
-      --bg-subtle: #f0f4f8;
+      --bg-elevated: #e2e8f0;
+      --bg-subtle: #f8fafc;
       --text-primary: #0f172a;
       --text-secondary: #475569;
-      --text-muted: #94a3b8;
-      --border-subtle: rgba(0, 0, 0, 0.08);
-      --border-focus: rgba(79, 142, 247, 0.4);
-      --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
-      --shadow-modal: 0 20px 45px rgba(0, 0, 0, 0.15);
-      --col-closed-bg: rgba(239, 68, 68, 0.04);
+      --text-muted: #64748b;
+      --border-subtle: rgba(0, 0, 0, 0.06);
+      --border-focus: #3b82f6;
+      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.02);
+      --shadow-modal: 0 20px 45px rgba(15, 23, 42, 0.08);
+      --col-closed-bg: rgba(239, 68, 68, 0.03);
 
-      --accent-blue: #4f8ef7;
-      --accent-teal: #2dd4bf;
-      --radius-card: 12px;
-      --radius-modal: 16px;
-      --radius-badge: 6px;
+      --accent-blue: #3b82f6;
+      --accent-teal: #14b8a6;
+      --radius-card: 14px;
+      --radius-modal: 20px;
+      --radius-badge: 8px;
 
       /* Column colors */
-      --col-new: #4f8ef7;
+      --col-new: #3b82f6;
       --col-technical: #8b5cf6;
       --col-closing: #f59e0b;
       --col-signed: #10b981;
-      --col-postponed: #94a3b8;
+      --col-postponed: #64748b;
       --col-closed: #ef4444;
 
       /* Typography Scale */
-      --text-xs: 11px;
-      --text-sm: 13px;
+      --text-xs: 12px;
+      --text-sm: 13.5px;
       --text-base: 15px;
       --text-lg: 17px;
       --text-xl: 20px;
       --text-2xl: 24px;
       --text-3xl: 30px;
+      --card-border-glow: rgba(255, 255, 255, 0.05);
     }
 
     [data-theme="dark"] {
-      /* Dark Mode */
-      --bg-primary: #0f1117;
-      --bg-surface: #1a1d27;
-      --bg-elevated: #21253a;
-      --bg-subtle: #161922;
-      --text-primary: #f1f5f9;
+      /* Dark Mode (High Premium Glassmorphism) */
+      --bg-primary: #090d16;
+      --bg-surface: rgba(20, 27, 45, 0.7);
+      --bg-elevated: #1e293b;
+      --bg-subtle: #0f172a;
+      --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
-      --text-muted: #475569;
-      --border-subtle: rgba(255, 255, 255, 0.06);
-      --border-focus: rgba(79, 142, 247, 0.5);
-      --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3);
-      --shadow-modal: 0 25px 60px rgba(0, 0, 0, 0.6);
-      --col-closed-bg: rgba(239, 68, 68, 0.07);
+      --text-muted: #64748b;
+      --border-subtle: rgba(255, 255, 255, 0.05);
+      --border-focus: #3b82f6;
+      --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+      --shadow-modal: 0 25px 60px rgba(0, 0, 0, 0.5);
+      --col-closed-bg: rgba(239, 68, 68, 0.05);
+      --card-border-glow: rgba(255, 255, 255, 0.09);
     }
 
     * {
@@ -128,12 +130,11 @@
     @keyframes cardSlideIn {
       from {
         opacity: 0;
-        transform: translateY(12px);
+        transform: translateY(20px) scale(0.96);
       }
-
       to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
       }
     }
 
@@ -817,6 +818,8 @@
     /* Lead Card */
     .lead-card {
       background-color: var(--bg-surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-radius: var(--radius-card);
       border: 1px solid var(--border-subtle);
       padding: 16px;
@@ -825,8 +828,22 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-      animation: cardSlideIn 0.3s ease both;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+      animation: cardSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lead-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3.5px;
+      background: var(--col-border-accent, var(--accent-blue));
+      opacity: 0.85;
+      border-radius: var(--radius-card) var(--radius-card) 0 0;
     }
 
     .lead-card:active {
@@ -834,9 +851,22 @@
     }
 
     .lead-card:hover {
-      transform: translateY(-2px);
-      border-color: var(--border-focus);
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+      transform: translateY(-4px) scale(1.005);
+      border-color: var(--col-border-accent, var(--border-focus));
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .stale-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background-color: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
     }
 
     .lead-card-header {
@@ -3082,6 +3112,11 @@
             <span>إعادة استيراد</span>
           </button>
 
+          <button id="whatsappModeBtn" class="btn-icon" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 6px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;" title="تغيير طريقة فتح الواتساب (ويب / تطبيق)">
+            <svg id="whatsappModeIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 14px; height: 14px; fill: #25D366;"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
+            <span id="whatsappModeLabel" style="font-size: 11px; font-weight: 600; margin-right: 4px;">التطبيق</span>
+          </button>
+
           <button id="themeToggleBtn" class="btn-icon">
             <i id="themeIcon" data-lucide="sun"></i>
           </button>
@@ -3689,6 +3724,7 @@
     let leadsRef = null, ticketsRef = null, themeRef = null;
     let currentUser = null;
     let leadsData = {};
+    let cardElementsMap = {};
     let ticketsData = {};
     let googleMeetings = [];
     let dailyMeetings = [];
@@ -4223,7 +4259,8 @@
         actionCall.href = `tel:${primaryPhone}`;
         actionCall.style.display = "inline-flex";
 
-        actionWhatsapp.href = `https://web.whatsapp.com/send?phone=${cleanPhoneForWa}`;
+        actionWhatsapp.href = formatWhatsappLink(primaryPhone);
+        actionWhatsapp.target = getWhatsappTarget();
         actionWhatsapp.style.display = "inline-flex";
       } else {
         actionCall.style.display = "none";
@@ -4349,6 +4386,7 @@
     function renderKanbanBoard(isStaggered = false) {
       const board = document.getElementById("kanbanBoard");
       board.innerHTML = "";
+      cardElementsMap = {};
 
       let allCards = [];
 
@@ -4485,6 +4523,16 @@
             const card = document.createElement("div");
             const lead = item;
             card.className = "lead-card";
+            cardElementsMap[lead.id] = card;
+            const colColorMap = {
+              new: 'var(--col-new)',
+              technical: 'var(--col-technical)',
+              closing: 'var(--col-closing)',
+              signed: 'var(--col-signed)',
+              postponed: 'var(--col-postponed)',
+              closed: 'var(--col-closed)'
+            };
+            card.style.setProperty('--col-border-accent', colColorMap[lead.column] || 'var(--accent-blue)');
             card.draggable = window.innerWidth >= 768; // Only draggable on desktop
             card.id = `card-${lead.id}`;
             card.ondragstart = (e) => dragStart(e, lead.id);
@@ -4519,7 +4567,7 @@
                 daysStale = "عدة";
               }
             }
-            const staleIndicator = isStale ? `<span style="color: #f59e0b; font-size: 14px; cursor: help; display: flex; align-items: center;" title="ساكن منذ ${daysStale} يوم">🕐</span>` : '';
+            const staleIndicator = isStale ? `<span class="stale-badge" title="ساكن منذ ${daysStale} يوم">🕐 ساكن منذ ${daysStale} يوم</span>` : '';
 
             card.onclick = (e) => {
               if (
@@ -4537,7 +4585,7 @@
 
             card.innerHTML = `
               <div class="lead-card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <div style="display: flex; gap: 4px; align-items: center;">
+                <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
                   <span class="slack-badge" id="slack-badge-${lead.id}" onclick="copySlackCode('${lead.id}', '${lead.slackCode || ''}', event)">
                     <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
                     <span>${lead.slackCode || 'بدون كود'}</span>
@@ -4547,6 +4595,8 @@
                       <i data-lucide="external-link" style="width: 12px; height: 12px; color: var(--accent-blue);"></i>
                     </a>
                   ` : ''}
+                  ${needsReviewBadge}
+                  ${staleIndicator}
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                   <button class="btn-icon" style="padding: 4px;" onclick="openEditLeadModal('${lead.id}')">
@@ -4567,7 +4617,7 @@
                       <a href="tel:${lead.phone.split('-')[0].trim()}" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated);" title="اتصال">
                         <i data-lucide="phone-call" style="width: 12px; height: 12px; color: var(--accent-blue);"></i>
                       </a>
-                      <a href="https://web.whatsapp.com/send?phone=${lead.phone.split('-')[0].trim().replace(/^[0]/, '966').replace(/\+/g, '').replace(/\s/g, '')}" target="whatsapp_chat" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated); display: inline-flex; align-items: center; justify-content: center;" title="واتساب">
+                      <a href="${formatWhatsappLink(lead.phone)}" target="${getWhatsappTarget()}" class="btn-icon" style="padding: 4px; border-radius: 4px; background-color: var(--bg-elevated); display: inline-flex; align-items: center; justify-content: center;" title="واتساب">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 12px; height: 12px; fill: #25D366;"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
                       </a>
                     </div>
@@ -4629,8 +4679,8 @@
           setTimeout(() => {
             item.container.appendChild(item.element);
             // Trigger animation repaint
-            item.element.style.animation = "cardSlideIn 0.3s ease both";
-          }, index * 50);
+            item.element.style.animation = "cardSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both";
+          }, index * 35);
         });
       }
 
@@ -6121,28 +6171,67 @@
       const formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(monthlyFirstPaymentSum);
       const formattedTarget = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(targetVal);
 
-      const card = document.createElement("div");
-      card.className = "kpi-card";
-      card.style.gridColumn = "span 3";
-
-      card.innerHTML = `
-        <div class="kpi-header" style="width: 100%;">
-          <span style="font-weight: 600; font-size: var(--text-base);">إجمالي الدفع الأولى للشهر الحالي</span>
-          <div class="kpi-icon" style="color: var(--accent-teal); background-color: rgba(255, 255, 255, 0.02); padding: 6px; border-radius: 8px;">
-            <i data-lucide="percent" style="width: 20px; height: 20px;"></i>
+      // Card 1: First Payments
+      const card1 = document.createElement("div");
+      card1.className = "kpi-card premium-kpi";
+      card1.style.minHeight = "110px";
+      card1.innerHTML = `
+        <div class="kpi-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700; font-size: var(--text-sm); color: var(--text-primary);">الدفعة الأولى للشهر الحالي</span>
+          <div class="kpi-icon" style="color: var(--accent-teal); background-color: rgba(20, 184, 166, 0.08); padding: 5px; border-radius: 6px;">
+            <i data-lucide="percent" style="width: 16px; height: 16px;"></i>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
-            <span class="kpi-value" style="font-size: var(--text-3xl); font-weight: 800; color: var(--accent-teal);">${formattedValue}</span>
-            <span style="font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500;">المستهدف: ${formattedTarget} (${pctOfTarget}%)</span>
+        <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="kpi-value" style="font-size: var(--text-xl); font-weight: 800; color: var(--accent-teal);">${formattedValue}</span>
+            <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600;">المستهدف: ${formattedTarget} (${pctOfTarget}%)</span>
           </div>
-          <div style="width: 100%; height: 8px; background-color: var(--bg-elevated); border-radius: 9999px; overflow: hidden; border: 1px solid var(--border-subtle);">
-            <div style="height: 100%; width: ${pctOfTarget}%; background: linear-gradient(90deg, var(--accent-teal), #2dd4bf); border-radius: 9999px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+          <div style="width: 100%; height: 5px; background-color: var(--bg-elevated); border-radius: 9999px; overflow: hidden; border: 1px solid var(--border-subtle);">
+            <div style="height: 100%; width: ${pctOfTarget}%; background: linear-gradient(90deg, var(--accent-teal), #2dd4bf); border-radius: 9999px;"></div>
           </div>
         </div>
       `;
-      container.appendChild(card);
+      container.appendChild(card1);
+
+      // Card 2: Total Contracts Value
+      const formattedTotalDeal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(monthlyDealSum);
+      const card2 = document.createElement("div");
+      card2.className = "kpi-card premium-kpi";
+      card2.style.minHeight = "110px";
+      card2.innerHTML = `
+        <div class="kpi-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700; font-size: var(--text-sm); color: var(--text-primary);">إجمالي قيمة عقود الشهر</span>
+          <div class="kpi-icon" style="color: var(--accent-blue); background-color: rgba(59, 130, 246, 0.08); padding: 5px; border-radius: 6px;">
+            <i data-lucide="trending-up" style="width: 16px; height: 16px;"></i>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: 6px;">
+          <span class="kpi-value" style="font-size: var(--text-xl); font-weight: 800; color: var(--accent-blue);">${formattedTotalDeal}</span>
+          <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600;">عدد العملاء الجدد المضافين: ${monthlyLeads.length} عملاء</span>
+        </div>
+      `;
+      container.appendChild(card2);
+
+      // Card 3: Active pipeline / conversions
+      const activeLeadsCount = filteredLeadsArr.filter(l => l.column !== "closed" && l.column !== "signed").length;
+      const signedCount = filteredLeadsArr.filter(l => l.column === "signed").length;
+      const card3 = document.createElement("div");
+      card3.className = "kpi-card premium-kpi";
+      card3.style.minHeight = "110px";
+      card3.innerHTML = `
+        <div class="kpi-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700; font-size: var(--text-sm); color: var(--text-primary);">العملاء النشطون وتوقيع العقود</span>
+          <div class="kpi-icon" style="color: #8b5cf6; background-color: rgba(139, 92, 246, 0.08); padding: 5px; border-radius: 6px;">
+            <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: 6px;">
+          <span class="kpi-value" style="font-size: var(--text-xl); font-weight: 800; color: #8b5cf6;">${activeLeadsCount} عملاء نشطين</span>
+          <span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600;">تم إغلاق وتوقيع صفقات لـ ${signedCount} عملاء</span>
+        </div>
+      `;
+      container.appendChild(card3);
 
       lucide.createIcons();
     }
@@ -6233,6 +6322,77 @@
         db.ref(getThemePath()).set(nextTheme);
       }
     });
+
+    // WhatsApp Mode configuration (web or app)
+    function getWhatsappMode() {
+      return localStorage.getItem('crm_whatsapp_mode') || 'app';
+    }
+
+    function toggleWhatsappMode() {
+      const currentMode = getWhatsappMode();
+      const nextMode = currentMode === 'app' ? 'web' : 'app';
+      localStorage.setItem('crm_whatsapp_mode', nextMode);
+      updateWhatsappModeUI();
+      showToast(`تم تغيير طريقة فتح واتساب إلى: ${nextMode === 'app' ? 'تطبيق واتساب' : 'واتساب ويب'}`, 'info');
+      
+      // Update details action link if details panel is open
+      const activeDetailsLeadId = document.getElementById("deleteLeadBtn")?.getAttribute("data-lead-id");
+      if (activeDetailsLeadId && typeof leadsData !== 'undefined' && leadsData[activeDetailsLeadId]) {
+        const lead = leadsData[activeDetailsLeadId];
+        if (lead.phone) {
+          const primaryPhone = lead.phone.split('-')[0].trim();
+          const actionWhatsapp = document.getElementById("actionWhatsapp");
+          if (actionWhatsapp) {
+            actionWhatsapp.href = formatWhatsappLink(primaryPhone);
+            actionWhatsapp.target = getWhatsappTarget();
+          }
+        }
+      }
+
+      // Re-render kanban board to update existing cards' links
+      if (typeof renderKanbanBoard === 'function') {
+        renderKanbanBoard(false);
+      }
+    }
+
+    function updateWhatsappModeUI() {
+      const mode = getWhatsappMode();
+      const btn = document.getElementById('whatsappModeBtn');
+      if (btn) {
+        const label = btn.querySelector('#whatsappModeLabel');
+        if (label) {
+          label.textContent = mode === 'app' ? 'التطبيق' : 'ويب';
+        }
+        btn.title = `طريقة فتح الواتساب الحالية: ${mode === 'app' ? 'تطبيق الكمبيوتر' : 'المتصفح (ويب)'} - اضغط للتغيير`;
+        
+        // update icon style to differentiate
+        const iconSvg = btn.querySelector('svg');
+        if (iconSvg) {
+          iconSvg.style.fill = mode === 'app' ? '#25D366' : '#34B7F1';
+        }
+      }
+    }
+
+    function formatWhatsappLink(phone) {
+      if (!phone) return '#';
+      const cleanPhone = phone.split('-')[0].trim().replace(/^[0]/, '966').replace(/\+/g, '').replace(/\s/g, '');
+      const mode = getWhatsappMode();
+      if (mode === 'app') {
+        return `whatsapp://send?phone=${cleanPhone}`;
+      } else {
+        return `https://web.whatsapp.com/send?phone=${cleanPhone}`;
+      }
+    }
+
+    function getWhatsappTarget() {
+      return getWhatsappMode() === 'app' ? '_self' : 'whatsapp_chat';
+    }
+
+    const waBtn = document.getElementById("whatsappModeBtn");
+    if (waBtn) {
+      waBtn.addEventListener("click", toggleWhatsappMode);
+    }
+
 
     function updateMobileIndicators() {
       const container = document.getElementById("mobileIndicators");
@@ -7285,7 +7445,7 @@
 
       Object.values(leadsData).forEach(lead => {
         totalCount++;
-        const cardEl = document.getElementById(`card-${lead.id}`);
+        const cardEl = cardElementsMap[lead.id];
         if (!cardEl) return;
 
         let match = true;
@@ -7403,6 +7563,7 @@
 
     window.addEventListener("DOMContentLoaded", () => {
       initFirebaseAndAuth();
+      updateWhatsappModeUI();
       lucide.createIcons();
       const defaultMonthLabel = `عملاء ${new Date().getFullYear()}/${new Date().getMonth() + 1}`;
       const selectedMonthLabelEl = document.getElementById("selectedMonthLabel");
