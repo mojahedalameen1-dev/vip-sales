@@ -2706,6 +2706,11 @@
       opacity: 0.75;
     }
 
+    .meeting-list-item-v2.meeting-ended {
+      opacity: 0.60 !important;
+      filter: grayscale(15%);
+    }
+
     .meeting-list-info-v2 {
       display: flex;
       align-items: center;
@@ -6619,8 +6624,9 @@
         const repLabel = m.salesRep || 'بدون تابع';
 
         const eventStatus = (meetingStatuses[m.id] || {}).status || 'pending';
+        const isEnded = eventStatus !== 'pending';
 
-        const ongoingBadge = timeStatus === 'ongoing'
+        const ongoingBadge = (timeStatus === 'ongoing' && eventStatus === 'pending')
           ? `<div class="ongoing-indicator" style="margin-left: 6px;"><div class="ongoing-dot"></div>يجري الآن</div>` : '';
 
         const projectDisplay = [m.clientName, m.projectName].filter(Boolean).join(' — ');
@@ -6643,7 +6649,7 @@
           : '';
 
         return `
-          <div class="meeting-list-item-v2 meeting-row ${timeStatus} status-${eventStatus} ${eventStatus === 'done' ? 'completed' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
+          <div class="meeting-list-item-v2 meeting-row ${timeStatus} status-${eventStatus} ${isEnded ? 'meeting-ended' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
             <div class="meeting-list-info-v2">
               <div class="meeting-index-badge">${idx + 1}</div>
               <div style="flex: 1; min-width: 0;">
@@ -6681,7 +6687,7 @@
                 onchange="setMeetingStatus('${m.id}', this.value)">
                 <option value="pending" ${eventStatus === 'pending' ? 'selected' : ''}>⏳ لم يتم</option>
                 <option value="done" ${eventStatus === 'done' ? 'selected' : ''}>✅ تم</option>
-                <option value="postponed" ${eventStatus === 'postponed' ? 'selected' : ''}>🔄 تأجل</option>
+                <option value="postponed" ${eventStatus === 'postponed' ? 'selected' : ''}>❌ ملغي</option>
               </select>
             </div>
           </div>
