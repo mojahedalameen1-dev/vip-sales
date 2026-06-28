@@ -108,6 +108,15 @@ function extractAndFormatPhones(text) {
   return matches.join(' - ');
 }
 
+function extractCrmLink(text) {
+  if (!text) return '';
+  const match = text.match(/https?:\/\/[^\s>]*e\.aait\.sa[^\s>]*/i) || text.match(/https?:\/\/[^\s>]*odoo[^\s>]*/i);
+  if (match) {
+    return match[0].replace(/&amp;/g, '&').replace(/[>\|]/g, '').trim();
+  }
+  return '';
+}
+
 function fetchSlackLeadInfo() {
   return new Promise((resolve) => {
     const token = process.env.SLACK_USER_TOKEN;
@@ -156,8 +165,22 @@ function fetchSlackLeadInfo() {
           // Fetch threads in parallel
           await Promise.all(messagesToProcess.map(async ({ msg, slackCode }) => {
             let threadReplies = [];
+            let crmLink = extractCrmLink(msg.text);
+
             if (msg.reply_count && msg.reply_count > 0) {
               const replies = await fetchSlackReplies(token, channelId, msg.ts);
+              
+              // Also look for CRM Link in replies if not found in parent
+              if (!crmLink) {
+                for (const r of replies) {
+                  const link = extractCrmLink(r.text);
+                  if (link) {
+                    crmLink = link;
+                    break;
+                  }
+                }
+              }
+
               // Filter out the parent message itself
               threadReplies = replies
                 .filter(r => r.ts !== msg.ts)
@@ -171,13 +194,6 @@ function fetchSlackLeadInfo() {
 
             // Extract Phone Number
             const phone = extractAndFormatPhones(msg.text);
-
-            // Extract CRM Link
-            let crmLink = '';
-            const linkMatch = (msg.text || '').match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
-            if (linkMatch) {
-              crmLink = linkMatch[0].replace(/&amp;/g, '&');
-            }
 
             if (!lookupMap[slackCode]) {
               lookupMap[slackCode] = { phone, crmLink, thread: threadReplies };

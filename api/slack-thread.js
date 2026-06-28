@@ -58,6 +58,15 @@ function extractAndFormatPhones(text) {
   return matches.join(' - ');
 }
 
+function extractCrmLink(text) {
+  if (!text) return '';
+  const match = text.match(/https?:\/\/[^\s>]*e\.aait\.sa[^\s>]*/i) || text.match(/https?:\/\/[^\s>]*odoo[^\s>]*/i);
+  if (match) {
+    return match[0].replace(/&amp;/g, '&').replace(/[>\|]/g, '').trim();
+  }
+  return '';
+}
+
 function slackGet(path, token) {
   return new Promise((resolve) => {
     const options = {
@@ -145,9 +154,7 @@ module.exports = async (req, res) => {
 
     // Extract phone and CRM link from the parent message
     const phone = extractAndFormatPhones(foundMsg.text);
-    let crmLink = '';
-    const linkMatch = (foundMsg.text || '').match(/https:\/\/e\.aait\.sa\/web[^\s>]*/i);
-    if (linkMatch) crmLink = linkMatch[0].replace(/&amp;/g, '&');
+    let crmLink = extractCrmLink(foundMsg.text);
 
     const USER_MAP = {
       'U090T02NUET': 'م. روان محمد',
@@ -172,6 +179,17 @@ module.exports = async (req, res) => {
       );
 
       if (repliesData.ok && repliesData.messages) {
+        // Also look for CRM Link in replies if not found in parent
+        if (!crmLink) {
+          for (const r of repliesData.messages) {
+            const link = extractCrmLink(r.text);
+            if (link) {
+              crmLink = link;
+              break;
+            }
+          }
+        }
+
         thread = repliesData.messages
           .filter(r => r.ts !== foundMsg.ts) // Exclude parent message
           .map(r => {

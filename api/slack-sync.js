@@ -82,6 +82,15 @@ function extractAndFormatPhones(text) {
   return matches.join(' - ');
 }
 
+function extractCrmLink(text) {
+  if (!text) return '';
+  const match = text.match(/https?:\/\/[^\s>]*e\.aait\.sa[^\s>]*/i) || text.match(/https?:\/\/[^\s>]*odoo[^\s>]*/i);
+  if (match) {
+    return match[0].replace(/&amp;/g, '&').replace(/[>\|]/g, '').trim();
+  }
+  return '';
+}
+
 // ════════════════ Main handler ════════════════
 module.exports = async (req, res) => {
   setCors(res);
@@ -208,15 +217,24 @@ module.exports = async (req, res) => {
 
         // Extract CRM Link if not already found
         if (!crmLink) {
-          const linkMatch = (msg.text || '').match(/https:\/\/e\.aait\.sa\/web#[^\s>]+/i);
-          if (linkMatch) {
-            crmLink = linkMatch[0].replace(/&amp;/g, '&');
-          }
+          crmLink = extractCrmLink(msg.text);
         }
 
         // Fetch thread replies if any
         if (msg.reply_count && msg.reply_count > 0) {
           const replies = await fetchSlackReplies(token, channelId, msg.ts);
+          
+          // Also look for CRM Link in replies if not found in parent
+          if (!crmLink) {
+            for (const r of replies) {
+              const link = extractCrmLink(r.text);
+              if (link) {
+                crmLink = link;
+                break;
+              }
+            }
+          }
+
           const threadReplies = replies
             .filter(r => r.ts !== msg.ts)
             .map(r => ({
