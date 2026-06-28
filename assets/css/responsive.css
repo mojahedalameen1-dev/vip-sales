@@ -244,6 +244,15 @@ img, svg, canvas, iframe, video {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
   }
+  .kpis-row > div:nth-child(1) {
+    grid-column: span 2 !important;
+  }
+  .kpis-row > div:nth-child(2) {
+    grid-column: span 1 !important;
+  }
+  .kpis-row > div:nth-child(3) {
+    grid-column: span 1 !important;
+  }
   .kpi-card {
     padding: 8px 12px !important;
   }
