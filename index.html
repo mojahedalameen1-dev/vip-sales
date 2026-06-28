@@ -3093,11 +3093,7 @@
             <span id="syncSlackBtnText">مزامنة Slack</span>
           </button>
 
-          <button id="reimportMeetBtn" class="btn-reimport" onclick="reimportMeetings()"
-            title="مسح الاجتماعات المستوردة في العمود الأول وإعادة جلبها">
-            <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i>
-            <span>إعادة استيراد</span>
-          </button>
+
 
           <button id="whatsappModeBtn" class="btn-icon" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 6px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;" title="تغيير طريقة فتح الواتساب (ويب / تطبيق)">
             <svg id="whatsappModeIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" style="width: 14px; height: 14px; fill: #25D366;"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
@@ -4998,6 +4994,42 @@
       });
     }
 
+    window.copyMeetingPhone = function(meetingId, phone, event) {
+      event.stopPropagation();
+      if (!phone) return;
+      navigator.clipboard.writeText(phone).then(() => {
+        const el = document.getElementById(`meet-phone-${meetingId}`);
+        if (!el) return;
+        const span = el.querySelector('span');
+        const originalText = span.textContent;
+        span.textContent = '✓ تم النسخ!';
+        el.style.color = 'var(--accent-teal)';
+        
+        setTimeout(() => {
+          span.textContent = originalText;
+          el.style.color = '';
+        }, 1500);
+      });
+    };
+
+    window.copySlackCodeFromMeeting = function(meetingId, code, event) {
+      event.stopPropagation();
+      if (!code) return;
+      navigator.clipboard.writeText(code).then(() => {
+        const el = document.getElementById(`meet-slack-${meetingId}`);
+        if (!el) return;
+        el.classList.add("copied");
+        const span = el.querySelector('span');
+        const originalText = span.textContent;
+        span.textContent = '✓ تم النسخ!';
+        
+        setTimeout(() => {
+          el.classList.remove("copied");
+          span.textContent = originalText;
+        }, 1500);
+      });
+    };
+
     // ════════════════ SECTION 10: Tickets Module ════════════════
     function renderTickets(leadId) {
       const list = document.getElementById("ticketsList");
@@ -5518,7 +5550,6 @@
     }
 
     async function fetchGoogleMeetings(isSilent = false) {
-      // Legacy: import meetings into kanban (keep existing behaviour)
       try {
         if (!currentUser || !currentUser.email) return;
         const now = new Date();
@@ -5533,101 +5564,8 @@
         const events = await response.json();
         googleMeetings = events;
         renderMeetingsTab();
-        let importedCount = 0;
-        for (const event of events) {
-          const parsed = parseMeetingSummary(event.summary);
-          const slackCodeToUse = parsed.slackCode || (await getNextSlackCode());
-
-          let existingLead = Object.values(leadsData).find(l => l.googleEventId === event.id);
-          if (!existingLead && slackCodeToUse) {
-            existingLead = Object.values(leadsData).find(l => l.slackCode === slackCodeToUse);
-          }
-
-          let currentLeadId;
-
-          if (existingLead) {
-            currentLeadId = existingLead.id;
-            let needsUpdate = false;
-            const updates = {};
-            if (existingLead.phone !== event.phone && event.phone) {
-              updates.phone = event.phone;
-              needsUpdate = true;
-            }
-            if (existingLead.crmLink !== event.crmLink && event.crmLink) {
-              updates.crmLink = event.crmLink;
-              needsUpdate = true;
-            }
-            if (!existingLead.googleEventId) {
-              updates.googleEventId = event.id;
-              needsUpdate = true;
-            }
-            if (needsUpdate) {
-              await db.ref(`${getLeadsPath()}/${existingLead.id}`).update(updates);
-            }
-          } else {
-            // --- Filter events so employees only see their own clients on the board ---
-            const userEmail = currentUser.email.toLowerCase();
-            const mySalesRepName = SALES_REP_EMAILS[userEmail];
-
-            if (mySalesRepName && event.salesRep !== mySalesRepName) {
-              continue; // This event belongs to a different sales rep
-            } else if (!mySalesRepName) {
-              // Fallback for other users not in the priority list
-              const isAttendee = event.attendees && event.attendees.some(a => a.email && a.email.toLowerCase() === userEmail);
-              if (!isAttendee) continue;
-            }
-            // -------------------------------------------------------------------------
-
-            const leadKey = db.ref(getLeadsPath()).push().key;
-            currentLeadId = leadKey;
-            const payload = {
-              id: leadKey, slackCode: slackCodeToUse,
-              clientName: parsed.clientName, projectName: parsed.projectName,
-              fullName: parsed.clientName,
-              phone: event.phone || "",
-              crmLink: event.crmLink || "",
-              firstPayment: 0, totalDeal: 0,
-              meetingTitle: parsed.meetingTitle || event.summary || 'اجتماع Google Meet',
-              needsReview: parsed.needsReview || false,
-              meetingDate: event.startTime ? new Date(event.startTime).getTime() : Date.now(),
-              column: 'new', googleEventId: event.id,
-              createdAt: firebase.database.ServerValue.TIMESTAMP,
-              updatedAt: firebase.database.ServerValue.TIMESTAMP,
-              lastActivityAt: Date.now(),
-              columnHistory: [{ column: 'new', timestamp: Date.now(), movedBy: 'Google Calendar Service Account' }],
-              openTicketsCount: 0
-            };
-            await db.ref(`${getLeadsPath()}/${leadKey}`).set(payload);
-            importedCount++;
-          }
-
-          // Import thread replies if available
-          if (event.thread && event.thread.length > 0) {
-            for (const reply of event.thread) {
-              const duplicateTicket = Object.values(ticketsData || {}).some(t => t.slackTs === reply.ts && t.leadId === currentLeadId);
-              if (!duplicateTicket) {
-                const ticketKey = db.ref(getTicketsPath()).push().key;
-                const payload = {
-                  id: ticketKey,
-                  leadId: currentLeadId,
-                  type: 'slack',
-                  title: reply.text,
-                  note: `المرسل: ${reply.user}`,
-                  addedAt: reply.timestamp,
-                  scheduledAt: reply.timestamp,
-                  status: "completed",
-                  completedAt: reply.timestamp,
-                  slackTs: reply.ts
-                };
-                await db.ref(`${getTicketsPath()}/${ticketKey}`).set(payload);
-              }
-            }
-          }
-        }
         document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
         updateAutoRefreshIndicator();
-        if (importedCount > 0) showToast(`تم استيراد ${importedCount} اجتماعات جديدة بنجاح`, 'success');
-        else if (!isSilent) showToast('لا توجد اجتماعات Google Meet جديدة للاستيراد', 'info');
       } catch (err) {
         console.error(err);
         if (!isSilent) showToast('فشل جلب الاجتماعات: ' + err.message, 'error');
@@ -6691,6 +6629,19 @@
           ? `<button class="btn-icon" style="padding: 2px; color: var(--accent-blue); display: inline-flex; align-items: center;" onclick="viewLeadDetails('${matchingLead.id}')" title="عرض بطاقة العميل"><i data-lucide="user" style="width: 14px; height: 14px;"></i></button>`
           : '';
 
+        const cleanPhone = m.phone ? m.phone.split('-')[0].trim() : '';
+        const phoneBadge = cleanPhone 
+          ? `<span class="meeting-phone-badge" onclick="copyMeetingPhone('${m.id}', '${cleanPhone}', event)" id="meet-phone-${m.id}" style="cursor: pointer; font-size: 11px; background-color: var(--bg-elevated); padding: 3px 6px; border-radius: 4px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;" title="انقر لنسخ الرقم"><i data-lucide="phone" style="width: 12px; height: 12px;"></i><span>${cleanPhone}</span></span>`
+          : '';
+
+        const slackBadge = m.slackCode 
+          ? `<span class="slack-code-badge" onclick="copySlackCodeFromMeeting('${m.id}', '${m.slackCode}', event)" id="meet-slack-${m.id}" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="انقر لنسخ الكود"><i data-lucide="copy" style="width: 10px; height: 10px;"></i><span>${m.slackCode}</span></span>`
+          : '';
+
+        const crmBadge = m.crmLink
+          ? `<a href="${m.crmLink}" target="_blank" onclick="event.stopPropagation()" class="odoo-badge" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background-color: rgba(135, 90, 123, 0.1); border: 1px solid rgba(135, 90, 123, 0.2); color: #875A7B; padding: 3px 6px; border-radius: 4px; text-decoration: none; font-weight: 600;" title="فتح في Odoo CRM"><i data-lucide="external-link" style="width: 10px; height: 10px;"></i><span>أودو CRM</span></a>`
+          : '';
+
         return `
           <div class="meeting-list-item-v2 meeting-row ${timeStatus} status-${eventStatus} ${eventStatus === 'done' ? 'completed' : ''}" data-event-id="${m.id}" style="animation-delay: ${idx * 50}ms; animation: rowSlideIn 0.35s ease backwards;">
             <div class="meeting-list-info-v2">
@@ -6700,10 +6651,12 @@
                   <span>${projectDisplay || m.summary || '—'}</span>
                   ${leadLink}
                 </div>
-                <div class="meeting-list-meta-v2" style="margin-top: 6px;">
+                <div class="meeting-list-meta-v2" style="margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                   <span class="sales-rep-badge ${repClass}">${repLabel}</span>
                   <span class="meeting-type-badge ${typeClass}">${typeLabel === 'حضوري' ? '🏢' : '💻'} ${typeLabel}</span>
-                  ${m.slackCode ? `<span class="slack-code-badge">${m.slackCode}</span>` : ''}
+                  ${slackBadge}
+                  ${phoneBadge}
+                  ${crmBadge}
                   ${ongoingBadge}
                 </div>
               </div>
