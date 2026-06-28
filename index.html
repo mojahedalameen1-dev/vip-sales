@@ -3193,8 +3193,8 @@
           </div>
           <!-- Filter Tabs -->
           <div class="meetings-filter-tabs">
-            <button id="btnAllMeetings" class="active" onclick="setMeetingsTabFilter('all')">كل الاجتماعات</button>
-            <button id="btnMyMeetings" onclick="setMeetingsTabFilter('mine')">اجتماعاتي</button>
+            <button id="btnMyMeetings" class="active" onclick="setMeetingsTabFilter('mine')">اجتماعاتي</button>
+            <button id="btnAllMeetings" onclick="setMeetingsTabFilter('all')">كل الاجتماعات</button>
           </div>
           <div class="day-nav-group">
             <button class="nav-day-btn" onclick="navigateMeetingsDay(-1)" id="prevDayBtn">
@@ -5402,20 +5402,8 @@
       if (meetingsFirebaseListener) return; // already listening
       meetingsFirebaseListener = db.ref('meetingStatuses').on('value', snapshot => {
         meetingStatuses = snapshot.val() || {};
-        // Re-render dropdowns without full refetch
-        document.querySelectorAll('.status-dropdown').forEach(select => {
-          const eventId = select.dataset.eventId;
-          if (!eventId) return;
-          const s = (meetingStatuses[eventId] || {}).status || 'pending';
-          applyStatusToDropdown(select, s);
-        });
-        updateMeetingsProgress();
+        renderMeetingsTab();
       });
-    }
-
-    function applyStatusToDropdown(select, status) {
-      select.className = `status-dropdown ${status}`;
-      select.value = status;
     }
 
     async function setMeetingStatus(eventId, newStatus) {
@@ -6541,7 +6529,7 @@
       }
     }
 
-    let currentMeetingsTabFilter = 'all';
+    let currentMeetingsTabFilter = 'mine';
     function setMeetingsTabFilter(filter) {
       currentMeetingsTabFilter = filter;
       const btnAll = document.getElementById('btnAllMeetings');
@@ -6629,11 +6617,23 @@
         const ongoingBadge = (timeStatus === 'ongoing' && eventStatus === 'pending')
           ? `<div class="ongoing-indicator" style="margin-left: 6px;"><div class="ongoing-dot"></div>يجري الآن</div>` : '';
 
-        const projectDisplay = [m.clientName, m.projectName].filter(Boolean).join(' — ');
-        const matchingLead = Object.values(leadsData).find(l => l.googleEventId === m.id || (m.slackCode && l.slackCode === m.slackCode));
-        const leadLink = matchingLead 
-          ? `<button class="btn-icon" style="padding: 2px; color: var(--accent-blue); display: inline-flex; align-items: center;" onclick="viewLeadDetails('${matchingLead.id}')" title="عرض بطاقة العميل"><i data-lucide="user" style="width: 14px; height: 14px;"></i></button>`
-          : '';
+        // Clean prefixes, slashes, dashes, and duplicate spaces
+        const cleanString = (str) => {
+          if (!str) return '';
+          return str
+            .replace(/[\-\—\_\/]+/g, ' ')
+            .replace(/^[\s\-\—\_\/\:\.\,]+|[\s\-\—\_\/\:\.\,]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        };
+
+        const clientClean = cleanString(m.clientName);
+        const projectClean = cleanString(m.projectName);
+        const summaryClean = cleanString(m.summary);
+        
+        let projectDisplay = [clientClean, projectClean].filter(Boolean).join(' ');
+        if (!projectDisplay) projectDisplay = summaryClean || '—';
+        projectDisplay = cleanString(projectDisplay);
 
         const cleanPhone = m.phone ? m.phone.split('-')[0].trim() : '';
         const phoneBadge = cleanPhone 
@@ -6654,8 +6654,7 @@
               <div class="meeting-index-badge">${idx + 1}</div>
               <div style="flex: 1; min-width: 0;">
                 <div class="meeting-card-title-v2" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                  <span>${projectDisplay || m.summary || '—'}</span>
-                  ${leadLink}
+                  <span>${projectDisplay}</span>
                 </div>
                 <div class="meeting-list-meta-v2" style="margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                   <span class="sales-rep-badge ${repClass}">${repLabel}</span>
