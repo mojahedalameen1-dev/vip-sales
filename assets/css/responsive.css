@@ -7,18 +7,20 @@
   box-sizing: border-box;
 }
 
-body {
-  overflow-y: auto !important; /* Allow scrolling if content is taller than screen */
-  height: auto !important;
-  min-height: 100vh !important;
-  padding-bottom: env(safe-area-inset-bottom) !important;
-}
+@media (max-width: 767px) {
+  body {
+    overflow-y: auto !important; /* Allow scrolling if content is taller than screen */
+    height: auto !important;
+    min-height: 100vh !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
 
-.app-container {
-  width: 100% !important;
-  height: auto !important;
-  min-height: 100vh !important;
-  display: flex !important;
+  .app-container {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    display: flex !important;
+  }
 }
 
 /* Ensure no elements break width */
