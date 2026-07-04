@@ -3223,6 +3223,12 @@
               </svg>
               تحديث
             </button>
+            <button class="nav-day-btn" onclick="openMeetingsExportModal()" style="display: flex; align-items: center; gap: 6px; background-color: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;" title="تصدير الاجتماعات إلى ملف إكسل">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+              تصدير إكسل
+            </button>
           </div>
         </div>
 
@@ -3675,6 +3681,69 @@
         <button id="exportExcelBtn" class="btn-primary" style="background-color: #10b981; color: white;">
           <i data-lucide="file-spreadsheet"></i>
           تصدير ملف Excel (RTL)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Meetings Export Modal -->
+  <div id="meetingsExportModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 class="modal-title">تصدير اجتماعات الفريق إلى Excel</h2>
+        <button class="btn-icon" onclick="closeModal('meetingsExportModal')">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          
+          <!-- Date Range Fields -->
+          <div>
+            <label style="font-weight: 700; margin-bottom: 6px; display: block; color: var(--text-primary);">اختر الفترة الزمنية:</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+              <div>
+                <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">من تاريخ:</span>
+                <input type="date" id="meetingsExportDateFrom" class="input-field" style="width: 100%; padding: 8px;">
+              </div>
+              <div>
+                <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">إلى تاريخ:</span>
+                <input type="date" id="meetingsExportDateTo" class="input-field" style="width: 100%; padding: 8px;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Shortcuts -->
+          <div>
+            <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 6px;">اختصارات سريعة:</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <button type="button" class="date-shortcut-btn" onclick="setMeetingsExportShortcut('today')" style="padding: 4px 10px; font-size: 11px;">اليوم</button>
+              <button type="button" class="date-shortcut-btn" onclick="setMeetingsExportShortcut('yesterday')" style="padding: 4px 10px; font-size: 11px;">أمس</button>
+              <button type="button" class="date-shortcut-btn" onclick="setMeetingsExportShortcut('week')" style="padding: 4px 10px; font-size: 11px;">هذا الأسبوع</button>
+              <button type="button" class="date-shortcut-btn" onclick="setMeetingsExportShortcut('month')" style="padding: 4px 10px; font-size: 11px;">هذا الشهر</button>
+            </div>
+          </div>
+
+          <!-- Scope / Filter -->
+          <div>
+            <label style="font-weight: 700; margin-bottom: 6px; display: block; color: var(--text-primary);">نطاق التصدير:</label>
+            <div style="display: flex; gap: 16px; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer; color: var(--text-primary);">
+                <input type="radio" name="meetingsExportScope" value="mine" checked style="accent-color: #10b981;"> اجتماعاتي فقط
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer; color: var(--text-primary);">
+                <input type="radio" name="meetingsExportScope" value="all" style="accent-color: #10b981;"> كل الاجتماعات
+              </label>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: 10px; padding: 15px 20px;">
+        <button class="btn-icon" style="background-color: var(--bg-elevated); color: var(--text-secondary); padding: 8px 16px;" onclick="closeModal('meetingsExportModal')">إلغاء</button>
+        <button id="meetingsExportExcelSubmitBtn" class="btn-primary" onclick="exportMeetingsToExcel()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: bold; padding: 8px 20px; display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px;"></i>
+          <span>تصدير Excel</span>
         </button>
       </div>
     </div>
@@ -6162,6 +6231,323 @@
           lucide.createIcons();
         });
     });
+
+    // ════════════════ Custom Meetings Excel Exporter ════════════════
+    function openMeetingsExportModal() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const firstDay = new Date(y, m, 1).toISOString().split('T')[0];
+      const lastDay = new Date(y, m + 1, 0).toISOString().split('T')[0];
+      
+      document.getElementById("meetingsExportDateFrom").value = firstDay;
+      document.getElementById("meetingsExportDateTo").value = lastDay;
+      
+      openModal("meetingsExportModal");
+    }
+
+    function setMeetingsExportShortcut(type) {
+      const fromInput = document.getElementById("meetingsExportDateFrom");
+      const toInput = document.getElementById("meetingsExportDateTo");
+      const now = new Date();
+
+      if (type === 'today') {
+        const dateStr = now.toISOString().split('T')[0];
+        fromInput.value = dateStr;
+        toInput.value = dateStr;
+      } else if (type === 'yesterday') {
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const dateStr = yesterday.toISOString().split('T')[0];
+        fromInput.value = dateStr;
+        toInput.value = dateStr;
+      } else if (type === 'week') {
+        const currentDay = now.getDay();
+        const startOfWeek = new Date(now.getTime() - currentDay * 24 * 60 * 60 * 1000);
+        const endOfWeek = new Date(startOfWeek.getTime() + 6 * 24 * 60 * 60 * 1000);
+        fromInput.value = startOfWeek.toISOString().split('T')[0];
+        toInput.value = endOfWeek.toISOString().split('T')[0];
+      } else if (type === 'month') {
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const firstDay = new Date(y, m, 1).toISOString().split('T')[0];
+        const lastDay = new Date(y, m + 1, 0).toISOString().split('T')[0];
+        fromInput.value = firstDay;
+        toInput.value = lastDay;
+      }
+    }
+
+    async function exportMeetingsToExcel() {
+      const fromVal = document.getElementById("meetingsExportDateFrom").value;
+      const toVal = document.getElementById("meetingsExportDateTo").value;
+      if (!fromVal || !toVal) {
+        showToast("يرجى تحديد تاريخ البداية والنهاية", "warning");
+        return;
+      }
+
+      const fromDateObj = new Date(fromVal + "T00:00:00");
+      const toDateObj = new Date(toVal + "T23:59:59");
+      const fromTime = fromDateObj.getTime();
+      const toTime = toDateObj.getTime();
+
+      const startYear = fromDateObj.getFullYear();
+      const startMonth = fromDateObj.getMonth();
+      const endYear = toDateObj.getFullYear();
+      const endMonth = toDateObj.getMonth();
+
+      const spannedMonths = [];
+      let cy = startYear;
+      let cm = startMonth;
+      while (cy < endYear || (cy === endYear && cm <= endMonth)) {
+        spannedMonths.push(`${cy}-${String(cm + 1).padStart(2, '0')}`);
+        cm++;
+        if (cm > 11) {
+          cm = 0;
+          cy++;
+        }
+      }
+
+      const btn = document.getElementById("meetingsExportExcelSubmitBtn");
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader" class="animate-spin" style="width: 16px; height: 16px;"></i><span>جارٍ المعالجة...</span>`;
+      lucide.createIcons();
+
+      try {
+        const fetchPromises = spannedMonths.map(monthStr =>
+          fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`)
+            .then(res => res.ok ? res.json() : [])
+            .catch(() => [])
+        );
+        const results = await Promise.all(fetchPromises);
+        let allEvents = [];
+        results.forEach(list => {
+          if (Array.isArray(list)) {
+            allEvents = allEvents.concat(list);
+          }
+        });
+
+        // Filter by date range
+        let filteredEvents = allEvents.filter(ev => {
+          if (!ev.startTime) return false;
+          const evTime = new Date(ev.startTime).getTime();
+          return evTime >= fromTime && evTime <= toTime;
+        });
+
+        // Filter by scope
+        const scope = document.querySelector('input[name="meetingsExportScope"]:checked').value;
+        if (scope === 'mine') {
+          const userEmail = (currentUser.email || '').toLowerCase();
+          const userName = (currentUser.displayName || '').toLowerCase();
+          const mySalesRepName = (SALES_REP_EMAILS[userEmail] || '').toLowerCase();
+
+          filteredEvents = filteredEvents.filter(m => {
+            const salesRep = (m.salesRep || '').toLowerCase();
+            const isUserRep = mySalesRepName && salesRep.includes(mySalesRepName);
+            const isUserEmail = salesRep.includes(userEmail);
+            const isUserDisplay = userName && salesRep.includes(userName);
+            return isUserRep || isUserEmail || isUserDisplay;
+          });
+        }
+
+        if (filteredEvents.length === 0) {
+          showToast("لا توجد اجتماعات في الفترة المحددة", "warning");
+          return;
+        }
+
+        // Sort by start time ascending
+        filteredEvents.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+        // Group by Date string (YYYY/MM/DD)
+        const groups = {};
+        filteredEvents.forEach(m => {
+          const dateObj = new Date(m.startTime);
+          const yyyy = dateObj.getFullYear();
+          const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const dd = String(dateObj.getDate()).padStart(2, '0');
+          const dateStr = `${yyyy}/${mm}/${dd}`;
+          if (!groups[dateStr]) {
+            groups[dateStr] = [];
+          }
+          groups[dateStr].push(m);
+        });
+
+        await loadScript('assets/js/vendor/xlsx-js-style.js');
+
+        const ws = {};
+        let currentRow = 0;
+
+        const setCell = (r, c, val, type, alignHorizontal = 'center', bgHex = null, fgHex = '000000', isBold = false, isHeader = false, url = null) => {
+          const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
+          const borderStyle = { style: "thin", color: { rgb: "D1D5DB" } };
+          
+          ws[cellRef] = {
+            v: val,
+            t: type,
+            s: {
+              font: {
+                name: "IBM Plex Sans Arabic",
+                sz: isHeader ? 11 : 10,
+                bold: isBold || isHeader,
+                color: { rgb: fgHex },
+                underline: url ? true : false
+              },
+              alignment: {
+                horizontal: alignHorizontal,
+                vertical: "center",
+                wrapText: true
+              },
+              border: {
+                top: borderStyle,
+                bottom: borderStyle,
+                left: borderStyle,
+                right: borderStyle
+              }
+            }
+          };
+
+          if (bgHex) {
+            ws[cellRef].s.fill = {
+              fgColor: { rgb: bgHex }
+            };
+          }
+
+          if (url) {
+            ws[cellRef].l = { Target: url };
+          }
+        };
+
+        const headers = [
+          "رابط الاجتماع",
+          "رابط التذكرة",
+          "حالة الاجتماع",
+          "من خلال",
+          "الساعة",
+          "الفريق المسؤول",
+          "ملخص تذكرة المشروع",
+          "ت"
+        ];
+
+        headers.forEach((h, cIdx) => {
+          setCell(currentRow, cIdx, h, "s", "center", "2B3E50", "FFFFFF", true, true);
+        });
+        ws['!rows'] = [];
+        ws['!rows'][currentRow] = { hpt: 32 };
+        currentRow++;
+
+        const sortedDates = Object.keys(groups).sort();
+        sortedDates.forEach(dateStr => {
+          // Yellow Date Row
+          ws['!merges'] = ws['!merges'] || [];
+          ws['!merges'].push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 7 } });
+          
+          for (let c = 0; c < 8; c++) {
+            setCell(currentRow, c, c === 7 ? dateStr : "", "s", "center", "FFFF00", "000000", true, false);
+          }
+          ws['!rows'][currentRow] = { hpt: 24 };
+          currentRow++;
+
+          groups[dateStr].forEach((m, index) => {
+            const rowNum = index + 1;
+            const summary = m.summary || '';
+
+            const salesRep = m.salesRep || '';
+            let repBg = "FFFFFF";
+            let repFg = "000000";
+            if (salesRep.includes("حسام")) { repBg = "991B1B"; repFg = "FFFFFF"; }
+            else if (salesRep.includes("أشرف")) { repBg = "6D28D9"; repFg = "FFFFFF"; }
+            else if (salesRep.includes("شادي")) { repBg = "D97706"; repFg = "FFFFFF"; }
+            else if (salesRep.includes("مجاهد")) { repBg = "1D4ED8"; repFg = "FFFFFF"; }
+
+            let timeStr = "";
+            if (m.startTime) {
+              const d = new Date(m.startTime);
+              let hours = d.getHours();
+              const minutes = String(d.getMinutes()).padStart(2, '0');
+              hours = hours % 12;
+              hours = hours ? hours : 12;
+              timeStr = `${hours}:${minutes}`;
+            }
+
+            const isOnline = (m.meetingType || '').includes('حضوري') ? false : true;
+            const platformText = isOnline ? "عن بعد" : "حضوري";
+            const platformBg = isOnline ? "E0F2FE" : "000000";
+            const platformFg = isOnline ? "0369A1" : "FFFFFF";
+
+            const crmStatus = (meetingStatuses[m.id] || {}).status || 'pending';
+            let statusText = "لم يتم";
+            let statusBg = "B91C1C";
+            let statusFg = "FFFFFF";
+            if (crmStatus === 'done') {
+              statusText = "تم";
+              statusBg = "16A34A";
+            } else if (crmStatus === 'postponed' || crmStatus === 'canceled') {
+              statusText = "ملغي";
+              statusBg = "374151";
+            }
+
+            const slackCode = m.slackCode || parseMeetingSummary(m.summary).slackCode || '';
+            const numericPart = slackCode ? slackCode.replace(/\D/g, '') : '';
+            const ticketLink = numericPart ? `https://e.aait.sa/web#id=${numericPart}&model=crm.lead&view_type=form` : '';
+
+            setCell(currentRow, 7, rowNum, "n", "center", null, "000000", false);
+            setCell(currentRow, 6, summary, "s", "right", null, "000000", true);
+            setCell(currentRow, 5, salesRep, "s", "center", repBg, repFg, true);
+            setCell(currentRow, 4, timeStr, "s", "center", null, "000000", true);
+            setCell(currentRow, 3, platformText, "s", "center", platformBg, platformFg, true);
+            setCell(currentRow, 2, statusText, "s", "center", statusBg, statusFg, true);
+            setCell(currentRow, 1, ticketLink ? "رابط التذكرة" : "", "s", "center", null, ticketLink ? "2563EB" : "000000", false, false, ticketLink);
+            setCell(currentRow, 0, m.meetLink ? "رابط الاجتماع" : "", "s", "center", null, m.meetLink ? "2563EB" : "000000", false, false, m.meetLink);
+
+            ws['!rows'][currentRow] = { hpt: 26 };
+            currentRow++;
+          });
+        });
+
+        ws['!cols'] = [
+          { wch: 25 }, // H -> رابط الاجتماع
+          { wch: 25 }, // G -> رابط التذكرة
+          { wch: 18 }, // F -> حالة الاجتماع
+          { wch: 15 }, // E -> من خلال
+          { wch: 12 }, // D -> الساعة
+          { wch: 18 }, // C -> الفريق المسؤول
+          { wch: 50 }, // B -> ملخص تذكرة المشروع
+          { wch: 8 }   // A -> ت
+        ];
+
+        ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: 7, r: currentRow - 1 } });
+
+        ws['!views'] = [{
+          RTL: true,
+          state: "frozen",
+          xSplit: 0,
+          ySplit: 1,
+          topLeftCell: XLSX.utils.encode_cell({ r: 1, c: 0 }),
+          activePane: "bottomLeft"
+        }];
+
+        const wb = XLSX.utils.book_new();
+        if (!wb.Workbook) wb.Workbook = {};
+        wb.Workbook.Views = [{ RTL: true }];
+
+        XLSX.utils.book_append_sheet(wb, ws, "تقرير الاجتماعات");
+        XLSX.writeFile(wb, `meetings-export-${fromVal}-to-${toVal}.xlsx`);
+
+        showToast(`تم تصدير ${filteredEvents.length} اجتماع بنجاح لـ Excel`, "success");
+        closeModal("meetingsExportModal");
+
+      } catch (err) {
+        console.error("Meetings Excel export error:", err);
+        showToast("حدث خطأ أثناء التصدير: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
+      }
+    }
+
+    window.openMeetingsExportModal = openMeetingsExportModal;
+    window.setMeetingsExportShortcut = setMeetingsExportShortcut;
+    window.exportMeetingsToExcel = exportMeetingsToExcel;
 
     // ════════════════ SECTION 13: KPI Dashboard Module ════════════════
     function updateKPIDashboard() {
