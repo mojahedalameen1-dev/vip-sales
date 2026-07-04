@@ -6216,20 +6216,12 @@
         } catch (err) {
           console.error("Excel export error:", err);
           showToast("حدث خطأ أثناء التصدير: " + err.message, "error");
-            } finally {
-              btn.disabled = false;
-              btn.innerHTML = originalText;
-              lucide.createIcons();
-            }
-          }, 500);
-        })
-        .catch(err => {
-          console.error(err);
-          showToast("تعذر تحميل مكتبة التصدير لـ Excel", "error");
+        } finally {
           btn.disabled = false;
           btn.innerHTML = originalText;
           lucide.createIcons();
-        });
+        }
+      }, 500);
     });
 
     // ════════════════ Custom Meetings Excel Exporter ════════════════
@@ -6362,61 +6354,235 @@
         // Sort by start time ascending
         filteredEvents.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-        // Group by Date string (YYYY/MM/DD)
-        const groups = {};
+        const monthlyGroups = {};
         filteredEvents.forEach(m => {
           const dateObj = new Date(m.startTime);
           const yyyy = dateObj.getFullYear();
           const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const monthStr = `${yyyy}-${mm}`;
+          
+          if (!monthlyGroups[monthStr]) {
+            monthlyGroups[monthStr] = {};
+          }
+          
           const dd = String(dateObj.getDate()).padStart(2, '0');
           const dateStr = `${yyyy}/${mm}/${dd}`;
-          if (!groups[dateStr]) {
-            groups[dateStr] = [];
+          if (!monthlyGroups[monthStr][dateStr]) {
+            monthlyGroups[monthStr][dateStr] = [];
           }
-          groups[dateStr].push(m);
+          monthlyGroups[monthStr][dateStr].push(m);
         });
 
         await loadScript('assets/js/vendor/xlsx-js-style.js');
 
-        const ws = {};
-        let currentRow = 0;
+        const wb = XLSX.utils.book_new();
+        if (!wb.Workbook) wb.Workbook = {};
+        wb.Workbook.Views = [{ RTL: true }];
 
-        const setCell = (r, c, val, type, alignHorizontal = 'center', bgHex = null, fgHex = '000000', isBold = false, isHeader = false, url = null) => {
-          const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
-          const borderStyle = {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } }
-          };
-          
-          const fillBg = bgHex || (isHeader ? "5B7086" : "EBF1F5");
-          
-          ws[cellRef] = {
-            v: val,
-            t: type,
-            s: {
-              font: {
-                name: "Arial",
-                sz: isHeader ? 11 : 10,
-                bold: isBold || isHeader,
-                color: { rgb: fgHex },
-                underline: url ? true : false
-              },
-              alignment: {
-                horizontal: alignHorizontal,
-                vertical: "center",
-                wrapText: true
-              },
-              border: borderStyle
+        const sortedMonths = Object.keys(monthlyGroups).sort();
+        const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+        sortedMonths.forEach(monthKey => {
+          const [yyyy, mm] = monthKey.split('-');
+          const monthIndex = parseInt(mm, 10) - 1;
+          const sheetName = `${arabicMonths[monthIndex]} ${yyyy}`;
+
+          const ws = {};
+          let currentRow = 0;
+
+          const setCell = (r, c, val, type, alignHorizontal = 'center', bgHex = null, fgHex = '000000', isBold = false, isHeader = false, url = null) => {
+            const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
+            const borderStyle = {
+              top: { style: "thin", color: { rgb: "000000" } },
+              bottom: { style: "thin", color: { rgb: "000000" } },
+              left: { style: "thin", color: { rgb: "000000" } },
+              right: { style: "thin", color: { rgb: "000000" } }
+            };
+            
+            const fillBg = bgHex || (isHeader ? "5B7086" : "EBF1F5");
+            
+            ws[cellRef] = {
+              v: val,
+              t: type,
+              s: {
+                font: {
+                  name: "Arial",
+                  sz: isHeader ? 11 : 10,
+                  bold: isBold || isHeader,
+                  color: { rgb: fgHex },
+                  underline: url ? true : false
+                },
+                alignment: {
+                  horizontal: alignHorizontal,
+                  vertical: "center",
+                  wrapText: true
+                },
+                border: borderStyle
+              }
+            };
+
+            if (fillBg) {
+              ws[cellRef].s.fill = {
+                fgColor: { rgb: fillBg }
+              };
+            }
+
+            if (url) {
+              ws[cellRef].l = { Target: url };
             }
           };
 
-          if (fillBg) {
-            ws[cellRef].s.fill = {
-              fgColor: { rgb: fillBg }
-            };
+          const headers = [
+            "ج",
+            "مختصر فكرة المشروع",
+            "الفريق المسؤول",
+            "الساعة",
+            "من خلال",
+            "حالة الاجتماع",
+            "رابط التذكرة",
+            "رابط الاجتماع",
+            "حالة العميل"
+          ];
+
+          headers.forEach((h, cIdx) => {
+            setCell(currentRow, cIdx, h, "s", "center", "5B7086", "FFFFFF", true, true);
+          });
+          ws['!rows'] = [];
+          ws['!rows'][currentRow] = { hpt: 25 };
+          currentRow++;
+
+          const monthDates = monthlyGroups[monthKey];
+          const sortedDates = Object.keys(monthDates).sort();
+          sortedDates.forEach(dateStr => {
+            // Yellow Date Row (merged A-I / 0-8)
+            ws['!merges'] = ws['!merges'] || [];
+            ws['!merges'].push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 8 } });
+            
+            for (let c = 0; c < 9; c++) {
+              setCell(currentRow, c, c === 0 ? dateStr : "", "s", "center", "E2FF3B", "000000", true, false);
+            }
+            ws['!rows'][currentRow] = { hpt: 18 };
+            currentRow++;
+
+            monthDates[dateStr].forEach((m, index) => {
+              const rowNum = index + 1;
+              const summary = m.summary || '';
+
+              const salesRep = m.salesRep || '';
+              let repBg = "EBF1F5";
+              let repFg = "000000";
+              let salesRepText = salesRep ? salesRep + "  ▼" : "";
+              if (salesRep.includes("حسام")) { repBg = "C00000"; repFg = "FFFFFF"; }
+              else if (salesRep.includes("أشرف")) { repBg = "7030A0"; repFg = "FFFFFF"; }
+              else if (salesRep.includes("شادي")) { repBg = "FFC000"; repFg = "000000"; }
+              else if (salesRep.includes("مجاهد")) { repBg = "0070C0"; repFg = "FFFFFF"; }
+
+              let timeStr = "";
+              if (m.startTime) {
+                const d = new Date(m.startTime);
+                let hours = d.getHours();
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                timeStr = `${hours}:${minutes}`;
+              }
+
+              const isOnline = (m.meetingType || '').includes('حضوري') ? false : true;
+              const platformText = (isOnline ? "عن بعد" : "حضوري") + "  ▼";
+              const platformBg = isOnline ? "DDEBF7" : "000000";
+              const platformFg = isOnline ? "1F4E78" : "FFFFFF";
+
+              const crmStatus = (meetingStatuses[m.id] || {}).status || 'pending';
+              let statusText = "لم يتم  ▼";
+              let statusBg = "FFC7CE";
+              let statusFg = "9C0006";
+              if (crmStatus === 'done') {
+                statusText = "تم  ▼";
+                statusBg = "C6EFCE";
+                statusFg = "006100";
+              } else if (crmStatus === 'postponed' || crmStatus === 'canceled') {
+                statusText = "ملغي  ▼";
+                statusBg = "E2E8F0";
+                statusFg = "475569";
+              }
+
+              const slackCode = m.slackCode || parseMeetingSummary(m.summary).slackCode || '';
+              const numericPart = slackCode ? slackCode.replace(/\D/g, '') : '';
+              const ticketLink = numericPart ? `https://e.aait.sa/web#id=${numericPart}&model=crm.lead&view_type=form` : '';
+
+              const associatedLead = Object.values(leadsData).find(l => l.googleEventId === m.id);
+              const rawLeadCol = associatedLead ? associatedLead.column : 'new';
+              const leadStatusText = (COLUMN_TRANSLATIONS[rawLeadCol] || rawLeadCol) + "  ▼";
+              let leadStatusBg = "EBF1F5";
+              let leadStatusFg = "000000";
+              if (rawLeadCol === 'new') { leadStatusBg = "EAEAEA"; leadStatusFg = "333333"; }
+              else if (rawLeadCol === 'technical') { leadStatusBg = "D1E9F6"; leadStatusFg = "1F4E78"; }
+              else if (rawLeadCol === 'closing') { leadStatusBg = "FFF2D7"; leadStatusFg = "B2533E"; }
+              else if (rawLeadCol === 'signed') { leadStatusBg = "D1E7DD"; leadStatusFg = "0F5132"; }
+              else if (rawLeadCol === 'closed') { leadStatusBg = "F8D7DA"; leadStatusFg = "842029"; }
+
+              setCell(currentRow, 0, rowNum, "n", "center", null, "000000", false);
+              setCell(currentRow, 1, summary, "s", "right", null, "000000", true);
+              setCell(currentRow, 2, salesRepText, "s", "center", repBg, repFg, true);
+              setCell(currentRow, 3, timeStr, "s", "center", null, "000000", true);
+              setCell(currentRow, 4, platformText, "s", "center", platformBg, platformFg, true);
+              setCell(currentRow, 5, statusText, "s", "center", statusBg, statusFg, true);
+              setCell(currentRow, 6, ticketLink, "s", "left", null, ticketLink ? "0563C1" : "000000", false, false, ticketLink);
+              setCell(currentRow, 7, m.meetLink, "s", "left", null, m.meetLink ? "0563C1" : "000000", false, false, m.meetLink);
+              setCell(currentRow, 8, leadStatusText, "s", "center", leadStatusBg, leadStatusFg, true);
+
+              ws['!rows'][currentRow] = { hpt: 20 };
+              currentRow++;
+            });
+          });
+
+          ws['!cols'] = [
+            { wch: 6 },   // A -> ج
+            { wch: 55 },  // B -> مختصر فكرة المشروع
+            { wch: 18 },  // C -> الفريق المسؤول
+            { wch: 10 },  // D -> الساعة
+            { wch: 14 },  // E -> من خلال
+            { wch: 16 },  // F -> حالة الاجتماع
+            { wch: 45 },  // G -> رابط التذكرة
+            { wch: 45 },  // H -> رابط الاجتماع
+            { wch: 18 }   // I -> حالة العميل
+          ];
+
+          ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: 8, r: currentRow - 1 } });
+
+          ws['!views'] = [{
+            RTL: true,
+            state: "frozen",
+            xSplit: 0,
+            ySplit: 1,
+            topLeftCell: XLSX.utils.encode_cell({ r: 1, c: 0 }),
+            activePane: "bottomLeft"
+          }];
+
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        });
+
+        // Formulate a clean descriptive file name for single/multiple months
+        let fileName = "";
+        const startMonthName = arabicMonths[fromDateObj.getMonth()];
+        const startYear = fromDateObj.getFullYear();
+        const endMonthName = arabicMonths[toDateObj.getMonth()];
+        const endYear = toDateObj.getFullYear();
+
+        if (startYear === endYear) {
+          if (startMonthName === endMonthName) {
+            fileName = `${startMonthName} ${startYear}`;
+          } else {
+            fileName = `${startMonthName} - ${endMonthName} ${startYear}`;
           }
+        } else {
+          fileName = `${startMonthName} ${startYear} - ${endMonthName} ${endYear}`;
+        }
+
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
+
+        showToast(`تم تصدير ${filteredEvents.length} اجتماع بنجاح لـ Excel`, "success");
+        closeModal("meetingsExportModal"); }
 
           if (url) {
             ws[cellRef].l = { Target: url };
@@ -6525,39 +6691,25 @@
             currentRow++;
           });
         });
+        });
 
-        ws['!cols'] = [
-          { wch: 6 },   // A -> ج
-          { wch: 55 },  // B -> مختصر فكرة المشروع
-          { wch: 18 },  // C -> الفريق المسؤول
-          { wch: 10 },  // D -> الساعة
-          { wch: 14 },  // E -> من خلال
-          { wch: 16 },  // F -> حالة الاجتماع
-          { wch: 45 },  // G -> رابط التذكرة
-          { wch: 45 },  // H -> رابط الاجتماع
-          { wch: 18 }   // I -> حالة العميل
-        ];
+        let fileName = "";
+        const startMonthName = arabicMonths[fromDateObj.getMonth()];
+        const startYear = fromDateObj.getFullYear();
+        const endMonthName = arabicMonths[toDateObj.getMonth()];
+        const endYear = toDateObj.getFullYear();
 
-        ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: 8, r: currentRow - 1 } });
+        if (startYear === endYear) {
+          if (startMonthName === endMonthName) {
+            fileName = `${startMonthName} ${startYear}`;
+          } else {
+            fileName = `${startMonthName} - ${endMonthName} ${startYear}`;
+          }
+        } else {
+          fileName = `${startMonthName} ${startYear} - ${endMonthName} ${endYear}`;
+        }
 
-        ws['!views'] = [{
-          RTL: true,
-          state: "frozen",
-          xSplit: 0,
-          ySplit: 1,
-          topLeftCell: XLSX.utils.encode_cell({ r: 1, c: 0 }),
-          activePane: "bottomLeft"
-        }];
-
-        const wb = XLSX.utils.book_new();
-        if (!wb.Workbook) wb.Workbook = {};
-        wb.Workbook.Views = [{ RTL: true }];
-
-        const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-        const customSheetName = `${arabicMonths[fromDateObj.getMonth()]} ${fromDateObj.getFullYear()}`;
-
-        XLSX.utils.book_append_sheet(wb, ws, customSheetName);
-        XLSX.writeFile(wb, `${customSheetName}.xlsx`);
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
 
         showToast(`تم تصدير ${filteredEvents.length} اجتماع بنجاح لـ Excel`, "success");
         closeModal("meetingsExportModal");
@@ -6571,11 +6723,6 @@
         lucide.createIcons();
       }
     }
-
-    window.openMeetingsExportModal = openMeetingsExportModal;
-    window.setMeetingsExportShortcut = setMeetingsExportShortcut;
-    window.exportMeetingsToExcel = exportMeetingsToExcel;
-
     // ════════════════ SECTION 13: KPI Dashboard Module ════════════════
     function updateKPIDashboard() {
       const container = document.getElementById("kpiContainer");
