@@ -4399,13 +4399,16 @@
         let colLeads = [];
 
         if (isMeetingsColumn) {
-          // Fetch leads in 'new' stage that are meetings for the current month
+          // Fetch leads in 'new' stage that are meetings for the selected month
           colLeads = Object.values(leadsData).filter(l => {
             if (l.column !== col.id) return false;
             if (!l.meetingDate) return false;
-            const start = new Date(l.meetingDate);
-            const now = new Date();
-            return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth();
+            if (filters.selectedMonth && filters.selectedMonth !== "all") {
+              const start = new Date(l.meetingDate);
+              const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+              return key === filters.selectedMonth;
+            }
+            return true;
           }) || [];
         } else {
           colLeads = Object.values(leadsData).filter(l => l.column === col.id) || [];
@@ -4441,8 +4444,16 @@
           <div class="dropdown-item" onclick="setColumnSort('${col.id}', 'alphabetical')" style="padding: 8px 12px; cursor: pointer; font-size: var(--text-sm); display: flex; align-items: center; justify-content: space-between; font-weight: ${sortType === 'alphabetical' ? '600' : 'normal'};">الأبجدي (أ ← ي) ${sortType === 'alphabetical' ? '✓' : ''}</div>
         `;
 
-        const currentMonthNum = new Date().getMonth() + 1;
-        const colTitle = isMeetingsColumn ? `${col.name} ( اجتماعاتي شهر ${currentMonthNum} )` : col.name;
+        let colTitle = col.name;
+        if (isMeetingsColumn) {
+          if (filters.selectedMonth && filters.selectedMonth !== "all") {
+            const [year, monthStr] = filters.selectedMonth.split('-');
+            const displayMonthNum = parseInt(monthStr, 10);
+            colTitle = `${col.name} ( اجتماعاتي شهر ${displayMonthNum} )`;
+          } else {
+            colTitle = `${col.name} ( جميع اجتماعاتي )`;
+          }
+        }
 
         columnEl.innerHTML = `
           <div class="column-color-bar" style="background-color: ${col.color};"></div>
@@ -4485,7 +4496,7 @@
                 <circle cx="12" cy="11" r="3" />
                 <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z" />
               </svg>
-              <span class="empty-state-text">${isMeetingsColumn ? "لا توجد اجتماعات هذا الشهر" : "المرحلة فارغة حالياً"}</span>
+              <span class="empty-state-text">${isMeetingsColumn ? (filters.selectedMonth === "all" ? "لا توجد اجتماعات" : "لا توجد اجتماعات هذا الشهر") : "المرحلة فارغة حالياً"}</span>
             </div>
           `;
         } else {
