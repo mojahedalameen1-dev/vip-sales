@@ -6378,14 +6378,21 @@
 
         const setCell = (r, c, val, type, alignHorizontal = 'center', bgHex = null, fgHex = '000000', isBold = false, isHeader = false, url = null) => {
           const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
-          const borderStyle = { style: "thin", color: { rgb: "D1D5DB" } };
+          const borderStyle = {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+          };
+          
+          const fillBg = bgHex || (isHeader ? "5B7086" : "EBF1F5");
           
           ws[cellRef] = {
             v: val,
             t: type,
             s: {
               font: {
-                name: "IBM Plex Sans Arabic",
+                name: "Arial",
                 sz: isHeader ? 11 : 10,
                 bold: isBold || isHeader,
                 color: { rgb: fgHex },
@@ -6396,18 +6403,13 @@
                 vertical: "center",
                 wrapText: true
               },
-              border: {
-                top: borderStyle,
-                bottom: borderStyle,
-                left: borderStyle,
-                right: borderStyle
-              }
+              border: borderStyle
             }
           };
 
-          if (bgHex) {
+          if (fillBg) {
             ws[cellRef].s.fill = {
-              fgColor: { rgb: bgHex }
+              fgColor: { rgb: fillBg }
             };
           }
 
@@ -6417,33 +6419,34 @@
         };
 
         const headers = [
-          "رابط الاجتماع",
-          "رابط التذكرة",
-          "حالة الاجتماع",
-          "من خلال",
-          "الساعة",
+          "ج",
+          "مختصر فكرة المشروع",
           "الفريق المسؤول",
-          "ملخص تذكرة المشروع",
-          "ت"
+          "الساعة",
+          "من خلال",
+          "حالة الاجتماع",
+          "رابط التذكرة",
+          "رابط الاجتماع",
+          "حالة العميل"
         ];
 
         headers.forEach((h, cIdx) => {
-          setCell(currentRow, cIdx, h, "s", "center", "2B3E50", "FFFFFF", true, true);
+          setCell(currentRow, cIdx, h, "s", "center", "5B7086", "FFFFFF", true, true);
         });
         ws['!rows'] = [];
-        ws['!rows'][currentRow] = { hpt: 32 };
+        ws['!rows'][currentRow] = { hpt: 25 };
         currentRow++;
 
         const sortedDates = Object.keys(groups).sort();
         sortedDates.forEach(dateStr => {
-          // Yellow Date Row
+          // Yellow Date Row (merged A-I / 0-8)
           ws['!merges'] = ws['!merges'] || [];
-          ws['!merges'].push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 7 } });
+          ws['!merges'].push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 8 } });
           
-          for (let c = 0; c < 8; c++) {
-            setCell(currentRow, c, c === 7 ? dateStr : "", "s", "center", "FFFF00", "000000", true, false);
+          for (let c = 0; c < 9; c++) {
+            setCell(currentRow, c, c === 0 ? dateStr : "", "s", "center", "E2FF3B", "000000", true, false);
           }
-          ws['!rows'][currentRow] = { hpt: 24 };
+          ws['!rows'][currentRow] = { hpt: 18 };
           currentRow++;
 
           groups[dateStr].forEach((m, index) => {
@@ -6451,12 +6454,13 @@
             const summary = m.summary || '';
 
             const salesRep = m.salesRep || '';
-            let repBg = "FFFFFF";
+            let repBg = "EBF1F5";
             let repFg = "000000";
-            if (salesRep.includes("حسام")) { repBg = "991B1B"; repFg = "FFFFFF"; }
-            else if (salesRep.includes("أشرف")) { repBg = "6D28D9"; repFg = "FFFFFF"; }
-            else if (salesRep.includes("شادي")) { repBg = "D97706"; repFg = "FFFFFF"; }
-            else if (salesRep.includes("مجاهد")) { repBg = "1D4ED8"; repFg = "FFFFFF"; }
+            let salesRepText = salesRep ? salesRep + "  ▼" : "";
+            if (salesRep.includes("حسام")) { repBg = "C00000"; repFg = "FFFFFF"; }
+            else if (salesRep.includes("أشرف")) { repBg = "7030A0"; repFg = "FFFFFF"; }
+            else if (salesRep.includes("شادي")) { repBg = "FFC000"; repFg = "000000"; }
+            else if (salesRep.includes("مجاهد")) { repBg = "0070C0"; repFg = "FFFFFF"; }
 
             let timeStr = "";
             if (m.startTime) {
@@ -6469,52 +6473,67 @@
             }
 
             const isOnline = (m.meetingType || '').includes('حضوري') ? false : true;
-            const platformText = isOnline ? "عن بعد" : "حضوري";
-            const platformBg = isOnline ? "E0F2FE" : "000000";
-            const platformFg = isOnline ? "0369A1" : "FFFFFF";
+            const platformText = (isOnline ? "عن بعد" : "حضوري") + "  ▼";
+            const platformBg = isOnline ? "DDEBF7" : "000000";
+            const platformFg = isOnline ? "1F4E78" : "FFFFFF";
 
             const crmStatus = (meetingStatuses[m.id] || {}).status || 'pending';
-            let statusText = "لم يتم";
-            let statusBg = "B91C1C";
-            let statusFg = "FFFFFF";
+            let statusText = "لم يتم  ▼";
+            let statusBg = "FFC7CE";
+            let statusFg = "9C0006";
             if (crmStatus === 'done') {
-              statusText = "تم";
-              statusBg = "16A34A";
+              statusText = "تم  ▼";
+              statusBg = "C6EFCE";
+              statusFg = "006100";
             } else if (crmStatus === 'postponed' || crmStatus === 'canceled') {
-              statusText = "ملغي";
-              statusBg = "374151";
+              statusText = "ملغي  ▼";
+              statusBg = "E2E8F0";
+              statusFg = "475569";
             }
 
             const slackCode = m.slackCode || parseMeetingSummary(m.summary).slackCode || '';
             const numericPart = slackCode ? slackCode.replace(/\D/g, '') : '';
             const ticketLink = numericPart ? `https://e.aait.sa/web#id=${numericPart}&model=crm.lead&view_type=form` : '';
 
-            setCell(currentRow, 7, rowNum, "n", "center", null, "000000", false);
-            setCell(currentRow, 6, summary, "s", "right", null, "000000", true);
-            setCell(currentRow, 5, salesRep, "s", "center", repBg, repFg, true);
-            setCell(currentRow, 4, timeStr, "s", "center", null, "000000", true);
-            setCell(currentRow, 3, platformText, "s", "center", platformBg, platformFg, true);
-            setCell(currentRow, 2, statusText, "s", "center", statusBg, statusFg, true);
-            setCell(currentRow, 1, ticketLink ? "رابط التذكرة" : "", "s", "center", null, ticketLink ? "2563EB" : "000000", false, false, ticketLink);
-            setCell(currentRow, 0, m.meetLink ? "رابط الاجتماع" : "", "s", "center", null, m.meetLink ? "2563EB" : "000000", false, false, m.meetLink);
+            const associatedLead = Object.values(leadsData).find(l => l.googleEventId === m.id);
+            const rawLeadCol = associatedLead ? associatedLead.column : 'new';
+            const leadStatusText = (COLUMN_TRANSLATIONS[rawLeadCol] || rawLeadCol) + "  ▼";
+            let leadStatusBg = "EBF1F5";
+            let leadStatusFg = "000000";
+            if (rawLeadCol === 'new') { leadStatusBg = "EAEAEA"; leadStatusFg = "333333"; }
+            else if (rawLeadCol === 'technical') { leadStatusBg = "D1E9F6"; leadStatusFg = "1F4E78"; }
+            else if (rawLeadCol === 'closing') { leadStatusBg = "FFF2D7"; leadStatusFg = "B2533E"; }
+            else if (rawLeadCol === 'signed') { leadStatusBg = "D1E7DD"; leadStatusFg = "0F5132"; }
+            else if (rawLeadCol === 'closed') { leadStatusBg = "F8D7DA"; leadStatusFg = "842029"; }
 
-            ws['!rows'][currentRow] = { hpt: 26 };
+            setCell(currentRow, 0, rowNum, "n", "center", null, "000000", false);
+            setCell(currentRow, 1, summary, "s", "right", null, "000000", true);
+            setCell(currentRow, 2, salesRepText, "s", "center", repBg, repFg, true);
+            setCell(currentRow, 3, timeStr, "s", "center", null, "000000", true);
+            setCell(currentRow, 4, platformText, "s", "center", platformBg, platformFg, true);
+            setCell(currentRow, 5, statusText, "s", "center", statusBg, statusFg, true);
+            setCell(currentRow, 6, ticketLink, "s", "left", null, ticketLink ? "0563C1" : "000000", false, false, ticketLink);
+            setCell(currentRow, 7, m.meetLink, "s", "left", null, m.meetLink ? "0563C1" : "000000", false, false, m.meetLink);
+            setCell(currentRow, 8, leadStatusText, "s", "center", leadStatusBg, leadStatusFg, true);
+
+            ws['!rows'][currentRow] = { hpt: 20 };
             currentRow++;
           });
         });
 
         ws['!cols'] = [
-          { wch: 25 }, // H -> رابط الاجتماع
-          { wch: 25 }, // G -> رابط التذكرة
-          { wch: 18 }, // F -> حالة الاجتماع
-          { wch: 15 }, // E -> من خلال
-          { wch: 12 }, // D -> الساعة
-          { wch: 18 }, // C -> الفريق المسؤول
-          { wch: 50 }, // B -> ملخص تذكرة المشروع
-          { wch: 8 }   // A -> ت
+          { wch: 6 },   // A -> ج
+          { wch: 55 },  // B -> مختصر فكرة المشروع
+          { wch: 18 },  // C -> الفريق المسؤول
+          { wch: 10 },  // D -> الساعة
+          { wch: 14 },  // E -> من خلال
+          { wch: 16 },  // F -> حالة الاجتماع
+          { wch: 45 },  // G -> رابط التذكرة
+          { wch: 45 },  // H -> رابط الاجتماع
+          { wch: 18 }   // I -> حالة العميل
         ];
 
-        ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: 7, r: currentRow - 1 } });
+        ws['!ref'] = XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: 8, r: currentRow - 1 } });
 
         ws['!views'] = [{
           RTL: true,
@@ -6529,8 +6548,11 @@
         if (!wb.Workbook) wb.Workbook = {};
         wb.Workbook.Views = [{ RTL: true }];
 
-        XLSX.utils.book_append_sheet(wb, ws, "تقرير الاجتماعات");
-        XLSX.writeFile(wb, `meetings-export-${fromVal}-to-${toVal}.xlsx`);
+        const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+        const customSheetName = `${arabicMonths[fromDateObj.getMonth()]} ${fromDateObj.getFullYear()}`;
+
+        XLSX.utils.book_append_sheet(wb, ws, customSheetName);
+        XLSX.writeFile(wb, `${customSheetName}.xlsx`);
 
         showToast(`تم تصدير ${filteredEvents.length} اجتماع بنجاح لـ Excel`, "success");
         closeModal("meetingsExportModal");
