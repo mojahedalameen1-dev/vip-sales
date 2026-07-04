@@ -3805,7 +3805,6 @@
 
               document.getElementById("userAvatar").src = user.photoURL || "https://www.gravatar.com/avatar/?d=mp";
               document.getElementById("userName").textContent = user.displayName || user.email;
-              fetchMonthlyMeetings();
 
               setupRealtimeSubscriptions();
               initMeetingStatusesListener();
@@ -4026,8 +4025,7 @@
       // Auto-fetch Google Meetings on startup once user is authenticated (silent=false to notify)
       setTimeout(() => {
         if (currentUser && currentUser.email) {
-          fetchGoogleMeetings(true);
-          fetchMonthlyMeetings();
+          fetchGoogleMeetings(true); // Fetches current month meetings
           syncSlackData(true); // background sync
         }
       }, 2000);
@@ -4035,8 +4033,8 @@
       // Auto-fetch Google Meetings every 5 minutes (silent mode - no toast unless new meetings found)
       setInterval(() => {
         if (currentUser && currentUser.email) {
+          // Only fetch the currently displayed month to avoid unnecessary API calls
           fetchGoogleMeetings(true);
-          fetchMonthlyMeetings();
           syncSlackData(true); // background sync
           updateAutoRefreshIndicator();
         }
@@ -4401,13 +4399,16 @@
         let colLeads = [];
 
         if (isMeetingsColumn) {
-          // Fetch leads in 'new' stage that are meetings for the selected month
+          // For 'new' column: show all Google Meeting leads, filtered by month if selected
           colLeads = Object.values(leadsData).filter(l => {
             if (l.column !== col.id) return false;
-            if (!l.meetingDate) return false;
+            
+            // Use meetingDate for Google meetings, or createdAt for manually added ones
+            const dateMs = l.meetingDate || l.createdAt || 0;
+            
             if (filters.selectedMonth && filters.selectedMonth !== "all") {
-              const start = new Date(l.meetingDate);
-              const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+              const d = new Date(dateMs);
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
               return key === filters.selectedMonth;
             }
             return true;
@@ -5509,29 +5510,24 @@
       }
     }
 
-    async function fetchMonthlyMeetings() {
+    // Fetches meetings for a given month string (e.g. '2026-06') and safely imports
+    // them to Firebase WITHOUT deleting any existing data. Safe to call anytime.
+    async function fetchAndImportMeetingsForMonth(monthStr) {
       if (!currentUser || !currentUser.email) return;
+      if (!monthStr || monthStr === 'all') {
+        const now = new Date();
+        monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      }
       try {
-        let monthStr;
-        if (filters.selectedMonth && filters.selectedMonth !== "all") {
-          monthStr = filters.selectedMonth;
-        } else {
-          const now = new Date();
-          const yyyy = now.getFullYear();
-          const mm = String(now.getMonth() + 1).padStart(2, '0');
-          monthStr = `${yyyy}-${mm}`;
-        }
         const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
-        if (!response.ok) {
-          throw new Error('فشل جلب اجتماعات الشهر');
+        if (!response.ok) return;
+        const events = await response.json();
+        if (db && typeof db.ref === 'function' && events && events.length > 0) {
+          await syncMeetingsToFirebase(events);
         }
-        monthlyMeetings = await response.json();
-        if (db && typeof db.ref === 'function') {
-          await syncMeetingsToFirebase(monthlyMeetings);
-        }
-        renderKanbanBoard();
+        renderKanbanBoard(false);
       } catch (err) {
-        console.error("Failed to fetch monthly meetings:", err);
+        console.error("Failed to fetch meetings for month:", monthStr, err);
       }
     }
 
@@ -7411,9 +7407,15 @@
       document.getElementById("selectedMonthLabel").textContent = label;
       document.getElementById("filterMonthDropdown").style.display = "none";
 
-      // Re-trigger rendering
+      // Re-trigger rendering immediately with existing data
       updateKPIDashboard();
       renderKanbanBoard(false);
+
+      // Then fetch & import meetings for the selected month in the background
+      // This ensures meetings for past months are always available
+      if (monthKey && monthKey !== 'all') {
+        fetchAndImportMeetingsForMonth(monthKey);
+      }
     };
 
     function buildMonthDropdownList() {
@@ -7421,10 +7423,14 @@
       if (!dd) return;
       dd.innerHTML = "";
 
-      // Gather all unique months from leadsData
+      // Gather all unique months from leadsData (using meetingDate for meetings, updatedAt for others)
       const monthsSet = new Set();
       Object.values(leadsData).forEach(lead => {
-        const date = new Date(lead.updatedAt || lead.createdAt || Date.now());
+        // For Google meeting leads in 'new' column, use meetingDate as the primary date
+        const primaryDate = (lead.column === 'new' && lead.meetingDate)
+          ? lead.meetingDate
+          : (lead.updatedAt || lead.createdAt || Date.now());
+        const date = new Date(primaryDate);
         const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         monthsSet.add(key);
       });
