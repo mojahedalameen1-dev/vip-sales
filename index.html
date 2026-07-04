@@ -3093,6 +3093,11 @@
             <span>جلب اجتماعات Meet</span>
           </button>
 
+          <button id="reimportMeetBtn" class="btn-primary" onclick="reimportMeetings()" title="إعادة الاستيراد ومسح التكرارات" style="background: linear-gradient(135deg, #ef4444, #dc2626); border: none;">
+            <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+            <span>إعادة الاستيراد</span>
+          </button>
+
           <button id="syncSlackBtn" class="btn-primary" onclick="syncSlackData()" title="تحديث أرقام الجوال والمتابعات من Slack لجميع العملاء" style="background: linear-gradient(135deg, #4A154B, #7C3AAD); border: none;">
             <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
             <span id="syncSlackBtnText">مزامنة Slack</span>
@@ -5675,6 +5680,7 @@
 
         for (const lead of leadsToClear) {
           await db.ref(`${getLeadsPath()}/${lead.id}`).remove();
+          delete leadsData[lead.id]; // Delete locally immediately to avoid race condition!
 
           const assocTickets = Object.values(ticketsData).filter(t => t.leadId === lead.id);
           for (const ticket of assocTickets) {
