@@ -5682,11 +5682,14 @@
           await db.ref(`${getLeadsPath()}/${lead.id}`).remove();
           delete leadsData[lead.id]; // Delete locally immediately to avoid race condition!
 
-          const assocTickets = Object.values(ticketsData).filter(t => t.leadId === lead.id);
+          const assocTickets = Object.values(ticketsData || {}).filter(t => t.leadId === lead.id);
           for (const ticket of assocTickets) {
             await db.ref(`${getTicketsPath()}/${ticket.id}`).remove();
           }
         }
+
+        // Re-render UI immediately to show empty column before API fetch completes
+        renderKanbanBoard(false);
 
         showToast("تم مسح الاجتماعات السابقة بنجاح، جارٍ إعادة الاستيراد...", "info");
         await fetchGoogleMeetings(false);
@@ -5700,6 +5703,7 @@
         lucide.createIcons();
       }
     }
+    window.reimportMeetings = reimportMeetings;
 
     // ════════════════ SECTION 12: Export Module (CSV & JSON) ════════════════
     function debounce(func, wait) {
