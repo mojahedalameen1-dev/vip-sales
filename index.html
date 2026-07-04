@@ -5446,9 +5446,13 @@
       if (pctEl) pctEl.textContent = `${pct}%`;
     }
 
+    let isSyncingMeetingsToFirebase = false;
+
     async function syncMeetingsToFirebase(events) {
       if (!events || events.length === 0) return;
       if (!db || typeof db.ref !== 'function') return;
+      if (isSyncingMeetingsToFirebase) return;
+      isSyncingMeetingsToFirebase = true;
       try {
         const existingEventIds = new Set(
           Object.values(leadsData)
@@ -5461,6 +5465,7 @@
           if (existingEventIds.has(event.id)) {
             continue;
           }
+          existingEventIds.add(event.id); // Prevent duplicate writes in the same loop execution
 
           const leadId = db.ref(getLeadsPath()).push().key;
           const start = event.startTime ? new Date(event.startTime).getTime() : Date.now();
@@ -5497,6 +5502,8 @@
         }
       } catch (err) {
         console.error("Error syncing meetings to Firebase:", err);
+      } finally {
+        isSyncingMeetingsToFirebase = false;
       }
     }
 
