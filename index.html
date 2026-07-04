@@ -6221,7 +6221,15 @@
           btn.innerHTML = originalText;
           lucide.createIcons();
         }
-      }, 500);
+          }, 500);
+        })
+        .catch(err => {
+          console.error(err);
+          showToast("تعذر تحميل مكتبة التصدير لـ Excel", "error");
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          lucide.createIcons();
+        });
     });
 
     // ════════════════ Custom Meetings Excel Exporter ════════════════
