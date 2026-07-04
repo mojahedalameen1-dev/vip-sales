@@ -6313,11 +6313,17 @@
       lucide.createIcons();
 
       try {
-        const fetchPromises = spannedMonths.map(monthStr =>
-          fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`)
+        const scope = document.querySelector('input[name="meetingsExportScope"]:checked').value;
+
+        const fetchPromises = spannedMonths.map(monthStr => {
+          let url = `/api/meetings?month=${monthStr}`;
+          if (scope === 'mine') {
+            url += `&email=${encodeURIComponent(currentUser.email)}`;
+          }
+          return fetch(url)
             .then(res => res.ok ? res.json() : [])
-            .catch(() => [])
-        );
+            .catch(() => []);
+        });
         const results = await Promise.all(fetchPromises);
         let allEvents = [];
         results.forEach(list => {
@@ -6334,7 +6340,6 @@
         });
 
         // Filter by scope
-        const scope = document.querySelector('input[name="meetingsExportScope"]:checked').value;
         if (scope === 'mine') {
           const userEmail = (currentUser.email || '').toLowerCase();
           const userName = (currentUser.displayName || '').toLowerCase();
