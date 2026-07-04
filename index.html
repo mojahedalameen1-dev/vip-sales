@@ -5446,18 +5446,80 @@
       if (pctEl) pctEl.textContent = `${pct}%`;
     }
 
+    async function syncMeetingsToFirebase(events) {
+      if (!events || events.length === 0) return;
+      if (!db || typeof db.ref !== 'function') return;
+      try {
+        const existingEventIds = new Set(
+          Object.values(leadsData)
+            .map(l => l.googleEventId)
+            .filter(Boolean)
+        );
+
+        let newLeadsCount = 0;
+        for (const event of events) {
+          if (existingEventIds.has(event.id)) {
+            continue;
+          }
+
+          const leadId = db.ref(getLeadsPath()).push().key;
+          const start = event.startTime ? new Date(event.startTime).getTime() : Date.now();
+          const payload = {
+            id: leadId,
+            googleEventId: event.id,
+            fullName: event.summary || 'اجتماع جديد',
+            clientName: event.clientName || 'عميل جديد',
+            projectName: event.projectName || '',
+            meetingTitle: event.meetingTitle || event.summary || '',
+            meetingDate: start,
+            column: "new",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            firstPayment: 0,
+            totalDeal: 0,
+            phone: event.phone || '',
+            slackCode: event.slackCode || '',
+            openTicketsCount: 0,
+            needsReview: event.needsReview || false,
+            columnHistory: [{
+              column: "new",
+              movedBy: "Google Calendar Sync Client",
+              timestamp: Date.now()
+            }]
+          };
+
+          await db.ref(`${getLeadsPath()}/${leadId}`).set(payload);
+          newLeadsCount++;
+        }
+
+        if (newLeadsCount > 0) {
+          showToast(`تم استيراد ${newLeadsCount} اجتماعات جديدة بنجاح.`, "success");
+        }
+      } catch (err) {
+        console.error("Error syncing meetings to Firebase:", err);
+      }
+    }
+
     async function fetchMonthlyMeetings() {
       if (!currentUser || !currentUser.email) return;
       try {
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const monthStr = `${yyyy}-${mm}`;
+        let monthStr;
+        if (filters.selectedMonth && filters.selectedMonth !== "all") {
+          monthStr = filters.selectedMonth;
+        } else {
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, '0');
+          monthStr = `${yyyy}-${mm}`;
+        }
         const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
         if (!response.ok) {
           throw new Error('فشل جلب اجتماعات الشهر');
         }
         monthlyMeetings = await response.json();
+        if (db && typeof db.ref === 'function') {
+          await syncMeetingsToFirebase(monthlyMeetings);
+        }
         renderKanbanBoard();
       } catch (err) {
         console.error("Failed to fetch monthly meetings:", err);
@@ -5556,10 +5618,15 @@
     async function fetchGoogleMeetings(isSilent = false) {
       try {
         if (!currentUser || !currentUser.email) return;
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const monthStr = `${yyyy}-${mm}`;
+        let monthStr;
+        if (filters.selectedMonth && filters.selectedMonth !== "all") {
+          monthStr = filters.selectedMonth;
+        } else {
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, '0');
+          monthStr = `${yyyy}-${mm}`;
+        }
         const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
@@ -5567,6 +5634,9 @@
         }
         const events = await response.json();
         googleMeetings = events;
+        if (db && typeof db.ref === 'function') {
+          await syncMeetingsToFirebase(events);
+        }
         renderMeetingsTab();
         document.getElementById('fetchMeetBtn').querySelector('span').textContent = 'جلب اجتماعات Meet';
         updateAutoRefreshIndicator();
@@ -7465,7 +7535,7 @@
 
       let matchedCount = 0;
       let totalCount = 0;
-      const isFiltered = !!(rawSearch || filters.staleOnly || filters.column !== "all");
+      const isFiltered = !!(rawSearch || filters.staleOnly || filters.column !== "all" || (filters.selectedMonth && filters.selectedMonth !== "all"));
 
       // Track visible counts per column for badge update
       const colVisibleCounts = {};
