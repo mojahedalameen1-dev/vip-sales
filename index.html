@@ -3270,18 +3270,24 @@
   <!-- ════════════════ JAVASCRIPT LOGIC ════════════════ -->
   <script>
     // Helper function to load scripts dynamically
+    const scriptLoads = new Map();
     function loadScript(url) {
-      return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${url}"]`)) {
-          resolve();
-          return;
-        }
+      if (scriptLoads.has(url)) return scriptLoads.get(url);
+      const load = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = url;
         script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+        script.onerror = () => {
+          script.remove();
+          reject(new Error(`Failed to load script: ${url}`));
+        };
         document.head.appendChild(script);
+      }).catch(error => {
+        scriptLoads.delete(url);
+        throw error;
       });
+      scriptLoads.set(url, load);
+      return load;
     }
 
     // ════════════════ SECTION 5: Configuration Constants ════════════════
@@ -3327,6 +3333,10 @@
 
           // Listen for Firebase Auth State Changes
           auth.onAuthStateChanged(user => {
+            if (currentUser?.uid !== user?.uid) {
+              window.clearElectronicSignatureSession?.();
+              if (currentUser) stopWorkspace();
+            }
             const splash = document.getElementById("autoLoginSplash");
             if (user) {
               currentUser = user;
@@ -3370,7 +3380,6 @@
             } else {
               currentUser = null;
               themeRef?.off();
-              stopWorkspace();
               document.getElementById("loginScreen").style.display = "flex";
               document.getElementById("appContainer").style.display = "none";
               if (splash) {
@@ -3501,37 +3510,59 @@
         db.ref(getThemePath()).set(nextTheme);
       }
     });
-    function openElectronicSignature() {
-      const esignView = document.getElementById('esignView');
-      let loadingMsg = null;
-      if (esignView && !window.initElectronicSignature) {
-        loadingMsg = document.createElement('div');
-        loadingMsg.id = 'esign-loading-indicator';
-        loadingMsg.style.cssText = 'display:flex; align-items:center; justify-content:center; height:100%; font-size:16px; color:var(--text-secondary); gap:8px;';
-        loadingMsg.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> جارٍ تحميل نظام التوقيع الإلكتروني...';
-        esignView.appendChild(loadingMsg);
-        if (window.lucide) window.lucide.createIcons();
-      }
+    const ES_PDF_ASSETS = new URL('assets/js/vendor/pdfjs-6.5.438/', document.baseURI);
+    let pdfjsLib;
+    let esPdfLoad;
+    let esPdfImportAttempts = 0;
 
-      Promise.all([
-        loadScript('assets/js/vendor/pdf.min.js'),
-        loadScript('assets/js/vendor/pdf-lib.min.js')
-      ]).then(() => {
-        return loadScript('assets/js/electronic-signature.js');
-      }).then(() => {
-        if (loadingMsg && loadingMsg.parentNode) {
-          loadingMsg.parentNode.removeChild(loadingMsg);
-        }
-        if (typeof initElectronicSignature === 'function') {
-          initElectronicSignature();
-        }
-      }).catch(err => {
-        console.error("Failed to load e-signature libraries:", err);
-        if (loadingMsg && loadingMsg.parentNode) {
-          loadingMsg.innerHTML = '<span style="color:var(--col-closed);">تعذر تحميل نظام التوقيع الإلكتروني. يرجى إعادة المحاولة.</span>';
-        }
-        showToast("حدث خطأ أثناء تحميل مكتبات التوقيع الإلكتروني", "error");
-      });
+    function loadEsPdfLibrary() {
+      if (!esPdfLoad) {
+        const moduleUrl = new URL('build/pdf.min.mjs', ES_PDF_ASSETS);
+        if (esPdfImportAttempts++) moduleUrl.searchParams.set('retry', esPdfImportAttempts);
+        esPdfLoad = import(/* @vite-ignore */ moduleUrl.href).then(library => {
+          library.GlobalWorkerOptions.workerSrc = new URL('build/pdf.worker.min.mjs', ES_PDF_ASSETS).href;
+          pdfjsLib = library;
+        }).catch(error => {
+          esPdfLoad = undefined;
+          throw error;
+        });
+      }
+      return esPdfLoad;
+    }
+
+    async function openElectronicSignature() {
+      const esignView = document.getElementById('esignView');
+      const uid = currentUser?.uid;
+      if (!uid || !esignView) return;
+      if (window.initElectronicSignature) {
+        window.initElectronicSignature();
+        return;
+      }
+      let loading = document.getElementById('esign-loading-indicator');
+      if (!loading) {
+        loading = document.createElement('div');
+        loading.id = 'esign-loading-indicator';
+        loading.className = 'esign-retry';
+        loading.setAttribute('role', 'status');
+        esignView.append(loading);
+      }
+      loading.textContent = 'جارٍ تحميل قسم التوقيع الإلكتروني…';
+      try {
+        await Promise.all([loadEsPdfLibrary(), loadScript('assets/js/vendor/pdf-lib.min.js')]);
+        await loadScript('assets/js/electronic-signature.js');
+        if (currentUser?.uid !== uid) return;
+        loading.remove();
+        window.initElectronicSignature();
+      } catch (error) {
+        console.error('Failed to load e-signature libraries:', error);
+        if (currentUser?.uid !== uid) return;
+        const retry = document.createElement('button');
+        retry.className = 'btn-es btn-es-secondary';
+        retry.type = 'button';
+        retry.textContent = 'إعادة المحاولة';
+        retry.onclick = openElectronicSignature;
+        loading.replaceChildren('تعذر تحميل قسم التوقيع الإلكتروني.', retry);
+      }
     }
 
     document.getElementById('mobileLogoutBtn').addEventListener('click', () => document.getElementById('logoutBtn').click());

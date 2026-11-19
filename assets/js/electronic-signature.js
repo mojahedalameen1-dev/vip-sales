@@ -1,5 +1,5 @@
 /*
- * Electronic Signature Module - High Performance Lazy Rendering & Intelligent Detection
+ * Electronic signature images, PDF preview and local export.
  * Built for CRM - RTL Arabic, Light/Dark theme compatible.
  */
 
@@ -9,53 +9,64 @@ const ES_PATHS = {
   logs: 'electronicSignature/logs'
 };
 
-let esState = {
-  // Global assets
-  signatureData: null,
-  stampData: null,
-
-  // UI general states
-  currentTab: 'sign',
-  currentStep: 1,         // 1: Upload, 2: Preview & Align, 3: Success & Download
-  activeOverlay: null,    // 'signature' | 'stamp' | null
-  zoomLevel: 1.0,
-  isProcessing: false,
-  isInitialized: false,
-  activePreviewSubTab: 'technical',
-  reviewedFiles: { technicalOffer: false, contract: false },
-  wizardStep: 1,
-
-  // Independent File States
-  technicalOffer: {
+function createEsDocument() {
+  return {
     file: null,
+    loadingTask: null,
     pdfDocument: null,
     pageCount: 0,
-    renderedPages: [], // [{renderedWidth, renderedHeight, pdfPageWidth, pdfPageHeight, pageNum, isRendered, canvas}]
-    signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
-    pageSignatureOverlays: [], // [{leftRatio, topRatio, widthRatio, heightRatio} | null]
-    processingStatus: 'empty',
-    autoPlacementMethod: 'manual-fallback',
-    autoPlacementSucceeded: false,
-    errorMessage: ''
-  },
-  contract: {
-    file: null,
-    pdfDocument: null,
-    pageCount: 0,
-    renderedPages: [], // [{renderedWidth, renderedHeight, pdfPageWidth, pdfPageHeight, pageNum, isRendered, canvas}]
+    viewports: [],
+    renderedPages: [],
     signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
     stampOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
     pageSignatureOverlays: [],
     pageStampOverlays: [],
     processingStatus: 'empty',
-    autoPlacementMethod: 'manual-fallback',
-    autoPlacementSucceeded: false,
     errorMessage: ''
-  }
-};
+  };
+}
 
-// Global observer reference
+function createEsState() {
+  return {
+    signatureData: null,
+    stampData: null,
+    currentTab: 'sign',
+    currentStep: 1,
+    zoomLevel: 1,
+    isProcessing: false,
+    isInitialized: false,
+    activePreviewSubTab: 'technical',
+    reviewedFiles: { technicalOffer: false, contract: false },
+    wizardStep: 1,
+    technicalOffer: createEsDocument(),
+    contract: createEsDocument(),
+    outputs: new Map(),
+    settingsStatus: 'idle'
+  };
+}
+
+let esState = createEsState();
 let esIntersectionObserver = null;
+const ES_DOCUMENT_TYPES = ['contract', 'technicalOffer'];
+
+function releaseEsDocument(state) {
+  if (state.loadingTask) void state.loadingTask.destroy().catch(error => console.warn(error));
+}
+
+function clearEsOutputs() {
+  for (const output of esState.outputs.values()) URL.revokeObjectURL(output.url);
+  esState.outputs.clear();
+}
+
+function clearElectronicSignatureSession() {
+  esIntersectionObserver?.disconnect();
+  esIntersectionObserver = null;
+  for (const type of ES_DOCUMENT_TYPES) releaseEsDocument(esState[type]);
+  clearEsOutputs();
+  esState = createEsState();
+  esLogsCache = [];
+  document.getElementById('esignView')?.replaceChildren();
+}
 
 // SECTION 2: Init & DOM Building
 function initElectronicSignature() {
@@ -297,94 +308,90 @@ function switchEsTab(tabName) {
 
   if (tabName === 'logs') {
     loadSignatureLogs();
+  } else if (tabName === 'settings' && esState.settingsStatus === 'error') {
+    loadSignatureSettings();
+  } else if (tabName === 'sign' && esState.currentStep === 2) {
+    layoutEsPreview();
   }
 }
 
 // SECTION 3: Settings Tab
 function loadSignatureSettings() {
-  if (typeof db === 'undefined') return;
+  if (typeof db === 'undefined' || esState.settingsStatus === 'loading') return;
+  const session = esState;
+  session.settingsStatus = 'loading';
+  checkStepValidity();
 
   db.ref(ES_PATHS.settings).once('value')
-    .then((snapshot) => {
+    .then(snapshot => {
+      if (esState !== session) return;
       const data = snapshot.val() || {};
-
-      if (data.signature) {
-        esState.signatureData = data.signature;
-        updateAssetUI('signature', data.signature);
-
-        // Re-initialize ratios and redraw overlays if PDF is already parsed
-        ['technicalOffer', 'contract'].forEach(type => {
-          if (esState[type].pageCount > 0) {
-            initializeDefaultOverlayRatios(type);
-            redrawAllPageOverlays(type, 'signature');
-          }
-        });
-      } else {
-        esState.signatureData = null;
-        clearAssetUI('signature');
-      }
-
-      if (data.stamp) {
-        esState.stampData = data.stamp;
-        updateAssetUI('stamp', data.stamp);
-
-        // Re-initialize ratios and redraw overlays if PDF is already parsed
-        if (esState.contract.pageCount > 0) {
-          initializeDefaultOverlayRatios('contract');
-          redrawAllPageOverlays('contract', 'stamp');
-        }
-      } else {
-        esState.stampData = null;
-        clearAssetUI('stamp');
-      }
-
-      updateGlobalStatusBadges();
+      session.settingsStatus = 'ready';
+      applyEsAsset('signature', data.signature || null);
+      applyEsAsset('stamp', data.stamp || null);
     })
-    .catch((err) => {
-      console.error(err);
-      showToast('خطأ في تحميل إعدادات التوقيع والختم من Firebase', 'error');
+    .catch(error => {
+      if (esState !== session) return;
+      session.settingsStatus = 'error';
+      checkStepValidity();
+      console.warn('Could not load signature settings:', error);
+      showToast('تعذر تحميل صور التوقيع والختم. تحقق من الاتصال أو صلاحيتك في القسم.', 'error');
     });
 }
 
+function applyEsAsset(type, data) {
+  const key = type === 'signature' ? 'signatureData' : 'stampData';
+  const changed = esState[key]?.dataUrl !== data?.dataUrl;
+  esState[key] = data;
+  if (data) updateAssetUI(type, data);
+  else clearAssetUI(type);
+
+  for (const docType of getEsReviewDocuments()) {
+    if (type === 'stamp' && docType !== 'contract') continue;
+    initializeDefaultOverlayRatios(docType);
+    redrawAllPageOverlays(docType, type);
+    if (changed) esState.reviewedFiles[docType] = false;
+  }
+  if (changed && esState.currentStep === 3 && !esState.isProcessing) {
+    esState.wizardStep = 1;
+    goToStep(2);
+  }
+  updateGlobalStatusBadges();
+}
+
+function setupEsUploadZone(zoneId, handleFiles) {
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+  zone.addEventListener('dragover', event => {
+    event.preventDefault();
+    zone.classList.add('dragover');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', event => {
+    event.preventDefault();
+    zone.classList.remove('dragover');
+    if (event.dataTransfer.files.length) handleFiles(event.dataTransfer.files);
+  });
+}
+
 function setupDragAndDropZones() {
-  const setupZone = (zoneId, inputId, type) => {
-    const zone = document.getElementById(zoneId);
-    if (!zone) return;
-
-    zone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      zone.classList.add('dragover');
-    });
-
-    zone.addEventListener('dragleave', () => {
-      zone.classList.remove('dragover');
-    });
-
-    zone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      zone.classList.remove('dragover');
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        const input = document.getElementById(inputId);
-        if (input) {
-          input.files = files;
-          handleAssetUpload(input, type);
-        }
-      }
-    });
-  };
-
-  setupZone('upload-zone-signature', 'file-input-signature', 'signature');
-  setupZone('upload-zone-stamp', 'file-input-stamp', 'stamp');
+  for (const type of ['signature', 'stamp']) {
+    setupEsUploadZone('upload-zone-' + type, files => handleAssetUpload({ files }, type));
+  }
 }
 
 function handleAssetUpload(input, type) {
   const file = input.files[0];
   if (!file) return;
+  input.value = '';
+  const session = esState;
 
   if (file.type !== 'image/png') {
     showToast('يجب اختيار ملف صورة بصيغة PNG فقط!', 'error');
-    input.value = '';
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('اختر صورة بحجم 5 ميغابايت أو أقل.', 'error');
     return;
   }
 
@@ -392,6 +399,7 @@ function handleAssetUpload(input, type) {
 
   compressPngImage(file)
     .then((res) => {
+      if (esState !== session) return;
       const user = getCurrentUserInfo();
       const assetData = {
         dataUrl: res.dataUrl,
@@ -404,22 +412,15 @@ function handleAssetUpload(input, type) {
       };
 
       return db.ref(`${ES_PATHS.settings}/${type}`).set(assetData).then(() => {
-        if (type === 'signature') {
-          esState.signatureData = assetData;
-        } else {
-          esState.stampData = assetData;
-        }
-        updateAssetUI(type, assetData);
-        updateGlobalStatusBadges();
+        if (esState !== session) return;
+        applyEsAsset(type, assetData);
         showToast('تم حفظ الصورة وتحديثها محلياً بنجاح.', 'success');
       });
     })
     .catch((err) => {
+      if (esState !== session) return;
       console.error(err);
       showToast('خطأ أثناء معالجة وحفظ الصورة', 'error');
-    })
-    .finally(() => {
-      input.value = '';
     });
 }
 
@@ -429,33 +430,18 @@ function compressPngImage(file) {
     reader.onload = function (e) {
       const img = new Image();
       img.onload = function () {
-        let width = img.width;
-        let height = img.height;
-
-        const MAX_DIM = 800;
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
+        try {
+          const scale = Math.min(1, 800 / Math.max(img.width, img.height));
+          const width = Math.max(1, Math.round(img.width * scale));
+          const height = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve({ dataUrl: canvas.toDataURL('image/png'), width, height });
+        } catch (error) {
+          reject(error);
         }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, width, height); // transparency
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const compressedDataUrl = canvas.toDataURL('image/png');
-        resolve({
-          dataUrl: compressedDataUrl,
-          width: width,
-          height: height
-        });
       };
       img.onerror = reject;
       img.src = e.target.result;
@@ -466,20 +452,17 @@ function compressPngImage(file) {
 }
 
 function deleteSignatureAsset(type) {
+  const session = esState;
   if (!confirm(`هل أنت متأكد من حذف ${type === 'signature' ? 'توقيع المدير' : 'ختم الشركة'}؟`)) return;
 
   db.ref(`${ES_PATHS.settings}/${type}`).set(null)
     .then(() => {
-      if (type === 'signature') {
-        esState.signatureData = null;
-      } else {
-        esState.stampData = null;
-      }
-      clearAssetUI(type);
-      updateGlobalStatusBadges();
+      if (esState !== session) return;
+      applyEsAsset(type, null);
       showToast('تم حذف الملف بنجاح.', 'success');
     })
     .catch((err) => {
+      if (esState !== session) return;
       console.error(err);
       showToast('فشل حذف الملف', 'error');
     });
@@ -550,72 +533,54 @@ function updateGlobalStatusBadges() {
 
 // SECTION 4: Sign Document Tab — Step Machine
 function goToStep(step) {
+  if (step !== esState.currentStep) clearEsOutputs();
+  if (step !== 2) {
+    esIntersectionObserver?.disconnect();
+    esIntersectionObserver = null;
+  }
   esState.currentStep = step;
 
   for (let i = 1; i <= 3; i++) {
-    const item = document.getElementById(`step-i-${i}`);
+    const item = document.getElementById('step-i-' + i);
     if (!item) continue;
-    item.classList.remove('active', 'completed');
-    if (i < step) {
-      item.classList.add('completed');
-    } else if (i === step) {
-      item.classList.add('active');
-    }
+    item.classList.toggle('active', i === step);
+    item.classList.toggle('completed', i < step);
+    if (i === step) item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
   }
 
-  const prevBtn = document.getElementById('btn-prev-step');
-  if (prevBtn) {
-    prevBtn.style.visibility = (step > 1 && step < 3) ? 'visible' : 'hidden';
-  }
-
-  const resetBtn = document.getElementById('btn-reset-esign');
-  if (resetBtn) {
-    resetBtn.style.display = (step > 1) ? 'flex' : 'none';
+  const prev = document.getElementById('btn-prev-step');
+  if (prev) prev.style.visibility = step > 1 ? 'visible' : 'hidden';
+  const reset = document.getElementById('btn-reset-esign');
+  if (reset) reset.style.display = step > 1 ? 'flex' : 'none';
+  const next = document.getElementById('btn-next-step');
+  if (next) {
+    next.hidden = step === 3;
+    next.querySelector('span').textContent = 'التالي';
   }
 
   const content = document.getElementById('step-content');
   if (!content) return;
-
-  content.innerHTML = '';
-
-  switch (step) {
-    case 1:
-      renderStep1(content);
-      break;
-    case 2:
-      renderStep2(content);
-      break;
-    case 3:
-      renderStep3(content);
-      break;
-  }
+  if (step === 1) renderStep1(content);
+  else if (step === 2) renderStep2(content);
+  else renderStep3(content);
 
   checkStepValidity();
-
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
+  content.querySelector('h3')?.focus({ preventScroll: true });
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function nextStep() {
-  const hasTech = esState.technicalOffer.file !== null;
-  const hasContract = esState.contract.file !== null;
-
+  if (!canAdvanceEsStep()) return;
   if (esState.currentStep === 1) {
-    if (hasTech && hasContract) {
-      esState.wizardStep = 1;
-      esState.reviewedFiles = { technicalOffer: false, contract: false };
-    }
+    esState.wizardStep = 1;
+    esState.reviewedFiles = { technicalOffer: false, contract: false };
     goToStep(2);
   } else if (esState.currentStep === 2) {
-    if (hasTech && hasContract) {
-      if (esState.wizardStep === 1) {
-        esState.reviewedFiles.contract = true;
-        goToWizardSubStep(2);
-      } else if (esState.wizardStep === 2) {
-        esState.reviewedFiles.technicalOffer = true;
-        goToStep(3);
-      }
+    const docs = getEsReviewDocuments();
+    esState.reviewedFiles[docs[esState.wizardStep - 1]] = true;
+    if (esState.wizardStep < docs.length) {
+      goToWizardSubStep(esState.wizardStep + 1);
     } else {
       goToStep(3);
     }
@@ -623,82 +588,72 @@ function nextStep() {
 }
 
 function prevStep() {
-  const hasTech = esState.technicalOffer.file !== null;
-  const hasContract = esState.contract.file !== null;
-
-  if (esState.currentStep === 2) {
-    if (hasTech && hasContract && esState.wizardStep === 2) {
-      goToWizardSubStep(1);
-    } else {
-      if (esIntersectionObserver) {
-        esIntersectionObserver.disconnect();
-        esIntersectionObserver = null;
-      }
-      goToStep(1);
-    }
-  } else if (esState.currentStep === 3) {
-    if (hasTech && hasContract) {
-      goToStep(2);
-      goToWizardSubStep(2);
-    } else {
-      goToStep(2);
-    }
+  if (esState.isProcessing) return;
+  if (esState.currentStep === 3) {
+    esState.wizardStep = getEsReviewDocuments().length;
+    goToStep(2);
+  } else if (esState.currentStep === 2) {
+    if (esState.wizardStep > 1) goToWizardSubStep(esState.wizardStep - 1);
+    else goToStep(1);
   }
 }
 
 function resetEsignFlow() {
-  if (confirm('هل تريد إلغاء الملفات الحالية والبدء من جديد؟')) {
-    if (esIntersectionObserver) {
-      esIntersectionObserver.disconnect();
-      esIntersectionObserver = null;
-    }
-    esState.technicalOffer = {
-      file: null, pdfDocument: null, pageCount: 0, renderedPages: [],
-      signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
-      pageSignatureOverlays: [],
-      processingStatus: 'empty', autoPlacementMethod: 'manual-fallback', autoPlacementSucceeded: false, errorMessage: ''
-    };
-    esState.contract = {
-      file: null, pdfDocument: null, pageCount: 0, renderedPages: [],
-      signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
-      stampOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
-      pageSignatureOverlays: [],
-      pageStampOverlays: [],
-      processingStatus: 'empty', autoPlacementMethod: 'manual-fallback', autoPlacementSucceeded: false, errorMessage: ''
-    };
-    esState.reviewedFiles = { technicalOffer: false, contract: false };
-    esState.wizardStep = 1;
-    esState.currentStep = 1;
-    goToStep(1);
+  if (esState.isProcessing || !confirm('هل تريد إلغاء الملفات الحالية والبدء من جديد؟')) return;
+  for (const type of ES_DOCUMENT_TYPES) {
+    releaseEsDocument(esState[type]);
+    esState[type] = createEsDocument();
+    esState.reviewedFiles[type] = false;
   }
+  esState.wizardStep = 1;
+  esState.zoomLevel = 1;
+  goToStep(1);
+}
+
+function getEsReviewDocuments() {
+  return ES_DOCUMENT_TYPES.filter(type => {
+    const state = esState[type];
+    return state.processingStatus === 'ready' && state.pageCount >= (type === 'contract' ? 1 : 2);
+  });
+}
+
+function canAdvanceEsStep() {
+  const docs = getEsReviewDocuments();
+  if (!docs.length || ES_DOCUMENT_TYPES.some(type => esState[type].file && esState[type].processingStatus !== 'ready')) return false;
+  if (esState.currentStep === 1) return true;
+  if (!esState.signatureData || (docs.includes('contract') && !esState.stampData)) return false;
+  if (esState.currentStep === 2) {
+    const active = esState[docs[esState.wizardStep - 1]];
+    return Boolean(active?.renderedPages.some(page => page.isRendered));
+  }
+  return true;
 }
 
 function checkStepValidity() {
   const nextBtn = document.getElementById('btn-next-step');
-  if (!nextBtn) return;
-
-  let valid = false;
-
-  if (esState.currentStep === 1) {
-    valid = (esState.technicalOffer.file !== null || esState.contract.file !== null);
-  } else if (esState.currentStep === 2) {
-    if (!esState.signatureData) {
-      valid = false;
-    } else {
-      const techOk = esState.technicalOffer.file ? (esState.technicalOffer.pageCount > 0) : true;
-      const contractOk = esState.contract.file ? (esState.contract.pageCount > 0 && esState.stampData) : true;
-      valid = techOk && contractOk;
-    }
+  if (nextBtn) nextBtn.disabled = !canAdvanceEsStep();
+  const processBtn = document.getElementById('btn-process-pdf');
+  if (processBtn) processBtn.disabled = esState.isProcessing || !canExportEsDocuments();
+  const finalReview = document.getElementById('wizard-step-final');
+  if (finalReview) finalReview.disabled = !canExportEsDocuments();
+  const assetNotice = document.getElementById('esign-asset-notice');
+  if (assetNotice) {
+    assetNotice.hidden = Boolean(esState.signatureData && (!getEsReviewDocuments().includes('contract') || esState.stampData));
+    assetNotice.querySelector('p').textContent = esState.settingsStatus === 'loading'
+      ? 'جارٍ تحميل إعدادات التوقيع والختم…'
+      : 'يلزم توفر صورة التوقيع، وختم الشركة عند معالجة عقد.';
   }
+}
 
-  nextBtn.disabled = !valid;
+function canExportEsDocuments() {
+  return canAdvanceEsStep() && getEsReviewDocuments().every(type => esState.reviewedFiles[type]);
 }
 
 // STEP 1: Dual Upload zone
 function renderStep1(container) {
   container.innerHTML = `
     <div style="text-align: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-size: 1.25rem;">ارفع المستندات المطلوب توقيعها</h3>
+      <h3 tabindex="-1" style="margin: 0; font-size: 1.25rem;">ارفع المستندات المطلوب توقيعها</h3>
       <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">يمكنك رفع العرض الفني فقط، أو العقد فقط، أو الملفين معاً.</p>
     </div>
     
@@ -710,21 +665,25 @@ function renderStep1(container) {
         </h4>
         <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">* يتم توقيع كافة الصفحات، مع وضع الختم الرسمي على الصفحة الأخيرة فقط.</p>
         
-        <div class="upload-zone" id="zone-contract" onclick="document.getElementById('input-contract').click()">
+        <button type="button" class="upload-zone" id="zone-contract" aria-label="اختر ملف العقد" onclick="document.getElementById('input-contract').click()">
           <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
-          <p>
+          <span class="upload-instruction">
             <span class="desktop-only-inline">اسحب ملف العقد هنا أو انقر للاختيار</span>
             <span class="mobile-only-inline">اضغط هنا لاختيار ملف العقد</span>
-          </p>
+          </span>
           <span>PDF فقط</span>
-          <input type="file" id="input-contract" accept="application/pdf" style="display:none" onchange="handleDocumentUpload(this, 'contract')">
-        </div>
+        </button>
+        <input type="file" id="input-contract" accept="application/pdf" hidden onchange="handleDocumentUpload(this, 'contract')">
         
-        <div id="details-contract" style="display: none; background-color: var(--bg-subtle); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-            <span id="name-contract" style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: bold;">-</span>
-            <button class="btn-es btn-es-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="clearUploadedDocument('contract')">حذف</button>
+        <div id="details-contract" hidden class="esign-upload-details">
+          <div class="esign-upload-file">
+            <bdi id="name-contract"></bdi>
+            <div>
+              <button type="button" class="btn-es btn-es-secondary" onclick="document.getElementById('input-contract').click()">استبدال</button>
+              <button type="button" class="btn-es btn-es-danger" onclick="clearUploadedDocument('contract')">حذف</button>
+            </div>
           </div>
+          <div id="status-contract" class="esign-upload-status" role="status"></div>
         </div>
       </div>
 
@@ -735,21 +694,25 @@ function renderStep1(container) {
         </h4>
         <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">* سيتم تجاهل الصفحة الأولى تلقائياً، والتوقيع يبدأ من الصفحة الثانية لنهاية الملف.</p>
         
-        <div class="upload-zone" id="zone-technical" onclick="document.getElementById('input-technical').click()">
+        <button type="button" class="upload-zone" id="zone-technical" aria-label="اختر ملف العرض الفني" onclick="document.getElementById('input-technical').click()">
           <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
-          <p>
+          <span class="upload-instruction">
             <span class="desktop-only-inline">اسحب ملف العرض الفني هنا أو انقر للاختيار</span>
             <span class="mobile-only-inline">اضغط هنا لاختيار العرض الفني</span>
-          </p>
+          </span>
           <span>PDF فقط</span>
-          <input type="file" id="input-technical" accept="application/pdf" style="display:none" onchange="handleDocumentUpload(this, 'technicalOffer')">
-        </div>
+        </button>
+        <input type="file" id="input-technical" accept="application/pdf" hidden onchange="handleDocumentUpload(this, 'technicalOffer')">
         
-        <div id="details-technical" style="display: none; background-color: var(--bg-subtle); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-            <span id="name-technical" style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-weight: bold;">-</span>
-            <button class="btn-es btn-es-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="clearUploadedDocument('technicalOffer')">حذف</button>
+        <div id="details-technical" hidden class="esign-upload-details">
+          <div class="esign-upload-file">
+            <bdi id="name-technical"></bdi>
+            <div>
+              <button type="button" class="btn-es btn-es-secondary" onclick="document.getElementById('input-technical').click()">استبدال</button>
+              <button type="button" class="btn-es btn-es-danger" onclick="clearUploadedDocument('technicalOffer')">حذف</button>
+            </div>
           </div>
+          <div id="status-technical" class="esign-upload-status" role="status"></div>
         </div>
       </div>
     </div>
@@ -763,161 +726,154 @@ function renderStep1(container) {
     </div>
   `;
 
-  if (esState.technicalOffer.file) {
-    showUploadedDetails('technicalOffer', esState.technicalOffer.file.name);
-  }
-  if (esState.contract.file) {
-    showUploadedDetails('contract', esState.contract.file.name);
-  }
+  for (const type of ES_DOCUMENT_TYPES) showUploadedDetails(type);
+  setupEsUploadZone('zone-contract', files => handleDocumentUpload({ files }, 'contract'));
+  setupEsUploadZone('zone-technical', files => handleDocumentUpload({ files }, 'technicalOffer'));
 }
 
-function handleDocumentUpload(input, type) {
+async function handleDocumentUpload(input, type) {
   const file = input.files[0];
   if (!file) return;
+  input.value = '';
 
   if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    showToast('يجب اختيار ملف PDF فقط!', 'error');
-    input.value = '';
+    showToast('يجب اختيار ملف PDF فقط.', 'error');
     return;
   }
 
-  // Document type name mismatch check
-  const fileNameLower = file.name.toLowerCase();
-  const contractKeywords = ['عقد', 'اتفاقية', 'اتفاقيه', 'عقود', 'contract', 'agreement'];
-  const techKeywords = ['عرض', 'فني', 'سعر', 'اسعار', 'أسعار', 'technical', 'offer', 'proposal', 'quotation'];
-
-  if (type === 'technicalOffer') {
-    const hasContractKeyword = contractKeywords.some(k => fileNameLower.includes(k));
-    if (hasContractKeyword) {
-      showToast('تنبيه: يبدو أن هذا الملف هو (عقد) ولكنك تقوم برفعه في خانة (العرض الفني). يرجى التأكد من صحة الملف.', 'warning');
-    }
-  } else if (type === 'contract') {
-    const hasTechKeyword = techKeywords.some(k => fileNameLower.includes(k));
-    if (hasTechKeyword) {
-      showToast('تنبيه: يبدو أن هذا الملف هو (عرض فني/سعر) ولكنك تقوم برفعه في خانة (العقد). يرجى التأكد من صحة الملف.', 'warning');
-    }
+  const fileName = file.name.toLowerCase();
+  const otherTypeWords = type === 'technicalOffer'
+    ? ['عقد', 'اتفاقية', 'اتفاقيه', 'عقود', 'contract', 'agreement']
+    : ['عرض', 'فني', 'سعر', 'اسعار', 'أسعار', 'technical', 'offer', 'proposal', 'quotation'];
+  if (otherTypeWords.some(word => fileName.includes(word))) {
+    showToast('تحقق من اختيار نوع المستند المناسب قبل المتابعة.', 'warning');
   }
 
-  esState[type].file = file;
-  esState[type].processingStatus = 'loading';
-  showUploadedDetails(type, file.name);
+  releaseEsDocument(esState[type]);
+  const state = createEsDocument();
+  state.file = file;
+  state.processingStatus = 'loading';
+  esState[type] = state;
+  esState.reviewedFiles[type] = false;
+  showUploadedDetails(type);
   checkStepValidity();
 
-  // Asynchronously parse metadata to display page count
-  const reader = new FileReader();
-  reader.onload = async function () {
-    try {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/js/vendor/pdf.worker.min.js';
-      const arrayBuffer = this.result;
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      esState[type].pageCount = pdf.numPages;
-      esState[type].pdfDocument = pdf;
-
-      const prefix = type === 'technicalOffer' ? 'technical' : 'contract';
-      const nameSpan = document.getElementById(`name-${prefix}`);
-      if (nameSpan) {
-        nameSpan.innerHTML = `${file.name} <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal; margin-inline-start: 8px;">(${pdf.numPages} صفحات)</span>`;
-      }
-      checkStepValidity();
-    } catch (e) {
-      console.error("Error reading PDF metadata on upload", e);
+  try {
+    const data = new Uint8Array(await file.arrayBuffer());
+    if (esState[type] !== state) return;
+    state.loadingTask = openEsPdf(data);
+    const pdf = await state.loadingTask.promise;
+    if (esState[type] !== state) return;
+    state.pdfDocument = pdf;
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      if (esState[type] !== state) return;
+      state.viewports.push(page.getViewport({ scale: 1 }));
     }
-  };
-  reader.readAsArrayBuffer(file);
+    state.pageCount = pdf.numPages;
+    state.processingStatus = 'ready';
+  } catch (error) {
+    if (esState[type] !== state) return;
+    releaseEsDocument(state);
+    state.loadingTask = null;
+    state.pdfDocument = null;
+    state.viewports = [];
+    state.processingStatus = 'error';
+    state.errorMessage = error.name === 'PasswordException'
+      ? 'الملف محمي بكلمة مرور. اختر نسخة غير محمية.'
+      : 'تعذرت قراءة الملف. احذفه واختر نسخة PDF سليمة.';
+    console.warn('Could not open signature document:', error);
+  }
+  showUploadedDetails(type);
+  checkStepValidity();
 }
 
-function showUploadedDetails(type, filename) {
-  const isTech = type === 'technicalOffer';
-  const prefix = isTech ? 'technical' : 'contract';
-  const card = document.getElementById(`card-upload-${prefix}`);
-  const zone = document.getElementById(`zone-${prefix}`);
-  const details = document.getElementById(`details-${prefix}`);
-  const nameSpan = document.getElementById(`name-${prefix}`);
+function openEsPdf(data) {
+  return pdfjsLib.getDocument({
+    data,
+    // Kept explicit for compatibility with PDF.js versions that expose the option.
+    isEvalSupported: false,
+    cMapUrl: new URL('cmaps/', ES_PDF_ASSETS).href,
+    standardFontDataUrl: new URL('standard_fonts/', ES_PDF_ASSETS).href,
+    wasmUrl: new URL('wasm/', ES_PDF_ASSETS).href,
+    iccUrl: new URL('iccs/', ES_PDF_ASSETS).href
+  });
+}
 
-  if (card) card.classList.add('has-file');
-  if (zone) zone.style.display = 'none';
-  if (details) details.style.display = 'block';
-  if (nameSpan) {
-    const pageCount = esState[type].pageCount;
-    if (pageCount > 0) {
-      nameSpan.innerHTML = `${filename} <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal; margin-inline-start: 8px;">(${pageCount} صفحات)</span>`;
-    } else {
-      nameSpan.textContent = filename;
-    }
-  }
+function showUploadedDetails(type) {
+  const state = esState[type];
+  const prefix = type === 'technicalOffer' ? 'technical' : 'contract';
+  const card = document.getElementById('card-upload-' + prefix);
+  const zone = document.getElementById('zone-' + prefix);
+  const details = document.getElementById('details-' + prefix);
+  const name = document.getElementById('name-' + prefix);
+  const message = document.getElementById('status-' + prefix);
+  if (card) card.classList.toggle('has-file', Boolean(state.file));
+  if (zone) zone.hidden = Boolean(state.file);
+  if (details) details.hidden = !state.file;
+  if (name) name.textContent = state.file?.name || '';
+  if (!message) return;
+  const offerSkipped = type === 'technicalOffer' && state.pageCount === 1;
+  message.classList.toggle('esign-document-warning', offerSkipped || state.processingStatus === 'error');
+  if (state.processingStatus === 'loading') message.textContent = 'جارٍ قراءة المستند…';
+  else if (state.processingStatus === 'error') message.textContent = state.errorMessage;
+  else if (offerSkipped) message.textContent = 'يُستثنى الغلاف؛ هذا العرض من صفحة واحدة ولن يُصدّر. يمكنك متابعة العقد أو اختيار عرض آخر.';
+  else message.textContent = state.file ? String(state.pageCount) + ' صفحة' : '';
 }
 
 function clearUploadedDocument(type) {
-  const isTech = type === 'technicalOffer';
-  const prefix = isTech ? 'technical' : 'contract';
-
-  esState[type] = {
-    file: null, pdfDocument: null, pageCount: 0, renderedPages: [],
-    signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
-    stampOverlay: isTech ? undefined : { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
-    processingStatus: 'empty', autoPlacementMethod: 'manual-fallback', autoPlacementSucceeded: false, errorMessage: ''
-  };
-
-  const card = document.getElementById(`card-upload-${prefix}`);
-  const zone = document.getElementById(`zone-${prefix}`);
-  const details = document.getElementById(`details-${prefix}`);
-
-  if (card) card.classList.remove('has-file');
-  if (zone) zone.style.display = 'flex';
-  if (details) details.style.display = 'none';
-
-  const fileInput = document.getElementById(`input-${prefix}`);
-  if (fileInput) fileInput.value = '';
-
+  releaseEsDocument(esState[type]);
+  esState[type] = createEsDocument();
+  esState.reviewedFiles[type] = false;
+  showUploadedDetails(type);
   checkStepValidity();
+  document.getElementById(type === 'contract' ? 'zone-contract' : 'zone-technical')?.focus();
 }
 
 // STEP 2: Preview & Alignment (High Performance Lazy Rendering)
 function renderStep2(container) {
-  const hasTech = esState.technicalOffer.file !== null;
-  const hasContract = esState.contract.file !== null;
-
-  if (hasContract) {
-    esState.activePreviewSubTab = 'contract';
-  } else {
-    esState.activePreviewSubTab = 'technical';
-  }
+  const docs = getEsReviewDocuments();
+  esState.activePreviewSubTab = docs[esState.wizardStep - 1] === 'contract' ? 'contract' : 'technical';
 
   let tabsHtml = '';
-  if (hasTech && hasContract) {
+  if (docs.length === 2) {
     tabsHtml = `
       <div class="es-wizard-stepper">
-        <div class="es-wizard-step active" id="wizard-step-contract" onclick="goToWizardSubStep(1)">
-          <div class="es-wizard-icon">1</div>
-          <div class="es-wizard-text">
+        <button type="button" class="es-wizard-step" id="wizard-step-contract" onclick="goToWizardSubStep(1)">
+          <span class="es-wizard-icon">1</span>
+          <span class="es-wizard-text">
             <span class="es-wizard-title">العقد الرسمي</span>
             <span class="es-wizard-status" id="wizard-status-contract">بانتظار المراجعة</span>
-          </div>
-        </div>
+          </span>
+        </button>
         <div class="es-wizard-line"></div>
-        <div class="es-wizard-step" id="wizard-step-technical" onclick="goToWizardSubStep(2)">
-          <div class="es-wizard-icon">2</div>
-          <div class="es-wizard-text">
+        <button type="button" class="es-wizard-step" id="wizard-step-technical" onclick="goToWizardSubStep(2)">
+          <span class="es-wizard-icon">2</span>
+          <span class="es-wizard-text">
             <span class="es-wizard-title">العرض الفني</span>
             <span class="es-wizard-status" id="wizard-status-technical">بانتظار المراجعة</span>
-          </div>
-        </div>
+          </span>
+        </button>
         <div class="es-wizard-line"></div>
-        <div class="es-wizard-step" id="wizard-step-final" onclick="goToWizardSubStep(3)">
-          <div class="es-wizard-icon">3</div>
-          <div class="es-wizard-text">
+        <button type="button" class="es-wizard-step" id="wizard-step-final" onclick="goToWizardSubStep(3)">
+          <span class="es-wizard-icon">3</span>
+          <span class="es-wizard-text">
             <span class="es-wizard-title">المراجعة والتحميل</span>
-            <span class="es-wizard-status">جاهز للتوقيع</span>
-          </div>
-        </div>
+          </span>
+        </button>
       </div>
     `;
   }
 
   container.innerHTML = `
     <div style="text-align: center; margin-bottom: 1rem;">
-      <h3 style="margin: 0; font-size: 1.25rem;">حدد الموضع والتوزيع على صفحات المستند</h3>
-      <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">اسحب التوقيع أو الختم وضعهما في المكان المطلوب. التغييرات تطبق تلقائياً على كل الصفحات المقترنة.</p>
+      <h3 tabindex="-1" style="margin: 0; font-size: 1.25rem;">حدد الموضع على صفحات المستند</h3>
+      <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">حرّك التوقيع أو الختم. يمكنك تطبيق موضع التوقيع على صفحات أخرى من قائمة العنصر.</p>
+    </div>
+
+    <div id="esign-asset-notice" class="esign-retry" hidden>
+      <p role="status"></p>
+      <button type="button" class="btn-es btn-es-secondary" onclick="switchEsTab('settings')">إعدادات التوقيع والختم</button>
     </div>
 
     ${tabsHtml}
@@ -925,11 +881,11 @@ function renderStep2(container) {
     <div class="pdf-preview-layout">
       <div class="pdf-toolbar">
         <div class="toolbar-group">
-          <button class="btn-es btn-es-secondary" onclick="adjustEsZoom(-0.1)">
+          <button type="button" class="btn-es btn-es-secondary" aria-label="تصغير المعاينة" onclick="adjustEsZoom(-0.1)">
             <i data-lucide="zoom-out" style="width: 16px; height: 16px;"></i>
           </button>
           <span id="zoom-value" style="font-size: 0.9rem; min-width: 45px; text-align: center;">100%</span>
-          <button class="btn-es btn-es-secondary" onclick="adjustEsZoom(0.1)">
+          <button type="button" class="btn-es btn-es-secondary" aria-label="تكبير المعاينة" onclick="adjustEsZoom(0.1)">
             <i data-lucide="zoom-in" style="width: 16px; height: 16px;"></i>
           </button>
         </div>
@@ -943,12 +899,7 @@ function renderStep2(container) {
       </div>
       
       <!-- Preview Workspace Areas -->
-      <div class="pdf-workspace" id="pdf-workspace-area">
-        <div id="pdf-loading-spinner" style="display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 3rem 0;">
-          <div class="pulse-loader"></div>
-          <span id="pdf-loading-text" style="font-size: 0.9rem; color: var(--text-secondary);">جاري تهيئة وتحليل المستندات...</span>
-        </div>
-        
+      <div class="pdf-workspace" id="pdf-workspace-area" tabindex="0" role="region" aria-label="معاينة المستند">
         <div id="workspace-technical" style="display: none; width: 100%;"></div>
         <div id="workspace-contract" style="display: none; width: 100%;"></div>
       </div>
@@ -959,7 +910,9 @@ function renderStep2(container) {
     lucide.createIcons();
   }
 
-  processStep2Files();
+  document.getElementById('zoom-value').textContent = String(Math.round(esState.zoomLevel * 100)) + '%';
+  layoutEsPreview();
+  updateWizardStepperUI();
 }
 
 function switchPreviewSubTab(subTab) {
@@ -967,7 +920,6 @@ function switchPreviewSubTab(subTab) {
 
   const techWorkspace = document.getElementById('workspace-technical');
   const contractWorkspace = document.getElementById('workspace-contract');
-  const ocrBtn = document.getElementById('btn-run-ocr-visual');
 
   if (subTab === 'technical') {
     if (techWorkspace) techWorkspace.style.display = 'block';
@@ -981,37 +933,17 @@ function switchPreviewSubTab(subTab) {
 }
 
 function goToWizardSubStep(stepNum) {
-  const hasTech = esState.technicalOffer.file !== null;
-  const hasContract = esState.contract.file !== null;
-  if (!hasTech || !hasContract) return;
-
-  // Warn if leaving unreviewed files
-  if (esState.wizardStep === 1 && stepNum > 1 && !esState.reviewedFiles.contract) {
-    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العقد والختم. هل تريد الانتقال على أي حال؟')) {
-      return;
-    }
+  const docs = getEsReviewDocuments();
+  if (esState.currentStep !== 2 || docs.length < 2) return;
+  if (stepNum === 3) {
+    if (canExportEsDocuments()) goToStep(3);
+    return;
   }
-  if (esState.wizardStep === 2 && stepNum === 3 && !esState.reviewedFiles.technicalOffer) {
-    if (!confirm('تنبيه: لم تقم بإنهاء مراجعة العرض الفني وتحديد مواضع التوقيع. هل تريد الانتقال على أي حال؟')) {
-      return;
-    }
-  }
-
-  // Set reviewed state
-  if (esState.wizardStep === 1) esState.reviewedFiles.contract = true;
-  if (esState.wizardStep === 2) esState.reviewedFiles.technicalOffer = true;
-
+  if (stepNum === 2 && !esState.reviewedFiles.contract) return;
   esState.wizardStep = stepNum;
-
   updateWizardStepperUI();
-
-  if (stepNum === 1) {
-    switchPreviewSubTab('contract');
-  } else if (stepNum === 2) {
-    switchPreviewSubTab('technical');
-  } else if (stepNum === 3) {
-    goToStep(3);
-  }
+  switchPreviewSubTab(stepNum === 1 ? 'contract' : 'technical');
+  checkStepValidity();
 }
 
 function updateWizardStepperUI() {
@@ -1020,6 +952,8 @@ function updateWizardStepperUI() {
   const stepFinal = document.getElementById('wizard-step-final');
 
   if (!stepTech || !stepContract || !stepFinal) return;
+  stepTech.disabled = !esState.reviewedFiles.contract;
+  stepFinal.disabled = !canExportEsDocuments();
 
   stepTech.classList.remove('active', 'completed');
   stepContract.classList.remove('active', 'completed');
@@ -1064,115 +998,44 @@ function updateWizardStepperUI() {
 
 // Force re-observation of unrendered pages after display switch
 function _reObserveUnrenderedPages(type) {
-  if (!esIntersectionObserver) return;
-  // Small delay lets browser complete layout before observer checks intersection
-  setTimeout(() => {
-    const state = esState[type];
-    if (!state || !state.renderedPages) return;
-    state.renderedPages.forEach((pd, idx) => {
-      if (pd.isRendered) return;
-      const el = document.getElementById(`page-wrapper-${type}-${idx}`);
-      if (el) {
-        try { esIntersectionObserver.observe(el); } catch (e) {/* already observed */ }
-      }
-    });
-  }, 60);
+  const observer = esIntersectionObserver;
+  if (!observer) return;
+  esState[type].renderedPages.forEach((pageData, index) => {
+    const wrapper = document.getElementById('page-wrapper-' + type + '-' + index);
+    if (wrapper && !pageData.isRendered) observer.observe(wrapper);
+  });
 }
 
-async function processStep2Files() {
-  const spinner = document.getElementById('pdf-loading-spinner');
-  const spinnerTxt = document.getElementById('pdf-loading-text');
-
-  // Setup intersection observer for lazy rendering
+function layoutEsPreview() {
+  const workspace = document.getElementById('pdf-workspace-area');
+  if (!workspace) return;
+  removeFloatingMenus();
+  const style = getComputedStyle(workspace);
+  const available = workspace.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const baseWidth = Math.min(800, Math.max(1, available));
   setupIntersectionObserver();
 
-  try {
-    if (esState.technicalOffer.file) {
-      if (spinnerTxt) spinnerTxt.textContent = 'جاري قراءة ملف العرض الفني...';
-      await parsePdfMetadataOnly('technicalOffer', 'workspace-technical');
-    }
-
-    if (esState.contract.file) {
-      if (spinnerTxt) spinnerTxt.textContent = 'جاري البحث التلقائي عن خانة التوقيع في العقد...';
-      await parsePdfMetadataOnly('contract', 'workspace-contract');
-    }
-
-    switchPreviewSubTab(esState.activePreviewSubTab);
-    checkStepValidity();
-  } catch (err) {
-    console.error(err);
-    showToast(err.message || 'حدث خطأ في قراءة ملفات الـ PDF', 'error');
-  } finally {
-    if (spinner) spinner.style.display = 'none';
-  }
-}
-
-// Quick metadata parse without rendering all pages
-async function parsePdfMetadataOnly(type, workspaceId) {
-  const state = esState[type];
-  const container = document.getElementById(workspaceId);
-  if (!container) return;
-
-  container.innerHTML = '';
-
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/js/vendor/pdf.worker.min.js';
-
-  const arrayBuffer = await state.file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-
-  state.pdfDocument = pdf;
-  state.pageCount = pdf.numPages;
-  state.renderedPages = [];
-  state.pageSignatureOverlays = new Array(pdf.numPages).fill(null);
-  state.pageStampOverlays = new Array(pdf.numPages).fill(null);
-
-  if (type === 'technicalOffer' && pdf.numPages === 1) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.color = '#ef4444';
-    errorDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
-    errorDiv.style.border = '1px solid #ef4444';
-    errorDiv.style.borderRadius = '8px';
-    errorDiv.style.padding = '1rem';
-    errorDiv.style.marginBottom = '1rem';
-    errorDiv.style.textAlign = 'center';
-    errorDiv.style.fontWeight = 'bold';
-    errorDiv.textContent = 'تنبيه: العرض الفني يحتوي على صفحة واحدة فقط، وبحسب إعداد النظام يتم تجاهل الصفحة الأولى (لن يتم تطبيق التوقيع على المستند)';
-    container.appendChild(errorDiv);
-  }
-
-  // Quick fetch sizes for placeholders with precise A4 sizing and centering
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const pageViewport = page.getPageViewport ? page.getPageViewport({ scale: 1.0 }) : page.getViewport({ scale: 1.0 });
-    const aspect = pageViewport.width / pageViewport.height;
-
-    // Natural A4 width on screen (800px at 100% zoom, adaptive for smaller screens)
-    let baseDisplayWidth = 800;
-    const workspaceEl = document.getElementById('pdf-workspace-area');
-    if (workspaceEl && window.innerWidth < 768) {
-      baseDisplayWidth = Math.min(800, workspaceEl.clientWidth - 24);
-      if (baseDisplayWidth <= 0) {
-        baseDisplayWidth = window.innerWidth - 32;
-      }
-    }
-    const renderedWidth = baseDisplayWidth * esState.zoomLevel;
-    const renderedHeight = renderedWidth / aspect;
-
-    state.renderedPages.push({
-      renderedWidth: renderedWidth,
-      renderedHeight: renderedHeight,
-      pdfPageWidth: pageViewport.width,
-      pdfPageHeight: pageViewport.height,
-      pageNum: pageNum,
-      isRendered: false,
-      canvas: null
+  for (const type of getEsReviewDocuments()) {
+    const id = type === 'contract' ? 'workspace-contract' : 'workspace-technical';
+    const container = document.getElementById(id);
+    if (!container) continue;
+    const state = esState[type];
+    state.renderedPages = state.viewports.map((viewport, index) => {
+      const renderedWidth = baseWidth * esState.zoomLevel;
+      return {
+        renderedWidth,
+        renderedHeight: renderedWidth * viewport.height / viewport.width,
+        pdfPageWidth: viewport.width,
+        pageNum: index + 1,
+        isRendered: false
+      };
     });
+    initializeDefaultOverlayRatios(type);
+    container.replaceChildren();
+    buildPlaceholderViews(type, container);
   }
-
-  initializeDefaultOverlayRatios(type);
-
-  // Build DOM placeholders for Lazy Rendering
-  buildPlaceholderViews(type, container);
+  switchPreviewSubTab(esState.activePreviewSubTab);
+  checkStepValidity();
 }
 
 function buildPlaceholderViews(type, container) {
@@ -1214,7 +1077,8 @@ function setupIntersectionObserver() {
     esIntersectionObserver.disconnect();
   }
 
-  esIntersectionObserver = new IntersectionObserver((entries) => {
+  esIntersectionObserver = new IntersectionObserver((entries, observer) => {
+    if (esIntersectionObserver !== observer) return;
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
         const el = entry.target;
@@ -1222,8 +1086,8 @@ function setupIntersectionObserver() {
         const type = el.dataset.esType;
         const index = parseInt(el.dataset.esIndex);
         if (!type || isNaN(index)) return;
-        esIntersectionObserver.unobserve(el);
-        lazyRenderPageCanvas(type, index);
+        observer.unobserve(el);
+        if (document.getElementById(el.id) === el) void lazyRenderPageCanvas(type, index);
       }
     });
   }, {
@@ -1236,13 +1100,16 @@ function setupIntersectionObserver() {
 async function lazyRenderPageCanvas(type, index) {
   const state = esState[type];
   const pageData = state.renderedPages[index];
-  if (!pageData || pageData.isRendered) return;
+  if (!pageData || pageData.isRendered || pageData.isRendering) return;
 
   const wrapper = document.getElementById(`page-wrapper-${type}-${index}`);
   if (!wrapper) return;
+  pageData.isRendering = true;
+  const stillCurrent = () => state === esState[type] && document.getElementById(wrapper.id) === wrapper;
 
   try {
     const page = await state.pdfDocument.getPage(pageData.pageNum);
+    if (!stillCurrent()) return;
 
     // Render at 1.5x display width for premium sharp rendering
     const renderScale = (pageData.renderedWidth / pageData.pdfPageWidth) * 1.5;
@@ -1258,9 +1125,9 @@ async function lazyRenderPageCanvas(type, index) {
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    if (!stillCurrent()) return;
 
-    pageData.canvas = canvas;
     pageData.isRendered = true;
 
     // Remove skeleton loader
@@ -1289,12 +1156,12 @@ async function lazyRenderPageCanvas(type, index) {
 
     // Add overlays to wrapper
     if (esState.signatureData) {
-      const sigOverlay = createEsOverlayElement('signature', index, pageData.renderedWidth, pageData.renderedHeight, type);
+      const sigOverlay = createEsOverlayElement('signature', index, type);
       wrapper.appendChild(sigOverlay);
     }
 
     if (!isTech && esState.stampData && index === lastIndex) {
-      const stampOverlay = createEsOverlayElement('stamp', index, pageData.renderedWidth, pageData.renderedHeight, type);
+      const stampOverlay = createEsOverlayElement('stamp', index, type);
       wrapper.appendChild(stampOverlay);
     }
 
@@ -1302,7 +1169,24 @@ async function lazyRenderPageCanvas(type, index) {
       lucide.createIcons();
     }
   } catch (err) {
+    if (!stillCurrent()) return;
     console.error(err);
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn-es btn-es-secondary';
+    retry.textContent = 'إعادة عرض الصفحة';
+    retry.onclick = () => {
+      retry.disabled = true;
+      void lazyRenderPageCanvas(type, index);
+    };
+    const notice = document.createElement('div');
+    notice.className = 'esign-retry esign-page-error';
+    notice.setAttribute('role', 'status');
+    notice.append('تعذر عرض الصفحة.', retry);
+    wrapper.replaceChildren(notice);
+  } finally {
+    pageData.isRendering = false;
+    if (stillCurrent()) checkStepValidity();
   }
 }
 
@@ -1310,57 +1194,39 @@ async function lazyRenderPageCanvas(type, index) {
 
 function initializeDefaultOverlayRatios(type) {
   const state = esState[type];
-  const firstPage = state.renderedPages[0];
-  if (!firstPage) return;
-
   const isTech = type === 'technicalOffer';
+  const first = state.viewports[isTech ? 1 : 0];
+  if (!first) return;
+  const referenceWidth = 800;
 
-  if (esState.signatureData && state.signatureOverlay.widthRatio === 0) {
-    const originalWidth = esState.signatureData.width;
-    const originalHeight = esState.signatureData.height;
-
-    const targetWidth = Math.min(originalWidth * 0.4, firstPage.renderedWidth * 0.25);
-    const targetHeight = targetWidth * (originalHeight / originalWidth);
-
-    const marginX = firstPage.renderedWidth * 0.05;
-    const marginY = firstPage.renderedHeight * 0.05;
-
-    const left = firstPage.renderedWidth - targetWidth - marginX;
-    const top = firstPage.renderedHeight - targetHeight - marginY;
-
-    state.signatureOverlay = {
-      leftRatio: left / firstPage.renderedWidth,
-      topRatio: top / firstPage.renderedHeight,
-      widthRatio: targetWidth / firstPage.renderedWidth,
-      heightRatio: targetHeight / firstPage.renderedHeight
-    };
+  const signature = esState.signatureData;
+  if (signature && !state.signatureOverlay.widthRatio) {
+    const height = referenceWidth * first.height / first.width;
+    const aspect = signature.width / signature.height;
+    const width = Math.min(signature.width * 0.4, referenceWidth * 0.25, height * 0.4 * aspect);
+    const widthRatio = width / referenceWidth;
+    const heightRatio = width / aspect / height;
+    state.signatureOverlay = { leftRatio: 0.95 - widthRatio, topRatio: 0.95 - heightRatio, widthRatio, heightRatio };
   }
 
-  if (!isTech && esState.stampData && state.stampOverlay.widthRatio === 0) {
-    const originalWidth = esState.stampData.width;
-    const originalHeight = esState.stampData.height;
-
-    const targetWidth = Math.min(originalWidth * 0.45, firstPage.renderedWidth * 0.28);
-    const targetHeight = targetWidth * (originalHeight / originalWidth);
-
-    const marginX = firstPage.renderedWidth * 0.05;
-    const sigHeight = state.signatureOverlay.heightRatio * firstPage.renderedHeight;
-    const marginY = firstPage.renderedHeight * 0.05 + sigHeight + 10;
-
-    const left = firstPage.renderedWidth - targetWidth - marginX;
-    const top = firstPage.renderedHeight - targetHeight - marginY;
-
+  const stamp = esState.stampData;
+  if (!isTech && stamp && !state.stampOverlay.widthRatio) {
+    const last = state.viewports.at(-1);
+    const height = referenceWidth * last.height / last.width;
+    const aspect = stamp.width / stamp.height;
+    const width = Math.min(stamp.width * 0.45, referenceWidth * 0.28, height * 0.4 * aspect);
+    const widthRatio = width / referenceWidth;
+    const heightRatio = width / aspect / height;
     state.stampOverlay = {
-      leftRatio: left / firstPage.renderedWidth,
-      topRatio: top / firstPage.renderedHeight,
-      widthRatio: targetWidth / firstPage.renderedWidth,
-      heightRatio: targetHeight / firstPage.renderedHeight
+      leftRatio: 0.95 - widthRatio,
+      topRatio: Math.max(0, state.signatureOverlay.topRatio - heightRatio - 10 / height),
+      widthRatio,
+      heightRatio
     };
   }
 }
 
-function getOverlayState(docType, overlayType, pageIndex) {
-  const state = esState[docType];
+function getOverlayState(docType, overlayType, pageIndex, state = esState[docType]) {
   const overlaysArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
   if (overlaysArray && overlaysArray[pageIndex]) {
     return overlaysArray[pageIndex];
@@ -1368,7 +1234,7 @@ function getOverlayState(docType, overlayType, pageIndex) {
   return overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
 }
 
-function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedHeight, docType) {
+function createEsOverlayElement(overlayType, pageIndex, docType) {
   const state = esState[docType];
   const overlayState = getOverlayState(docType, overlayType, pageIndex);
   const assetData = overlayType === 'signature' ? esState.signatureData : esState.stampData;
@@ -1379,12 +1245,14 @@ function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedH
   el.dataset.type = overlayType;
   el.dataset.docType = docType;
   el.dataset.pageIndex = pageIndex;
+  el.tabIndex = 0;
+  el.setAttribute('aria-label', (overlayType === 'signature' ? 'التوقيع' : 'الختم') + '، الصفحة ' + (pageIndex + 1));
 
   const badge = document.createElement('div');
   badge.className = 'overlay-badge';
 
   if (overlayType === 'signature') {
-    const isCustom = state.pageSignatureOverlays?.[pageIndex] !== null;
+    const isCustom = Boolean(state.pageSignatureOverlays[pageIndex]);
     badge.textContent = `توقيع المدير - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
   } else {
     badge.textContent = 'ختم الشركة';
@@ -1393,6 +1261,7 @@ function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedH
 
   const img = document.createElement('img');
   img.src = assetData.dataUrl;
+  img.alt = '';
   img.className = 'overlay-img';
   el.appendChild(img);
 
@@ -1404,17 +1273,32 @@ function createEsOverlayElement(overlayType, pageIndex, renderedWidth, renderedH
     initPointerResize(handle, el, c, overlayType, docType);
   });
 
-  updateOverlayUI(el, overlayState, renderedWidth, renderedHeight);
+  updateOverlayUI(el, overlayState);
   initPointerDrag(el, overlayType, docType);
+  el.addEventListener('keydown', event => {
+    const movement = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+    if (!movement) return;
+    event.preventDefault();
+    const current = getOverlayState(docType, overlayType, pageIndex);
+    const distance = event.shiftKey ? 0.05 : 0.01;
+    const position = {
+      ...current,
+      leftRatio: Math.max(0, Math.min(1 - current.widthRatio, current.leftRatio + movement[0] * distance)),
+      topRatio: Math.max(0, Math.min(1 - current.heightRatio, current.topRatio + movement[1] * distance))
+    };
+    const positions = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
+    positions[pageIndex] = position;
+    updateOverlayUI(el, position);
+  });
 
   return el;
 }
 
-function updateOverlayUI(element, state, w, h) {
-  element.style.left = `${state.leftRatio * w}px`;
-  element.style.top = `${state.topRatio * h}px`;
-  element.style.width = `${state.widthRatio * w}px`;
-  element.style.height = `${state.heightRatio * h}px`;
+function updateOverlayUI(element, state) {
+  element.style.left = `${state.leftRatio * 100}%`;
+  element.style.top = `${state.topRatio * 100}%`;
+  element.style.width = `${state.widthRatio * 100}%`;
+  element.style.height = `${state.heightRatio * 100}%`;
 }
 
 function initPointerDrag(element, overlayType, docType) {
@@ -1426,7 +1310,6 @@ function initPointerDrag(element, overlayType, docType) {
 
     removeFloatingMenus();
 
-    esState.activeOverlay = overlayType;
 
     const state = esState[docType];
     const pageIndex = parseInt(element.dataset.pageIndex);
@@ -1470,7 +1353,7 @@ function initPointerDrag(element, overlayType, docType) {
         heightRatio: startRatios.heightRatio
       };
 
-      updateOverlayUI(element, targetOverlaysArray[pageIndex], renderedWidth, renderedHeight);
+      updateOverlayUI(element, targetOverlaysArray[pageIndex]);
     };
 
     const onPointerUp = (upEvent) => {
@@ -1608,7 +1491,7 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
         heightRatio: newHeight / renderedHeight
       };
 
-      updateOverlayUI(element, targetOverlaysArray[pageIndex], renderedWidth, renderedHeight);
+      updateOverlayUI(element, targetOverlaysArray[pageIndex]);
     };
 
     const onPointerUp = (upEvent) => {
@@ -1625,10 +1508,10 @@ function initPointerResize(handle, element, direction, overlayType, docType) {
     };
 
     element.classList.add('selected');
-    esState.activeOverlay = overlayType;
 
     handle.addEventListener('pointermove', onPointerMove);
     handle.addEventListener('pointerup', onPointerUp);
+    handle.addEventListener('pointercancel', onPointerUp);
   });
 }
 
@@ -1723,8 +1606,7 @@ function resetPageToDefault(docType, overlayType, pageIndex) {
   const defaultState = overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
   const el = document.getElementById(`overlay-${docType}-${overlayType}-page-${pageIndex}`);
   if (el) {
-    const pageData = state.renderedPages[pageIndex];
-    updateOverlayUI(el, defaultState, pageData.renderedWidth, pageData.renderedHeight);
+    updateOverlayUI(el, defaultState);
     const badge = el.querySelector('.overlay-badge');
     if (badge) {
       badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - افتراضي`;
@@ -1737,32 +1619,31 @@ function resetPageToDefault(docType, overlayType, pageIndex) {
 function redrawAllPageOverlays(docType, overlayType) {
   const state = esState[docType];
   const isTech = docType === 'technicalOffer';
-  const lastIndex = state.renderedPages.length - 1;
+  const asset = overlayType === 'signature' ? esState.signatureData : esState.stampData;
+  const positions = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
 
   state.renderedPages.forEach((pageData, index) => {
     if (isTech && index === 0) return;
-
-    const wrapper = document.getElementById(`page-wrapper-${docType}-${index}`);
+    if (overlayType === 'stamp' && (isTech || index !== state.pageCount - 1)) return;
+    const wrapper = document.getElementById('page-wrapper-' + docType + '-' + index);
     if (!wrapper || !pageData.isRendered) return;
 
-    let el = document.getElementById(`overlay-${docType}-${overlayType}-page-${index}`);
-    if (!el) {
-      if (overlayType === 'signature' && esState.signatureData) {
-        const sigOverlay = createEsOverlayElement('signature', index, pageData.renderedWidth, pageData.renderedHeight, docType);
-        wrapper.appendChild(sigOverlay);
-      } else if (overlayType === 'stamp' && esState.stampData && !isTech && index === lastIndex) {
-        const stampOverlay = createEsOverlayElement('stamp', index, pageData.renderedWidth, pageData.renderedHeight, docType);
-        wrapper.appendChild(stampOverlay);
-      }
-    } else {
-      const overlayState = getOverlayState(docType, overlayType, index);
-      updateOverlayUI(el, overlayState, pageData.renderedWidth, pageData.renderedHeight);
+    const element = document.getElementById('overlay-' + docType + '-' + overlayType + '-page-' + index);
+    if (!asset) {
+      element?.remove();
+      return;
+    }
+    if (!element) {
+      wrapper.appendChild(createEsOverlayElement(overlayType, index, docType));
+      return;
+    }
 
-      const badge = el.querySelector('.overlay-badge');
-      if (badge) {
-        const isCustom = (overlayType === 'signature' ? state.pageSignatureOverlays?.[index] : state.pageStampOverlays?.[index]) !== null;
-        badge.textContent = `${overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة'} - ${isCustom ? 'تعديل خاص' : 'افتراضي'}`;
-      }
+    updateOverlayUI(element, getOverlayState(docType, overlayType, index));
+    element.querySelector('img').src = asset.dataUrl;
+    const badge = element.querySelector('.overlay-badge');
+    if (badge) {
+      const label = overlayType === 'signature' ? 'توقيع المدير' : 'ختم الشركة';
+      badge.textContent = label + ' - ' + (positions[index] ? 'تعديل خاص' : 'افتراضي');
     }
   });
 }
@@ -1775,30 +1656,16 @@ document.addEventListener('click', (e) => {
 });
 
 function resetOverlaysToDefaults() {
-  const currentSubTab = esState.activePreviewSubTab;
-  const stateKey = currentSubTab === 'technical' ? 'technicalOffer' : 'contract';
-  const state = esState[stateKey];
-
+  const type = esState.activePreviewSubTab === 'technical' ? 'technicalOffer' : 'contract';
+  const state = esState[type];
   state.signatureOverlay = { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 };
-  if (currentSubTab === 'contract') {
-    state.stampOverlay = { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 };
-  }
-
-  initializeDefaultOverlayRatios(stateKey);
-
-  state.renderedPages.forEach((pageData, index) => {
-    if (currentSubTab === 'technical' && index === 0) return;
-
-    const sigEl = document.getElementById(`overlay-${stateKey}-signature-page-${index}`);
-    if (sigEl) {
-      updateOverlayUI(sigEl, state.signatureOverlay, pageData.renderedWidth, pageData.renderedHeight);
-    }
-
-    const stampEl = document.getElementById(`overlay-${stateKey}-stamp-page-${index}`);
-    if (stampEl) {
-      updateOverlayUI(stampEl, state.stampOverlay, pageData.renderedWidth, pageData.renderedHeight);
-    }
-  });
+  state.stampOverlay = { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 };
+  state.pageSignatureOverlays.fill(null);
+  state.pageStampOverlays.fill(null);
+  initializeDefaultOverlayRatios(type);
+  redrawAllPageOverlays(type, 'signature');
+  if (type === 'contract') redrawAllPageOverlays(type, 'stamp');
+  removeFloatingMenus();
 }
 
 function resetActiveOverlays() {
@@ -1806,249 +1673,171 @@ function resetActiveOverlays() {
 }
 
 function adjustEsZoom(diff) {
-  const newZoom = Math.min(2.0, Math.max(0.5, esState.zoomLevel + diff));
+  const newZoom = Math.min(2, Math.max(0.5, Math.round((esState.zoomLevel + diff) * 10) / 10));
   if (newZoom === esState.zoomLevel) return;
 
   esState.zoomLevel = newZoom;
   const zoomVal = document.getElementById('zoom-value');
-  if (zoomVal) zoomVal.textContent = `${Math.round(newZoom * 100)}%`;
-
-  processStep2Files();
+  if (zoomVal) zoomVal.textContent = String(Math.round(newZoom * 100)) + '%';
+  layoutEsPreview();
 }
 
 // STEP 3: Confirm & Download (Dual Files Supported)
 function renderStep3(container) {
-  const hasTech = esState.technicalOffer.file !== null;
-  const hasContract = esState.contract.file !== null;
-
-  let techRow = '';
-  if (hasTech) {
-    const isSinglePage = esState.technicalOffer.pageCount === 1;
-    const warning = isSinglePage ? '<span style="color: #ef4444;"> (سيتم تجاهلها لكونها صفحة واحدة)</span>' : '';
-    techRow = `
-      <div class="esign-summary-row">
-        <span>العرض الفني:</span>
-        <span style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;" class="summary-file-name-tech">${esState.technicalOffer.file.name}</span>
-      </div>
-      <div class="esign-summary-row">
-        <span>عدد الصفحات الموقعة:</span>
-        <span>${isSinglePage ? 0 : esState.technicalOffer.pageCount - 1} صفحة${warning}</span>
-      </div>
-    `;
-  }
-
-  let contractRow = '';
-  if (hasContract) {
-    contractRow = `
-      <div class="esign-summary-row">
-        <span>العقد الرسمي:</span>
-        <span style="direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;" class="summary-file-name-contract">${esState.contract.file.name}</span>
-      </div>
-      <div class="esign-summary-row">
-        <span>عدد الصفحات الموقعة:</span>
-        <span>${esState.contract.pageCount} صفحة (توقيع المدير + الختم في الأخيرة)</span>
-      </div>
-    `;
-  }
-
-  let allReviewed = true;
-  if (hasTech && hasContract) {
-    allReviewed = esState.reviewedFiles.technicalOffer && esState.reviewedFiles.contract;
-  }
-  const disabledAttr = allReviewed ? '' : 'disabled';
-  const warningMsg = allReviewed ? '' : `
-    <div style="color: #ef4444; background-color: rgba(239, 68, 68, 0.05); border: 1px solid #ef4444; border-radius: 8px; padding: 0.75rem; max-width: 500px; margin: 1rem auto; font-size: 0.85rem; font-weight: bold; text-align: center;">
-      تنبيه: يجب مراجعة وتحديد موضع التوقيع لكلا الملفين أولاً قبل إتمام عملية التوقيع والتحميل.
-    </div>
-  `;
-
+  const docs = getEsReviewDocuments();
   container.innerHTML = `
     <div style="text-align: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-size: 1.25rem;">المستندات جاهزة للتنزيل النهائي</h3>
-      <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">اضغط على الزر لمعالجة المستندات وتنزيلها محلياً.</p>
+      <h3 tabindex="-1" style="margin: 0; font-size: 1.25rem;">مراجعة المستندات وتنزيلها</h3>
+      <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary);">أضف التوقيع والختم حسب المعاينة ونزّل النسخ من هذا الجهاز.</p>
     </div>
-    
-    <div class="esign-summary-card">
-      ${techRow}
-      ${techRow && contractRow ? '<hr style="border: none; border-top: 1px solid var(--border-subtle); margin: 0.75rem 0;">' : ''}
-      ${contractRow}
+    <div class="esign-summary-card" id="esign-export-summary"></div>
+    <div class="esign-retry" id="esign-asset-notice" hidden>
+      <p role="status"></p>
+      <button type="button" class="btn-es btn-es-secondary" onclick="switchEsTab('settings')">إعدادات التوقيع والختم</button>
     </div>
-    
-    ${warningMsg}
-    
-    <div style="text-align: center; margin-top: 2rem;">
-      <button class="btn-es btn-es-primary" id="btn-process-pdf" onclick="processAllDocumentsDownload()" ${disabledAttr} style="margin: 0 auto; padding: 0.8rem 2.5rem; font-size: 1.05rem;">
-        <i data-lucide="file-signature"></i>
-        <span>توقيع وتحميل الملفات</span>
+    <div class="esign-export-actions">
+      <button type="button" class="btn-es btn-es-primary" id="btn-process-pdf" onclick="processAllDocumentsDownload()">
+        <i data-lucide="file-signature"></i><span>إضافة التوقيع وتنزيل الملفات</span>
       </button>
-      
-      <div id="individual-downloads" style="display: none; justify-content: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;"></div>
-      
-      <div id="pdf-processing-spinner" style="display: none; flex-direction: column; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
-        <div class="pulse-loader"></div>
-        <span style="font-size: 0.85rem; color: var(--text-secondary);">جاري دمج التوقيع وتوليد الـ PDF النهائي...</span>
-      </div>
+      <p id="pdf-processing-spinner" role="status" hidden>جارٍ تجهيز الملفات…</p>
     </div>
   `;
-
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
+  const summary = document.getElementById('esign-export-summary');
+  for (const type of docs) {
+    const isContract = type === 'contract';
+    const row = document.createElement('div');
+    row.className = 'esign-export-file';
+    const title = document.createElement('strong');
+    title.textContent = isContract ? 'العقد الرسمي' : 'العرض الفني';
+    const filename = document.createElement('bdi');
+    filename.className = 'esign-export-name';
+    filename.textContent = esState[type].file.name;
+    const pages = document.createElement('span');
+    pages.textContent = String(esState[type].pageCount - (isContract ? 0 : 1)) + ' صفحة للتوقيع';
+    const result = document.createElement('div');
+    result.id = 'esign-output-' + type;
+    result.className = 'esign-export-result';
+    result.setAttribute('aria-live', 'polite');
+    row.append(title, filename, pages, result);
+    summary.append(row);
+  }
+  if (esState.technicalOffer.pageCount === 1) {
+    const skipped = document.createElement('p');
+    skipped.className = 'esign-document-warning';
+    skipped.textContent = 'العرض الفني من صفحة واحدة؛ تم استثناؤه من التصدير.';
+    summary.append(skipped);
   }
 }
 
 async function processAllDocumentsDownload() {
-  if (esState.isProcessing) return;
+  if (esState.currentStep !== 3 || esState.isProcessing || !canExportEsDocuments()) return;
 
-  const btnProcess = document.getElementById('btn-process-pdf');
+  const session = esState;
+  const { signatureData, stampData } = session;
+  const docs = getEsReviewDocuments().reverse();
+  const pending = docs.filter(type => !session.outputs.has(type));
+  if (!pending.length) return;
+  const button = document.getElementById('btn-process-pdf');
   const spinner = document.getElementById('pdf-processing-spinner');
-  const indyContainer = document.getElementById('individual-downloads');
+  const prev = document.getElementById('btn-prev-step');
+  const reset = document.getElementById('btn-reset-esign');
 
-  if (btnProcess) btnProcess.style.display = 'none';
-  if (spinner) spinner.style.display = 'flex';
-  if (indyContainer) {
-    indyContainer.style.display = 'none';
-    indyContainer.innerHTML = '';
-  }
-
-  esState.isProcessing = true;
-
-  const downloads = [];
+  session.isProcessing = true;
+  if (button) button.disabled = true;
+  if (spinner) spinner.hidden = false;
+  if (prev) prev.disabled = true;
+  if (reset) reset.disabled = true;
+  let failed = false;
 
   try {
-    if (esState.technicalOffer.file && esState.technicalOffer.pageCount > 1) {
-      const docBytes = await generateFinalPdfBytes('technicalOffer');
-      const originalName = esState.technicalOffer.file.name.replace(/\.pdf$/i, '');
-      const outputFileName = `${originalName} - معتمد.pdf`;
-      downloads.push({ bytes: docBytes, name: outputFileName, label: 'العرض الفني الموقع' });
-
-      await logSignatureOperation({
-        status: 'success',
-        documentType: 'technical_offer',
-        originalFileName: esState.technicalOffer.file.name,
-        outputFileName: outputFileName,
-        originalFileSize: esState.technicalOffer.file.size,
-        pageCount: esState.technicalOffer.pageCount,
-        stampApplied: false,
-        autoPlacementMethod: 'manual-fallback',
-        autoPlacementSucceeded: false
-      });
-    }
-
-    if (esState.contract.file) {
-      const docBytes = await generateFinalPdfBytes('contract');
-      const originalName = esState.contract.file.name.replace(/\.pdf$/i, '');
-      const outputFileName = `${originalName} - معتمد.pdf`;
-      downloads.push({ bytes: docBytes, name: outputFileName, label: 'العقد الموقع' });
-
-      await logSignatureOperation({
-        status: 'success',
-        documentType: 'contract',
-        originalFileName: esState.contract.file.name,
-        outputFileName: outputFileName,
-        originalFileSize: esState.contract.file.size,
-        pageCount: esState.contract.pageCount,
-        stampApplied: true,
-        autoPlacementMethod: esState.contract.autoPlacementMethod,
-        autoPlacementSucceeded: esState.contract.autoPlacementSucceeded
-      });
-    }
-
-    if (downloads.length > 0) {
-      if (indyContainer) {
-        indyContainer.style.display = 'flex';
-        downloads.forEach((dl) => {
-          const blob = new Blob([dl.bytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = dl.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-
-          const dlBtn = document.createElement('a');
-          dlBtn.href = url;
-          dlBtn.className = 'btn-es btn-es-primary';
-          dlBtn.download = dl.name;
-          dlBtn.innerHTML = `<i data-lucide="download"></i><span>تحميل ${dl.label}</span>`;
-          indyContainer.appendChild(dlBtn);
-        });
-
-        if (typeof lucide !== 'undefined') {
-          lucide.createIcons();
-        }
+    for (const type of pending) {
+      const state = session[type];
+      const outputStatus = document.getElementById('esign-output-' + type);
+      if (outputStatus) outputStatus.textContent = 'جارٍ تجهيز النسخة…';
+      try {
+        const bytes = await generateFinalPdfBytes(type, state, signatureData, stampData);
+        if (esState !== session) return;
+        const name = state.file.name.replace(/\.pdf$/i, '') + ' - معتمد.pdf';
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        link.className = 'btn-es btn-es-primary';
+        link.textContent = type === 'contract' ? 'تنزيل العقد' : 'تنزيل العرض الفني';
+        outputStatus?.replaceChildren(link);
+        session.outputs.set(type, { url });
+        link.click();
+        void logSignatureOperation({
+          status: 'generated',
+          documentType: type === 'contract' ? 'contract' : 'technical_offer',
+          originalFileName: state.file.name,
+          pageCount: state.pageCount,
+          stampApplied: type === 'contract'
+        }, session);
+      } catch (error) {
+        if (esState !== session) return;
+        console.error('Could not generate signature document:', error);
+        failed = true;
+        if (outputStatus) outputStatus.textContent = 'تعذر تجهيز هذا الملف. يمكنك إعادة محاولة الملفات المتعثرة.';
       }
-      showToast('تم تطبيق التوقيع وتحميل الملفات بنجاح.', 'success');
     }
-  } catch (err) {
-    console.error(err);
-    showToast(err.message || 'حدث خطأ أثناء معالجة وحفظ الملفات', 'error');
   } finally {
-    esState.isProcessing = false;
-    if (btnProcess) btnProcess.style.display = 'inline-flex';
-    if (spinner) spinner.style.display = 'none';
+    if (esState === session) {
+      session.isProcessing = false;
+      if (button) {
+        button.hidden = !failed;
+        if (failed) button.querySelector('span').textContent = 'إعادة محاولة الملفات المتعثرة';
+      }
+      if (prev) prev.disabled = false;
+      if (reset) reset.disabled = false;
+      if (spinner) spinner.hidden = true;
+      checkStepValidity();
+    }
   }
 }
 
 // SECTION 7: PDF Generation (pdf-lib)
-async function generateFinalPdfBytes(type) {
-  const state = esState[type];
-
-  const arrayBuffer = await state.file.arrayBuffer();
-  const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-
-  const sigBytes = dataUrlToBytes(esState.signatureData.dataUrl);
-  const sigImage = await pdfDoc.embedPng(sigBytes);
-
-  let stampImage = null;
-  if (type === 'contract' && esState.stampData) {
-    const stampBytes = dataUrlToBytes(esState.stampData.dataUrl);
-    stampImage = await pdfDoc.embedPng(stampBytes);
-  }
-
+async function generateFinalPdfBytes(type, state, signatureData, stampData) {
+  const pdfDoc = await PDFLib.PDFDocument.load(await state.file.arrayBuffer());
+  const signature = await pdfDoc.embedPng(dataUrlToBytes(signatureData.dataUrl));
+  const isContract = type === 'contract';
+  const stamp = isContract ? await pdfDoc.embedPng(dataUrlToBytes(stampData.dataUrl)) : null;
   const pages = pdfDoc.getPages();
-  const lastPageIndex = pages.length - 1;
-  const isTech = type === 'technicalOffer';
+  if (pages.length !== state.viewports.length) throw new Error('PDF page count changed after preview');
 
-  for (let i = 0; i < pages.length; i++) {
-    if (isTech && i === 0) continue; // Skip first page of technical offer
+  for (let index = isContract ? 0 : 1; index < pages.length; index++) {
+    const viewport = state.viewports[index];
+    const page = pages[index];
+    const signatureRect = getOverlayState(type, 'signature', index, state);
+    page.drawImage(signature, esPdfImagePlacement(viewport, signatureRect));
 
-    const page = pages[i];
-    const { width: pdfW, height: pdfH } = page.getSize();
-
-    // Get page-specific signature or fallback
-    const sig = getOverlayState(type, 'signature', i);
-    const pdfX = sig.leftRatio * pdfW;
-    const pdfWidth = sig.widthRatio * pdfW;
-    const pdfHeight = sig.heightRatio * pdfH;
-    const pdfY = pdfH - (sig.topRatio + sig.heightRatio) * pdfH; // flip Y
-
-    page.drawImage(sigImage, {
-      x: pdfX,
-      y: pdfY,
-      width: pdfWidth,
-      height: pdfHeight
-    });
-
-    if (i === lastPageIndex && stampImage) {
-      // Get page-specific stamp or fallback
-      const st = getOverlayState(type, 'stamp', i);
-      const stPdfX = st.leftRatio * pdfW;
-      const stPdfWidth = st.widthRatio * pdfW;
-      const stPdfHeight = st.heightRatio * pdfH;
-      const stPdfY = pdfH - (st.topRatio + st.heightRatio) * pdfH;
-
-      page.drawImage(stampImage, {
-        x: stPdfX,
-        y: stPdfY,
-        width: stPdfWidth,
-        height: stPdfHeight
-      });
+    if (stamp && index === pages.length - 1) {
+      const stampRect = getOverlayState(type, 'stamp', index, state);
+      page.drawImage(stamp, esPdfImagePlacement(viewport, stampRect));
     }
   }
 
-  return await pdfDoc.save();
+  return pdfDoc.save();
+}
+
+function esPdfImagePlacement(viewport, overlay) {
+  // The preview is y-down. Map the image's PDF-space origin and both basis vectors
+  // through PDF.js so the crop origin, page rotation and UserUnit are preserved.
+  const left = overlay.leftRatio * viewport.width;
+  const top = overlay.topRatio * viewport.height;
+  const right = left + overlay.widthRatio * viewport.width;
+  const bottom = top + overlay.heightRatio * viewport.height;
+  const [x, y] = viewport.convertToPdfPoint(left, bottom);
+  const [rightX, rightY] = viewport.convertToPdfPoint(right, bottom);
+  const [topX, topY] = viewport.convertToPdfPoint(left, top);
+
+  return {
+    x,
+    y,
+    width: Math.hypot(rightX - x, rightY - y),
+    height: Math.hypot(topX - x, topY - y),
+    rotate: PDFLib.radians(Math.atan2(rightY - y, rightX - x))
+  };
 }
 
 // SECTION 8: Firebase Operations
@@ -2067,21 +1856,25 @@ function getCurrentUserInfo() {
   };
 }
 
-async function logSignatureOperation(payload) {
-  if (typeof db === 'undefined') return;
-
-  const user = getCurrentUserInfo();
-  const fullLog = {
-    ...payload,
-    ...user,
-    signedAt: Date.now()
-  };
+async function logSignatureOperation(payload, session) {
+  if (typeof db === 'undefined' || !currentUser || esState !== session) return;
+  const user = currentUser;
 
   try {
-    await db.ref(ES_PATHS.logs).push().set(fullLog);
-  } catch (err) {
-    console.error(err);
-    showToast('تعذر كتابة سجل الميتاداتا في Firebase', 'warning');
+    const operation = db.ref(ES_PATHS.logs).push();
+    const { claims } = await user.getIdTokenResult();
+    if (esState !== session || currentUser?.uid !== user.uid) return;
+    const userName = typeof claims.name === 'string' ? { userName: claims.name } : {};
+    await operation.set({
+      ...payload,
+      ...userName,
+      userId: user.uid,
+      signedAt: firebase.database.ServerValue.TIMESTAMP
+    });
+  } catch (error) {
+    if (esState !== session) return;
+    console.warn('Could not save signature operation:', error);
+    showToast('النسخة جاهزة للتنزيل. تعذر حفظ العملية في السجل.', 'warning');
   }
 }
 
@@ -2090,6 +1883,7 @@ let esLogsCache = [];
 
 function loadSignatureLogs() {
   if (typeof db === 'undefined') return;
+  const session = esState;
 
   const tbody = document.getElementById('esign-logs-tbody');
   if (tbody) {
@@ -2105,6 +1899,7 @@ function loadSignatureLogs() {
 
   db.ref(ES_PATHS.logs).orderByChild('signedAt').limitToLast(100).once('value')
     .then((snapshot) => {
+      if (esState !== session) return;
       const logs = [];
       snapshot.forEach((child) => {
         logs.push({
@@ -2119,6 +1914,7 @@ function loadSignatureLogs() {
       renderLogsTable(logs);
     })
     .catch((err) => {
+      if (esState !== session) return;
       console.error(err);
       if (tbody) {
         tbody.innerHTML = `
@@ -2156,7 +1952,7 @@ function renderLogsTable(logs) {
     tr.appendChild(tdDate);
 
     const tdUser = document.createElement('td');
-    tdUser.textContent = log.userName || 'غير معروف';
+    tdUser.textContent = log.userName || log.userId || 'غير معروف';
     tr.appendChild(tdUser);
 
     const tdDocType = document.createElement('td');
@@ -2179,8 +1975,8 @@ function renderLogsTable(logs) {
 
     const tdStatus = document.createElement('td');
     const statusSpan = document.createElement('span');
-    if (log.status === 'success') {
-      statusSpan.textContent = 'ناجحة';
+    if (log.status === 'generated' || log.status === 'success') {
+      statusSpan.textContent = log.status === 'generated' ? 'تم توليد نسخة' : 'ناجحة';
       statusSpan.style.color = 'var(--accent-teal)';
       statusSpan.style.fontWeight = 'bold';
     } else {

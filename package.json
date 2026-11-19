@@ -2,16 +2,20 @@
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
+    "test": "node --test tests/electronic-signature.test.mjs",
+    "test:esign-rules": "node --test tests/electronic-signature-rules.test.mjs",
     "cloudflare:dev": "cf dev",
     "cloudflare:build": "cf build",
     "cloudflare:deploy": "cf deploy"
   },
   "dependencies": {
     "exceljs": "4.4.0",
-    "firebase": "^12.14.0"
+    "firebase": "^12.14.0",
+    "pdfjs-dist": "6.5.438"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "2.0.0-rc.2",
+    "@firebase/rules-unit-testing": "5.0.2",
     "cf": "1.0.0-rc.1",
     "vite": "8.3.8"
   }

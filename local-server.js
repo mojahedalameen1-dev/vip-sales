@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import meetingsHandler from './api/meetings.js';
+import pdfjs from './node_modules/pdfjs-dist/package.json' with { type: 'json' };
 
 const PORT = 8080;
 
@@ -10,6 +11,8 @@ const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.wasm': 'application/wasm',
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -33,7 +36,11 @@ const serverHandler = async (req, res) => {
   }
 
   // Static File Serving
-  const assetPath = pathname === '/assets/js/vendor/exceljs.min.js'
+  const pdfPrefix = `/assets/js/vendor/pdfjs-${pdfjs.version}/`;
+  const pdfAsset = pathname.startsWith(pdfPrefix);
+  const pdfFile = pdfAsset ? pathname.slice(pdfPrefix.length) : '';
+  const assetPath = pdfAsset ? `node_modules/pdfjs-dist/${pdfFile.startsWith('build/') ? 'legacy/' : ''}${pdfFile}`
+    : pathname === '/assets/js/vendor/exceljs.min.js'
     ? 'node_modules/exceljs/dist/exceljs.min.js'
     : pathname === '/' ? 'index.html' : pathname;
   const filePath = path.join(import.meta.dirname, assetPath);
@@ -42,6 +49,10 @@ const serverHandler = async (req, res) => {
 
   fs.readFile(filePath, (error, content) => {
     if (error) {
+      if (pdfAsset) {
+        res.writeHead(404);
+        return res.end('PDF asset not found');
+      }
       if (error.code === 'ENOENT') {
         fs.readFile(path.join(import.meta.dirname, 'index.html'), (err, htmlContent) => {
           if (err) {

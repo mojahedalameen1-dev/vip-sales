@@ -354,21 +354,18 @@ img, svg, canvas, iframe, video {
     font-size: 0.75rem !important;
   }
 
-  /* Tabs horizontal scroll */
   .esign-tabs {
-    overflow-x: auto !important;
-    white-space: nowrap !important;
-    -webkit-overflow-scrolling: touch !important;
-    gap: 0.25rem !important;
-    scrollbar-width: none !important; /* Hide scrollbars */
-  }
-  .esign-tabs::-webkit-scrollbar {
-    display: none !important;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
   }
   .esign-tab-btn {
-    padding: 0.6rem 1rem !important;
-    font-size: 0.85rem !important;
-    flex-shrink: 0 !important;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem 0.2rem;
+    font-size: 0.78rem;
+    text-align: center;
   }
 
   /* Settings Panel & Uploader Layouts */
@@ -482,7 +479,7 @@ img, svg, canvas, iframe, video {
     color: var(--accent-blue) !important;
     margin: 0 !important;
   }
-  .upload-zone span {
+  .upload-zone > span:not(.upload-instruction) {
     display: none !important;
   }
 
@@ -507,16 +504,8 @@ img, svg, canvas, iframe, video {
     justify-content: space-around !important;
   }
 
-  /* PDF Page fit width */
   .page-wrapper {
-    width: 100% !important;
-    max-width: 100% !important;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-  }
-
-  .page-canvas {
-    width: 100% !important;
-    height: auto !important;
   }
 
   /* Floating action menus for stamps/signatures */

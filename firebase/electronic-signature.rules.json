@@ -1,0 +1,30 @@
+{
+  "electronicSignature": {
+    "settings": {
+      "company": {
+        ".read": "auth != null && (auth.token.esignOperator == true || auth.token.esignSettingsAdmin == true)",
+        "$asset": {
+          ".write": "auth != null && auth.token.esignSettingsAdmin == true && ($asset == 'signature' || $asset == 'stamp')",
+          ".validate": "newData.hasChildren(['dataUrl', 'width', 'height']) && newData.child('dataUrl').isString() && newData.child('dataUrl').val().beginsWith('data:image/png;base64,') && newData.child('dataUrl').val().length <= 4000000 && newData.child('width').isNumber() && newData.child('width').val() >= 1 && newData.child('width').val() <= 800 && newData.child('height').isNumber() && newData.child('height').val() >= 1 && newData.child('height').val() <= 800"
+        }
+      }
+    },
+    "logs": {
+      ".read": "auth != null && auth.token.esignAuditReader == true",
+      ".indexOn": ["signedAt"],
+      "$operation": {
+        ".write": "auth != null && auth.token.esignOperator == true && !data.exists() && newData.exists() && newData.child('userId').val() == auth.uid",
+        ".validate": "newData.hasChildren(['userId', 'signedAt', 'documentType', 'originalFileName', 'pageCount', 'stampApplied', 'status']) && ((newData.child('documentType').val() == 'contract' && newData.child('stampApplied').val() == true) || (newData.child('documentType').val() == 'technical_offer' && newData.child('stampApplied').val() == false && newData.child('pageCount').val() > 1))",
+        "userId": { ".validate": "newData.isString()" },
+        "userName": { ".validate": "newData.isString() && newData.val() == auth.token.name" },
+        "signedAt": { ".validate": "newData.isNumber() && newData.val() == now" },
+        "documentType": { ".validate": "newData.isString()" },
+        "originalFileName": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 255" },
+        "pageCount": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() % 1 == 0" },
+        "stampApplied": { ".validate": "newData.isBoolean()" },
+        "status": { ".validate": "newData.val() == 'generated'" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

@@ -159,11 +159,27 @@
   background-color: rgba(79, 142, 247, 0.05);
 }
 
+.upload-zone[hidden], .esign-retry[hidden], #btn-next-step[hidden], #btn-process-pdf[hidden] {
+  display: none !important;
+}
+
+button.upload-zone {
+  width: 100%;
+  font: inherit;
+}
+
+.upload-zone:focus-visible,
+.es-wizard-step:focus-visible,
+.overlay-element:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 .upload-zone i {
   color: var(--text-muted);
 }
 
-.upload-zone p {
+.upload-zone p, .upload-zone .upload-instruction span {
   margin: 0;
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -474,7 +490,7 @@
   min-height: 70vh;
   max-height: 78vh;
   overflow-y: auto;
-  overflow-x: hidden; /* Prevent horizontal scrolling/wobbling */
+  overflow-x: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -494,21 +510,21 @@
   /* Center horizontally */
   margin-left: auto;
   margin-right: auto;
-  max-width: 100%;
 }
 
 .page-canvas {
   display: block;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
 }
 
 /* Overlays */
 .overlay-element {
   position: absolute;
   cursor: grab;
-  border: 2px dashed rgba(79, 142, 247, 0.4);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: 2px dashed rgba(79, 142, 247, 0.4);
+  outline-offset: -2px;
+  transition: outline-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
   touch-action: none;
   z-index: 10;
@@ -519,13 +535,13 @@
 }
 
 .overlay-element.selected {
-  border-color: var(--accent-blue);
-  border-style: solid;
+  outline-color: var(--accent-blue);
+  outline-style: solid;
   box-shadow: 0 0 15px var(--accent-blue);
 }
 
 .overlay-element.selected.stamp-element {
-  border-color: var(--accent-teal);
+  outline-color: var(--accent-teal);
   box-shadow: 0 0 15px var(--accent-teal);
 }
 
@@ -657,18 +673,85 @@
   gap: 1rem;
 }
 
-.esign-summary-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.95rem;
+.esign-upload-details, .esign-retry {
+  background: var(--bg-subtle);
+  border-radius: 8px;
+  padding: 0.75rem;
 }
 
-.esign-summary-row span:first-child {
+.esign-upload-status, .esign-export-file {
+  font-size: 0.9rem;
   color: var(--text-secondary);
 }
 
-.esign-summary-row span:last-child {
-  font-weight: 600;
+.esign-upload-status {
+  margin-top: 0.5rem;
+}
+
+.esign-upload-file, .esign-upload-file > div {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.esign-upload-file {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.esign-upload-file bdi {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.esign-upload-file .btn-es {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.esign-document-warning {
+  color: var(--text-primary);
+  border-inline-start: 2px solid var(--accent-blue);
+  padding-inline-start: 0.5rem;
+}
+
+.esign-retry, .esign-export-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.esign-retry p, .esign-export-actions p {
+  margin: 0;
+}
+
+.esign-page-error {
+  position: absolute;
+  inset: 0;
+  align-content: center;
+}
+
+.esign-export-file {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.esign-export-file + .esign-export-file {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+}
+
+.esign-export-name {
+  overflow-wrap: anywhere;
+}
+
+.esign-export-result:empty {
+  display: none;
 }
 
 /* Logs Table Styles */
@@ -828,6 +911,16 @@
   opacity: 0.65;
   transition: all 0.2s;
   flex: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+.es-wizard-step:disabled {
+  cursor: default;
 }
 
 .es-wizard-step:hover, .es-wizard-step.active, .es-wizard-step.completed {
