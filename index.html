@@ -3064,9 +3064,9 @@
             <h1 id="meetingsDayTitle">اجتماعات اليوم</h1>
             <p id="meetingsDaySub"></p>
           </div>
-          <a class="workspace-button" href="#export" onclick="prepareMeetingExport()">
-            <i data-lucide="download"></i> تصدير الاجتماعات
-          </a>
+          <button type="button" class="btn-primary" id="downloadDailyMeetingsBtn" disabled>
+            <i data-lucide="file-spreadsheet"></i> تصدير الاجتماعات
+          </button>
         </div>
 
         <div class="workspace-toolbar">
@@ -3078,8 +3078,9 @@
             <button type="button" class="workspace-button" onclick="navigateMeetingsDay(-1)" aria-label="اليوم السابق" title="اليوم السابق">
               <i data-lucide="chevron-right"></i>
             </button>
-            <button type="button" class="workspace-button" onclick="goToMeetingsToday()">اليوم</button>
-            <input type="date" class="input-field" id="meetingsDatePicker" aria-label="اختر يوم الاجتماعات">
+            <button type="button" class="workspace-button" id="meetingsTodayBtn" aria-pressed="true" onclick="selectMeetingDay(0)">اليوم</button>
+            <button type="button" class="workspace-button" id="meetingsTomorrowBtn" aria-pressed="false" onclick="selectMeetingDay(1)">غدًا</button>
+            <input type="date" lang="en-GB" dir="ltr" class="input-field" id="meetingsDatePicker" aria-label="اختر يوم الاجتماعات">
             <button type="button" class="workspace-button" onclick="navigateMeetingsDay(1)" aria-label="اليوم التالي" title="اليوم التالي">
               <i data-lucide="chevron-left"></i>
             </button>
@@ -3093,36 +3094,16 @@
           <p class="workspace-panel-heading" id="meetingsProgressLabel" role="status">جارٍ جلب الاجتماعات…</p>
           <div id="meetingsTableContainer"></div>
         </div>
-      </section>
-      <!-- Electronic Signature View -->
-      <div id="esignView" class="content-container" style="display: none; overflow-y: auto;">
-        <!-- Content will be injected dynamically -->
-      </div>
-
-
-      <section id="exportView" class="content-container sales-workspace" aria-labelledby="exportTitle" hidden>
-        <div class="workspace-heading">
-          <div>
-            <h1 id="exportTitle">تصدير البيانات</h1>
-            <p>اختر البيانات والفترة وراجع العدد قبل تنزيل ملف إكسل.</p>
-          </div>
-        </div>
-
-        <div class="workspace-toolbar">
-          <div class="workspace-switch" role="group" aria-label="نوع البيانات">
-            <button type="button" data-export-kind="meetings" aria-pressed="true">الاجتماعات</button>
-            <button type="button" data-export-kind="customers" aria-pressed="false">العملاء المحفوظون</button>
-          </div>
-        </div>
-
-        <div id="meetingsExportPanel" class="workspace-panel workspace-export-panel">
+        <details class="workspace-panel workspace-range-export">
+          <summary>تصدير اجتماعات فترة محددة</summary>
           <form id="meetingsExportForm" class="workspace-export-form">
             <div class="workspace-date-fields">
-              <label>من تاريخ <input type="date" id="meetingsExportDateFrom" class="input-field" required></label>
-              <label>إلى تاريخ <input type="date" id="meetingsExportDateTo" class="input-field" required></label>
+              <label>من تاريخ <input type="date" lang="en-GB" dir="ltr" id="meetingsExportDateFrom" class="input-field" required></label>
+              <label>إلى تاريخ <input type="date" lang="en-GB" dir="ltr" id="meetingsExportDateTo" class="input-field" required></label>
             </div>
             <div class="workspace-options" aria-label="فترات سريعة">
               <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('today')">اليوم</button>
+              <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('tomorrow')">غدًا</button>
               <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('week')">هذا الأسبوع</button>
               <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('month')">هذا الشهر</button>
             </div>
@@ -3134,29 +3115,38 @@
               </div>
             </fieldset>
             <div class="workspace-export-actions">
-              <button type="submit" class="workspace-button">معاينة النتائج</button>
-              <button type="button" class="btn-primary" id="meetingsExportExcelSubmitBtn" disabled>
+              <button type="submit" class="btn-primary" id="meetingsExportExcelSubmitBtn">
                 <i data-lucide="file-spreadsheet"></i> تنزيل إكسل
               </button>
+              <p id="meetingExportCount" role="status"></p>
             </div>
           </form>
-          <div class="workspace-preview">
-            <h2>المعاينة</h2>
-            <p id="meetingExportCount" role="status">حدد الفترة ثم اعرض النتائج.</p>
-            <div id="meetingExportPreview" class="workspace-table-wrap"></div>
+        </details>
+      </section>
+      <!-- Electronic Signature View -->
+      <div id="esignView" class="content-container" style="display: none; overflow-y: auto;">
+        <!-- Content will be injected dynamically -->
+      </div>
+
+
+      <section id="exportView" class="content-container sales-workspace" aria-labelledby="exportTitle" hidden>
+        <div class="workspace-heading">
+          <div>
+            <h1 id="exportTitle">تصدير البيانات</h1>
+            <p>حدد الفترة وراجع العملاء المحفوظين قبل تنزيل ملف إكسل.</p>
           </div>
         </div>
 
-        <div id="customersExportPanel" class="workspace-panel workspace-export-panel" hidden>
+        <div class="workspace-panel workspace-export-panel">
           <form id="customersExportForm" class="workspace-export-form">
             <div class="workspace-date-fields">
-              <label>من تاريخ <input type="date" id="exportDateFrom" class="input-field"></label>
-              <label>إلى تاريخ <input type="date" id="exportDateTo" class="input-field"></label>
+              <label>من تاريخ <input type="date" lang="en-GB" dir="ltr" id="exportDateFrom" class="input-field"></label>
+              <label>إلى تاريخ <input type="date" lang="en-GB" dir="ltr" id="exportDateTo" class="input-field"></label>
             </div>
             <div class="workspace-options" aria-label="فترات سريعة">
-              <button type="button" class="workspace-button" onclick="setCustomerExportDays(7)">آخر ٧ أيام</button>
-              <button type="button" class="workspace-button" onclick="setCustomerExportDays(30)">آخر ٣٠ يومًا</button>
-              <button type="button" class="workspace-button" onclick="setCustomerExportDays(90)">آخر ٩٠ يومًا</button>
+              <button type="button" class="workspace-button" onclick="setCustomerExportDays(7)">آخر 7 أيام</button>
+              <button type="button" class="workspace-button" onclick="setCustomerExportDays(30)">آخر 30 يومًا</button>
+              <button type="button" class="workspace-button" onclick="setCustomerExportDays(90)">آخر 90 يومًا</button>
               <button type="button" class="workspace-button" onclick="setCustomerExportDays()">كل الفترات</button>
             </div>
             <fieldset>

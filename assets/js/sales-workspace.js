@@ -1,12 +1,12 @@
 const workspaceTimeZone = 'Asia/Riyadh';
 const calendarDayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: workspaceTimeZone });
-const calendarLabelFormat = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
+const calendarLabelFormat = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
   timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
 });
-const meetingTimeFormat = new Intl.DateTimeFormat('ar-SA', {
+const meetingTimeFormat = new Intl.DateTimeFormat('ar-SA-u-nu-latn', {
   timeZone: workspaceTimeZone, hour: 'numeric', minute: '2-digit',
 });
-const workspaceNumber = new Intl.NumberFormat('ar-SA');
+const workspaceNumber = new Intl.NumberFormat('en-US');
 const customerStages = {
   new: 'جديد', technical: 'عرض فني', closing: 'تقفيل', signed: 'توقيع', closed: 'مغلق',
 };
@@ -23,13 +23,12 @@ let meetingRequest = 0;
 let meetingStatuses = {};
 let meetingStatusesRef;
 let meetingStatusUpdates = new Map();
-let exportKind = 'meetings';
-let exportRequest = 0;
-let meetingExport;
+let exportingDay = false;
+let exportingRange = false;
 let customerExport;
 let customerLoad;
 let customerRows;
-let spreadsheetLibrary;
+const exportScripts = new Map();
 
 function element(id) {
   return document.getElementById(id);
@@ -67,9 +66,13 @@ function renderedIcon(name) {
 
 function textElement(tag, text, className) {
   const item = document.createElement(tag);
-  item.textContent = text;
+  item.textContent = englishDigits(text);
   if (className) item.className = className;
   return item;
+}
+
+function englishDigits(value) {
+  return String(value).replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) & 15));
 }
 
 function activeButtons(selector, key, value) {
@@ -111,7 +114,7 @@ function showWorkspaceFromLocation() {
   });
   if (tab === 'meetings') fetchMeetingsForDay();
   if (tab === 'esign') openElectronicSignature();
-  if (tab === 'export') selectExportKind(exportKind);
+  if (tab === 'export') loadCustomerRows();
 }
 
 function startWorkspace() {
@@ -135,14 +138,15 @@ function stopWorkspace() {
   customerLoad = undefined;
   customerExport = undefined;
   meetingRequest++;
-  invalidateMeetingExport();
+  element('meetingExportCount').textContent = '';
+  updateDailyExportButton();
   element('customerExportPreview').replaceChildren();
   element('customerExportCount').textContent = '';
   element('exportExcelBtn').disabled = true;
 }
 
-function goToMeetingsToday() {
-  meetingDay = calendarDayFormat.format(new Date());
+function selectMeetingDay(offset) {
+  meetingDay = shiftDate(calendarDayFormat.format(new Date()), offset);
   fetchMeetingsForDay();
 }
 
@@ -157,12 +161,18 @@ async function fetchMeetingsForDay({ background = false } = {}) {
   const day = meetingDay;
   const date = new Date(day + 'T00:00:00Z');
   element('meetingsDatePicker').value = day;
-  element('meetingsDayTitle').textContent = day === calendarDayFormat.format(new Date()) ? 'اجتماعات اليوم' : 'جدول الاجتماعات';
+  const today = calendarDayFormat.format(new Date());
+  const tomorrow = shiftDate(today, 1);
+  element('meetingsTodayBtn').setAttribute('aria-pressed', String(day === today));
+  element('meetingsTomorrowBtn').setAttribute('aria-pressed', String(day === tomorrow));
+  element('meetingsDayTitle').textContent = day === today ? 'اجتماعات اليوم'
+    : day === tomorrow ? 'اجتماعات الغد' : 'جدول الاجتماعات';
   element('meetingsDaySub').textContent = calendarLabelFormat.format(date);
   element('meetingsRefreshBtn').disabled = true;
 
   if (!background) {
     meetingLoad = 'loading';
+    updateDailyExportButton();
     element('meetingsAgenda').setAttribute('aria-busy', 'true');
     element('meetingsProgressLabel').textContent = 'جارٍ جلب الاجتماعات…';
     element('meetingsTableContainer').replaceChildren();
@@ -177,6 +187,7 @@ async function fetchMeetingsForDay({ background = false } = {}) {
   } catch (error) {
     if (request !== meetingRequest || background) return;
     meetingLoad = 'error';
+    updateDailyExportButton();
     element('meetingsProgressLabel').textContent = 'تعذّر جلب الاجتماعات';
     const retry = textElement('button', 'إعادة المحاولة', 'workspace-button');
     retry.type = 'button';
@@ -227,9 +238,18 @@ async function saveMeetingStatus(id, status) {
   }
 }
 
-function renderMeetings() {
-  const meetings = dailyMeetings.filter(meeting => meetingScope === 'all' || matchesCurrentUser(meeting))
+function visibleMeetings() {
+  return dailyMeetings.filter(meeting => meetingScope === 'all' || matchesCurrentUser(meeting))
     .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+}
+
+function updateDailyExportButton(meetings = visibleMeetings()) {
+  element('downloadDailyMeetingsBtn').disabled = exportingDay || meetingLoad !== 'ready' || meetings.length === 0;
+}
+
+function renderMeetings() {
+  const meetings = visibleMeetings();
+  updateDailyExportButton(meetings);
   const completed = meetings.filter(meeting => getMeetingStatus(meeting.id) === 'done').length;
   element('meetingsProgressLabel').textContent = meetings.length
     ? workspaceNumber.format(meetings.length) + ' مواعيد · ' + workspaceNumber.format(completed) + ' مكتملة'
@@ -294,18 +314,12 @@ function renderMeetings() {
   window.lucide?.createIcons();
 }
 
-function prepareMeetingExport() {
-  exportKind = 'meetings';
-  element('meetingsExportDateFrom').value = meetingDay;
-  element('meetingsExportDateTo').value = meetingDay;
-  document.querySelector('[name="meetingsExportScope"][value="' + meetingScope + '"]').checked = true;
-  invalidateMeetingExport();
-}
-
 function setMeetingsExportShortcut(type) {
   const today = calendarDayFormat.format(new Date());
   let first = today, last = today;
-  if (type === 'week') {
+  if (type === 'tomorrow') {
+    first = last = shiftDate(today, 1);
+  } else if (type === 'week') {
     first = shiftDate(today, -new Date(today + 'T00:00:00Z').getUTCDay());
     last = shiftDate(first, 6);
   } else if (type === 'month') {
@@ -316,23 +330,100 @@ function setMeetingsExportShortcut(type) {
   }
   element('meetingsExportDateFrom').value = first;
   element('meetingsExportDateTo').value = last;
-  invalidateMeetingExport();
 }
 
-function selectExportKind(kind) {
-  exportKind = kind;
-  activeButtons('[data-export-kind]', 'exportKind', kind);
-  element('meetingsExportPanel').hidden = kind !== 'meetings';
-  element('customersExportPanel').hidden = kind !== 'customers';
-  if (kind === 'customers') loadCustomerRows();
+function loadExportScript(url) {
+  if (!exportScripts.has(url)) {
+    const loaded = loadScript(url).catch(error => {
+      document.querySelector('script[src="' + url + '"]')?.remove();
+      exportScripts.delete(url);
+      throw error;
+    });
+    exportScripts.set(url, loaded);
+  }
+  return exportScripts.get(url);
 }
 
-function invalidateMeetingExport() {
-  exportRequest++;
-  meetingExport = undefined;
-  element('meetingExportCount').textContent = 'حدد الفترة ثم اعرض النتائج.';
-  element('meetingExportPreview').replaceChildren();
-  element('meetingsExportExcelSubmitBtn').disabled = true;
+async function saveMeetingReport(rows, filename, uid) {
+  await Promise.all([
+    loadExportScript('assets/js/vendor/exceljs.min.js'),
+    loadExportScript('assets/js/meetings-workbook.js'),
+  ]);
+  if (currentUser?.uid !== uid) return;
+  const statuses = Object.fromEntries(rows.map(meeting => [
+    meeting.id, meetingStatusUpdates.get(meeting.id) || meetingStatuses[meeting.id]?.status,
+  ]));
+  await window.saveMeetingsWorkbook(rows, statuses, filename);
+}
+
+async function downloadDailyMeetings() {
+  const uid = currentUser?.uid;
+  const rows = visibleMeetings();
+  if (!uid || !rows.length || meetingLoad !== 'ready' || exportingDay) return;
+  const date = meetingDay;
+  exportingDay = true;
+  updateDailyExportButton();
+  try {
+    await saveMeetingReport(rows, 'الاجتماعات ' + date, uid);
+  } catch {
+    if (currentUser?.uid === uid) showToast('تعذّر تنزيل ملف الاجتماعات. حاول مرة أخرى.', 'error');
+  } finally {
+    exportingDay = false;
+    updateDailyExportButton();
+  }
+}
+
+async function downloadMeetingsRange(event) {
+  event.preventDefault();
+  const uid = currentUser?.uid;
+  if (!uid || exportingRange) return;
+  const from = element('meetingsExportDateFrom').value;
+  const to = element('meetingsExportDateTo').value;
+  const scope = document.querySelector('[name="meetingsExportScope"]:checked').value;
+  const count = element('meetingExportCount');
+  const btn = element('meetingsExportExcelSubmitBtn');
+  if (!from || !to || from > to) {
+    count.textContent = 'حدد تاريخ بداية وتاريخ نهاية صالحين.';
+    return;
+  }
+
+  exportingRange = true;
+  btn.disabled = true;
+  count.textContent = 'جارٍ جلب الاجتماعات للفترة المحددة…';
+  try {
+    const cursor = new Date(from.slice(0, 7) + '-01T00:00:00Z');
+    const lastMonth = to.slice(0, 7);
+    const events = new Map();
+    while (cursor.toISOString().slice(0, 7) <= lastMonth) {
+      const batch = [];
+      for (let i = 0; i < 4 && cursor.toISOString().slice(0, 7) <= lastMonth; i++) {
+        batch.push(getCalendarMeetings({ month: cursor.toISOString().slice(0, 7) }));
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      }
+      const lists = await Promise.all(batch);
+      if (currentUser?.uid !== uid) return;
+      for (const list of lists) {
+        for (const meeting of list) {
+          const date = eventDay(meeting);
+          if (date >= from && date <= to && (scope === 'all' || matchesCurrentUser(meeting))) {
+            events.set(meeting.id, meeting);
+          }
+        }
+      }
+    }
+    if (!events.size) {
+      count.textContent = 'لا توجد اجتماعات تطابق الفترة والنطاق.';
+      return;
+    }
+    count.textContent = 'جارٍ تجهيز ' + workspaceNumber.format(events.size) + ' اجتماع…';
+    await saveMeetingReport([...events.values()], 'الاجتماعات ' + from + ' إلى ' + to, uid);
+    if (currentUser?.uid === uid) count.textContent = 'عدد الاجتماعات: ' + workspaceNumber.format(events.size);
+  } catch {
+    if (currentUser?.uid === uid) count.textContent = 'تعذّر تنزيل ملف الاجتماعات. حاول مرة أخرى.';
+  } finally {
+    exportingRange = false;
+    btn.disabled = false;
+  }
 }
 
 function renderExportPreview(id, columns, rows) {
@@ -356,60 +447,6 @@ function renderExportPreview(id, columns, rows) {
     }
   }
   target.append(table);
-}
-
-const meetingColumns = [
-  { label: 'التاريخ', width: 16, value: eventDay },
-  { label: 'عنوان الاجتماع', width: 56, value: meeting => meeting.summary },
-  { label: 'الفريق المسؤول', width: 20, value: meeting => meeting.salesRep || '' },
-  { label: 'الوقت', width: 17, value: meetingTime },
-  { label: 'نوع الاجتماع', width: 18, value: meeting => meeting.meetingType },
-  { label: 'الحالة', width: 14, value: meeting => meetingStatusLabels[getMeetingStatus(meeting.id)] },
-  { label: 'رابط الاجتماع', width: 45, value: meeting => meetUrl(meeting.meetLink), link: true },
-];
-
-async function previewMeetingExport(event) {
-  event.preventDefault();
-  const from = element('meetingsExportDateFrom').value;
-  const to = element('meetingsExportDateTo').value;
-  const scope = document.querySelector('[name="meetingsExportScope"]:checked').value;
-  invalidateMeetingExport();
-  const request = exportRequest;
-  const count = element('meetingExportCount');
-  if (from > to) {
-    count.textContent = 'يجب أن يكون تاريخ البداية قبل تاريخ النهاية أو في اليوم نفسه.';
-    return;
-  }
-
-  count.textContent = 'جارٍ جلب الاجتماعات للفترة المحددة…';
-  try {
-    const cursor = new Date(from.slice(0, 7) + '-01T00:00:00Z');
-    const lastMonth = to.slice(0, 7);
-    const events = new Map();
-    while (cursor.toISOString().slice(0, 7) <= lastMonth) {
-      const batch = [];
-      for (let i = 0; i < 4 && cursor.toISOString().slice(0, 7) <= lastMonth; i++) {
-        batch.push(getCalendarMeetings({ month: cursor.toISOString().slice(0, 7) }));
-        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-      }
-      for (const list of await Promise.all(batch)) {
-        if (request !== exportRequest) return;
-        for (const meeting of list) {
-          const date = eventDay(meeting);
-          if (date >= from && date <= to && (scope === 'all' || matchesCurrentUser(meeting))) {
-            events.set(meeting.id, meeting);
-          }
-        }
-      }
-    }
-    const rows = [...events.values()].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
-    meetingExport = { rows, from, to };
-    count.textContent = rows.length ? 'عدد الاجتماعات: ' + workspaceNumber.format(rows.length) : 'لا توجد اجتماعات تطابق الفترة والنطاق.';
-    renderExportPreview('meetingExportPreview', meetingColumns.slice(0, 5), rows);
-    element('meetingsExportExcelSubmitBtn').disabled = !rows.length;
-  } catch {
-    if (request === exportRequest) count.textContent = 'تعذّر جلب جميع الاجتماعات. أعد المحاولة قبل التنزيل.';
-  }
 }
 
 function setCustomerExportDays(days) {
@@ -509,7 +546,10 @@ function renderCustomerExport() {
 }
 
 function appendExportSheet(book, name, columns, rows) {
-  const data = [columns.map(column => column.label), ...rows.map(row => columns.map(column => column.value(row)))];
+  const data = [columns.map(column => column.label), ...rows.map(row => columns.map(column => {
+    const value = column.value(row);
+    return typeof value === 'string' ? englishDigits(value) : value;
+  }))];
   const sheet = XLSX.utils.aoa_to_sheet(data);
   sheet['!cols'] = columns.map(column => ({ wch: column.width }));
   sheet['!rows'] = [{ hpt: 28 }];
@@ -526,37 +566,23 @@ function appendExportSheet(book, name, columns, rows) {
   XLSX.utils.book_append_sheet(book, sheet, name);
 }
 
-async function downloadExport(kind) {
-  const meetings = kind === 'meetings';
-  const selection = meetings ? meetingExport : customerExport;
-  if (!selection?.rows.length) return;
-  const btn = element(meetings ? 'meetingsExportExcelSubmitBtn' : 'exportExcelBtn');
+async function downloadCustomerExport() {
+  const selection = customerExport;
   const uid = currentUser?.uid;
+  if (!uid || !selection?.rows.length) return;
+  const btn = element('exportExcelBtn');
   btn.disabled = true;
   try {
-    spreadsheetLibrary ??= loadScript('assets/js/vendor/xlsx-js-style.js').catch(error => {
-      document.querySelector('script[src="assets/js/vendor/xlsx-js-style.js"]')?.remove();
-      spreadsheetLibrary = undefined;
-      throw error;
-    });
-    await spreadsheetLibrary;
-    if (currentUser?.uid !== uid || selection !== (meetings ? meetingExport : customerExport)) return;
+    await loadExportScript('assets/js/vendor/xlsx-js-style.js');
+    if (currentUser?.uid !== uid || selection !== customerExport) return;
     const book = XLSX.utils.book_new();
     book.Workbook = { Views: [{ RTL: true }] };
-    let filename;
-    if (meetings) {
-      const months = Map.groupBy(selection.rows, meeting => eventDay(meeting).slice(0, 7));
-      for (const [month, rows] of months) appendExportSheet(book, month, meetingColumns, rows);
-      filename = 'الاجتماعات ' + selection.from + ' إلى ' + selection.to;
-    } else {
-      appendExportSheet(book, 'العملاء', selection.columns, selection.rows);
-      filename = 'العملاء ' + calendarDayFormat.format(new Date());
-    }
-    XLSX.writeFile(book, filename + '.xlsx');
+    appendExportSheet(book, 'العملاء', selection.columns, selection.rows);
+    XLSX.writeFile(book, 'العملاء ' + calendarDayFormat.format(new Date()) + '.xlsx');
   } catch {
     showToast('تعذّر تنزيل ملف إكسل. حاول مرة أخرى.', 'error');
   } finally {
-    btn.disabled = !(meetings ? meetingExport : customerExport)?.rows.length;
+    btn.disabled = !customerExport?.rows.length;
   }
 }
 
@@ -564,21 +590,17 @@ window.addEventListener('hashchange', showWorkspaceFromLocation);
 document.querySelectorAll('[data-meetings-scope]').forEach(button => {
   button.addEventListener('click', () => selectMeetingScope(button.dataset.meetingsScope));
 });
-document.querySelectorAll('[data-export-kind]').forEach(button => {
-  button.addEventListener('click', () => selectExportKind(button.dataset.exportKind));
-});
 element('meetingsDatePicker').addEventListener('change', event => {
   if (!event.target.value) return;
   meetingDay = event.target.value;
   fetchMeetingsForDay();
 });
-element('meetingsExportForm').addEventListener('submit', previewMeetingExport);
-element('meetingsExportForm').addEventListener('change', invalidateMeetingExport);
+element('meetingsExportForm').addEventListener('submit', downloadMeetingsRange);
 element('customersExportForm').addEventListener('submit', event => event.preventDefault());
 element('customersExportForm').addEventListener('change', renderCustomerExport);
-element('meetingsExportExcelSubmitBtn').addEventListener('click', () => downloadExport('meetings'));
-element('exportExcelBtn').addEventListener('click', () => downloadExport('customers'));
-setMeetingsExportShortcut('month');
+element('downloadDailyMeetingsBtn').addEventListener('click', downloadDailyMeetings);
+element('exportExcelBtn').addEventListener('click', downloadCustomerExport);
+setMeetingsExportShortcut('today');
 setInterval(() => {
   if (activeWorkspace === 'meetings' && meetingLoad === 'ready' && !document.hidden) {
     fetchMeetingsForDay({ background: true });

@@ -2242,6 +2242,7 @@ function formatArabicDate(timestamp) {
   if (!timestamp) return '-';
   const date = new Date(timestamp);
   return date.toLocaleString('ar-EG', {
+    numberingSystem: 'latn',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

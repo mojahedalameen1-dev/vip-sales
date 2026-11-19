@@ -8,6 +8,10 @@ export default defineConfig(async () => {
   await cp(new URL('./assets/', import.meta.url), new URL('assets/', publicDir), {
     recursive: true,
   });
+  await cp(
+    new URL('./node_modules/exceljs/dist/exceljs.min.js', import.meta.url),
+    new URL('assets/js/vendor/exceljs.min.js', publicDir),
+  );
 
   return {
     plugins: [cloudflare()],

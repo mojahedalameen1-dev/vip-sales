@@ -117,8 +117,20 @@ function calendarBounds(date, month) {
   ];
 }
 
+function meetingTicketUrl(event, title) {
+  const explicitLink = String(event.description || '').match(/https:\/\/e\.aait\.sa\/(?:odoo\/crm\/\d+|web#id=\d+(?:&(?:amp;)?[\w_]+=[\w.]+)*)\b/i)?.[0];
+  if (explicitLink) return explicitLink.replace(/&amp;/g, '&');
+  const reference = /\bAA(\d+)\b/i.exec(title)?.[1];
+  return reference ? 'https://e.aait.sa/web#id=' + reference + '&model=crm.lead&view_type=form' : '';
+}
+
 function toMeeting(event) {
-  const summary = String(event.summary || '')
+  const reportTitle = String(event.summary || '')
+    .replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) & 15))
+    .replace(/\b(?:SLK-?|CS)\d+\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim() || 'اجتماع';
+  const summary = reportTitle
     .replace(/\b(?:AA|SLK-?|CS)\d+\b/gi, '')
     .replace(/\(\s*\)|\[\s*\]/g, '')
     .replace(/^[\s:—_-]+|[\s:—_-]+$/g, '')
@@ -130,6 +142,8 @@ function toMeeting(event) {
   return {
     id: event.id,
     summary,
+    reportTitle,
+    ticketUrl: meetingTicketUrl(event, reportTitle),
     startTime: event.start?.dateTime || event.start?.date || '',
     endTime: event.end?.dateTime || event.end?.date || '',
     allDay: Boolean(event.start?.date),

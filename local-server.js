@@ -33,7 +33,10 @@ const serverHandler = async (req, res) => {
   }
 
   // Static File Serving
-  let filePath = path.join(import.meta.dirname, pathname === '/' ? 'index.html' : pathname);
+  const assetPath = pathname === '/assets/js/vendor/exceljs.min.js'
+    ? 'node_modules/exceljs/dist/exceljs.min.js'
+    : pathname === '/' ? 'index.html' : pathname;
+  const filePath = path.join(import.meta.dirname, assetPath);
   const extname = path.extname(filePath);
   let contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
