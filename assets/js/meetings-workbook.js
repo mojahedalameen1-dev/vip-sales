@@ -2,34 +2,22 @@ const meetingSheetDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyad
 const meetingSheetMonth = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
   month: 'long', year: 'numeric', timeZone: 'UTC',
 });
-const meetingSheetClock = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'Asia/Riyadh', hour: 'numeric', minute: '2-digit', hour12: true,
-});
 const meetingHeaders = [
   'a', 'مختصر فكرة المشروع', 'الفريق المسؤول', 'الساعة',
   'من خلال', 'حالة الاجتماع', 'رابط التذكرة', 'رابط الاجتماع',
 ];
 const meetingColumnWidths = [8, 86, 15, 14, 15, 15, 67, 38];
-const meetingChoices = {
-  C: { 'حسام': ['B50909', 'FFFFFF'], 'أشرف': ['542D80', 'FFFFFF'],
-    'شادي': ['FFB800', '1B1B1B'], 'مجاهد': ['0B5395', 'FFFFFF'] },
-  E: { 'عن بعد': ['E8EAED', '191919'], 'حضوري': ['151515', 'FFFFFF'] },
-  F: { 'تم': ['126D52', 'FFFFFF'], 'لم يتم': ['B50909', 'FFFFFF'],
-    'ملغي': ['151515', 'FFFFFF'] },
+const workbookMeetingChoices = {
+  C: meetingSheetTeamChoices,
+  E: meetingSheetChannelChoices,
+  F: meetingSheetStatusChoices,
 };
-const reportStatusLabel = { done: 'تم', pending: 'لم يتم', postponed: 'ملغي', canceled: 'ملغي' };
 const meetingCellBorder = Object.fromEntries(['top', 'bottom', 'left', 'right'].map(side => [
   side, { style: 'thin', color: { argb: 'FF252525' } },
 ]));
 
 function meetingSheetDate(meeting) {
   return meeting.allDay ? meeting.startTime : meetingSheetDay.format(new Date(meeting.startTime));
-}
-
-function meetingSheetTime(meeting) {
-  if (meeting.allDay) return 'طوال اليوم';
-  const parts = meetingSheetClock.formatToParts(new Date(meeting.startTime));
-  return parts.filter(part => ['hour', 'literal', 'minute'].includes(part.type)).map(part => part.value).join('').trim();
 }
 
 function paintMeetingCell(cell, background, foreground = '121212', bold = true) {
@@ -47,9 +35,8 @@ function styleMeetingRow(row, background, foreground) {
 }
 
 function addMeetingChoices(sheet, first, last) {
-  for (const [column, options] of Object.entries(meetingChoices)) {
+  for (const [column, choices] of Object.entries(workbookMeetingChoices)) {
     const range = column + first + ':' + column + last;
-    const choices = Object.keys(options);
     sheet.dataValidations.add(range, {
       type: 'list',
       allowBlank: true,
@@ -58,35 +45,7 @@ function addMeetingChoices(sheet, first, last) {
       error: 'اختر قيمة من القائمة.',
       formulae: ['"' + choices.join(',') + '"'],
     });
-    sheet.addConditionalFormatting({
-      ref: range,
-      rules: choices.map(value => {
-        const [background, foreground] = options[value];
-        return {
-          type: 'expression',
-          formulae: [column + first + '="' + value + '"'],
-          style: {
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + background } },
-            font: { bold: true, color: { argb: 'FF' + foreground } },
-          },
-        };
-      }),
-    });
   }
-}
-
-function safeMeetingSheetLink(value, hostname) {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname === hostname && !url.username && !url.password ? url.href : '';
-  } catch {
-    return '';
-  }
-}
-
-function meetingSheetTitle(meeting) {
-  return String(meeting.reportTitle || meeting.summary || 'اجتماع')
-    .replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) & 15));
 }
 
 function addDayToMeetingSheet(sheet, date, meetings, statuses) {
@@ -98,21 +57,11 @@ function addDayToMeetingSheet(sheet, date, meetings, statuses) {
 
   const first = header.number + 1;
   meetings.forEach((meeting, index) => {
-    const team = (meeting.salesRep || '').replace(/^م\.\s*/, '');
-    const channel = ['حضوري', 'خارجي'].includes(meeting.meetingType) ? 'حضوري' : 'عن بعد';
-    const status = reportStatusLabel[statuses[meeting.id]] || '';
-    const row = sheet.addRow([
-      index + 1, meetingSheetTitle(meeting), team, meetingSheetTime(meeting), channel, status,
-      safeMeetingSheetLink(meeting.ticketUrl, 'e.aait.sa'),
-      safeMeetingSheetLink(meeting.meetLink, 'meet.google.com'),
-    ]);
+    const row = sheet.addRow(meetingSheetRow(meeting, index + 1, statuses[meeting.id]));
     row.height = row.getCell(2).value.length > 85 ? 33 : 24;
     styleMeetingRow(row, index % 2 ? 'FFFFFF' : 'E9F0F4');
-    for (const [column, options] of Object.entries(meetingChoices)) {
-      const cell = row.getCell(column);
-      const colors = options[cell.value];
-      if (colors) paintMeetingCell(cell, ...colors);
-      else if (!cell.value) paintMeetingCell(cell, 'E8EAED');
+    for (const column of Object.keys(workbookMeetingChoices)) {
+      row.getCell(column).fill = undefined;
     }
     for (const column of ['G', 'H']) {
       const cell = row.getCell(column);

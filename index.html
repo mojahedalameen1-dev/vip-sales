@@ -3073,6 +3073,9 @@
               <span id="dailyExportLabel">تصدير كل اجتماعات اليوم</span>
               <span class="agenda-export-count" id="dailyExportCount" aria-hidden="true" hidden></span>
             </button>
+            <button type="button" class="workspace-button agenda-configure" id="copyDailyMeetingsBtn" title="نسخ كل اجتماعات اليوم مع إبقاء تنسيق الشيت عند اللصق" disabled>
+              <i data-lucide="copy" aria-hidden="true"></i> نسخ للشيت
+            </button>
             <button type="button" class="workspace-button agenda-configure" id="customMeetingExportBtn" aria-haspopup="dialog">
               <i data-lucide="sliders-horizontal" aria-hidden="true"></i> تخصيص التصدير
             </button>
@@ -3186,9 +3189,14 @@
                 <p id="meetingExportCount" role="status"></p>
                 <button type="button" class="agenda-text-button" id="previewMeetingExportBtn" hidden>حساب الاجتماعات</button>
               </div>
-              <button type="submit" class="agenda-primary" id="meetingsExportExcelSubmitBtn" disabled>
-                <i data-lucide="file-spreadsheet" aria-hidden="true"></i> تنزيل إكسل
-              </button>
+              <div class="agenda-dialog-actions">
+                <button type="button" class="workspace-button" id="copyFilteredMeetingsBtn" title="نسخ القيم دون تنسيق" disabled>
+                  <i data-lucide="copy" aria-hidden="true"></i> نسخ للشيت
+                </button>
+                <button type="submit" class="agenda-primary" id="meetingsExportExcelSubmitBtn" disabled>
+                  <i data-lucide="file-spreadsheet" aria-hidden="true"></i> تنزيل إكسل
+                </button>
+              </div>
             </div>
           </form>
         </dialog>
@@ -3544,6 +3552,7 @@
       <i data-lucide="download"></i><span>التصدير</span>
     </a>
   </nav>
+  <script defer src="assets/js/meeting-sheet-values.js"></script>
   <script defer src="assets/js/sales-workspace.js"></script>
 </body>
 </html>

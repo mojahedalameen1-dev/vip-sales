@@ -766,6 +766,14 @@
 .agenda-dialog-footer {
   border-top: 1px solid var(--workspace-border);
   background: var(--agenda-muted);
+  flex-wrap: wrap;
+}
+
+.agenda-dialog-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-inline-start: auto;
 }
 
 .agenda-export-feedback {

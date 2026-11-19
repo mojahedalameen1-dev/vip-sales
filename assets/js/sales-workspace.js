@@ -295,6 +295,9 @@ function updateDailyExportButton() {
   count.hidden = !ready;
   count.textContent = ready ? workspaceNumber.format(total) : '';
   button.disabled = exportingDay || !ready || total === 0;
+  const copy = element('copyDailyMeetingsBtn');
+  copy.disabled = !ready || total === 0;
+  copy.setAttribute('aria-label', ready ? 'نسخ كل اجتماعات اليوم المحدد للشيت، عدد الاجتماعات ' + total : 'نسخ للشيت');
   button.setAttribute('aria-busy', String(exportingDay));
   const label = element('dailyExportLabel').textContent;
   button.setAttribute('aria-label', ready ? label + '، عدد الاجتماعات ' + total : label);
@@ -450,9 +453,12 @@ function updateMeetingExportPreview() {
   const count = rows ? filterMeetingExport(rows, filters).length : null;
   const preview = element('previewMeetingExportBtn');
   const download = element('meetingsExportExcelSubmitBtn');
+  const copy = element('copyFilteredMeetingsBtn');
   preview.hidden = !filters.valid || count !== null;
   preview.disabled = exportingRange || countingExport;
   download.disabled = !filters.valid || count === 0 || exportingRange || countingExport;
+  copy.hidden = filters.from !== filters.to;
+  copy.disabled = !filters.valid || !count || exportingRange || countingExport;
   download.setAttribute('aria-busy', String(exportingRange));
   const feedback = element('meetingExportCount');
   if (exportingRange || countingExport) feedback.textContent = exportingRange ? 'جارٍ تجهيز ملف إكسل…' : 'جارٍ حساب الاجتماعات…';
@@ -536,11 +542,42 @@ async function saveMeetingReport(rows, filename, uid) {
     loadExportScript('assets/js/meetings-workbook.js'),
   ]);
   if (currentUser?.uid !== uid) return false;
-  const statuses = Object.fromEntries(rows.map(meeting => [
-    meeting.id, getMeetingStatus(meeting.id),
-  ]));
-  await window.saveMeetingsWorkbook(rows, statuses, filename);
+  await window.saveMeetingsWorkbook(rows, reportMeetingStatuses(rows), filename);
   return true;
+}
+
+function reportMeetingStatuses(rows) {
+  return Object.fromEntries(rows.map(meeting => [
+    meeting.id, meetingStatusUpdates.get(meeting.id) || meetingStatuses[meeting.id]?.status,
+  ]));
+}
+
+async function copyMeetingRowsToSheet(rows, dialog) {
+  if (!currentUser || !rows.length) return;
+  try {
+    // Send text/plain only so the destination keeps its own formats and validation.
+    await navigator.clipboard.writeText(meetingSheetClipboard(rows, reportMeetingStatuses(rows)));
+    if (dialog?.open) dialog.close();
+    showToast('نُسخت الاجتماعات (' + workspaceNumber.format(rows.length) +
+      '). الصقها في أول خلية من العمود A تحت التاريخ في الشيت.', 'success', 7000);
+  } catch {
+    const message = 'تعذّر النسخ إلى الحافظة. أعد المحاولة من المتصفح.';
+    if (dialog?.open) element('meetingExportCount').textContent = message;
+    else showToast(message, 'error');
+  }
+}
+
+function copyDailyMeetings() {
+  if (meetingLoad !== 'ready') return;
+  return copyMeetingRowsToSheet(dailyMeetings);
+}
+
+function copyFilteredMeetings() {
+  const filters = readMeetingExportFilters();
+  if (!filters.valid || filters.from !== filters.to) return;
+  const rows = cachedMeetingExportRows(filters);
+  if (!rows) return;
+  return copyMeetingRowsToSheet(filterMeetingExport(rows, filters), element('meetingExportDialog'));
 }
 
 async function downloadDailyMeetings() {
@@ -763,12 +800,14 @@ element('meetingsExportForm').addEventListener('change', updateMeetingExportPrev
 element('customMeetingExportBtn').addEventListener('click', openMeetingExport);
 element('closeMeetingExportBtn').addEventListener('click', () => element('meetingExportDialog').close());
 element('previewMeetingExportBtn').addEventListener('click', previewMeetingExport);
+element('copyFilteredMeetingsBtn').addEventListener('click', copyFilteredMeetings);
 element('meetingSearch').addEventListener('input', () => {
   if (meetingLoad === 'ready') renderMeetings();
 });
 element('customersExportForm').addEventListener('submit', event => event.preventDefault());
 element('customersExportForm').addEventListener('change', renderCustomerExport);
 element('downloadDailyMeetingsBtn').addEventListener('click', downloadDailyMeetings);
+element('copyDailyMeetingsBtn').addEventListener('click', copyDailyMeetings);
 element('exportExcelBtn').addEventListener('click', downloadCustomerExport);
 setInterval(() => {
   if (activeWorkspace === 'meetings' && meetingLoad === 'ready' && !document.hidden) {
