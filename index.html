@@ -3058,70 +3058,140 @@
       </header>
 
 
-      <section id="meetingsView" class="content-container sales-workspace" aria-labelledby="meetingsDayTitle" hidden>
-        <div class="workspace-heading">
-          <div>
-            <h1 id="meetingsDayTitle">اجتماعات اليوم</h1>
-            <p id="meetingsDaySub"></p>
+      <section id="meetingsView" class="content-container sales-workspace meetings-workspace" aria-labelledby="meetingsDayTitle" hidden>
+        <div class="agenda-hero">
+          <div class="agenda-hero-title">
+            <span class="agenda-hero-icon"><i data-lucide="calendar-days" aria-hidden="true"></i></span>
+            <div>
+              <h1 id="meetingsDayTitle">اجتماعات اليوم</h1>
+              <p id="meetingsDaySub"></p>
+            </div>
           </div>
-          <button type="button" class="btn-primary" id="downloadDailyMeetingsBtn" disabled>
-            <i data-lucide="file-spreadsheet"></i> تصدير الاجتماعات
+          <div class="agenda-export">
+            <button type="button" class="agenda-primary" id="downloadDailyMeetingsBtn" disabled>
+              <i data-lucide="file-spreadsheet" aria-hidden="true"></i>
+              <span id="dailyExportLabel">تصدير كل اجتماعات اليوم</span>
+              <span class="agenda-export-count" id="dailyExportCount" aria-hidden="true" hidden></span>
+            </button>
+            <button type="button" class="workspace-button agenda-configure" id="customMeetingExportBtn" aria-haspopup="dialog">
+              <i data-lucide="sliders-horizontal" aria-hidden="true"></i> تخصيص التصدير
+            </button>
+          </div>
+        </div>
+
+        <div class="agenda-calendar workspace-panel">
+          <div class="workspace-date-nav" role="group" aria-label="تاريخ جدول الاجتماعات">
+            <div class="workspace-switch agenda-day-shortcuts">
+              <button type="button" id="meetingsTodayBtn" aria-pressed="true" onclick="selectMeetingDay(0)">اليوم</button>
+              <button type="button" id="meetingsTomorrowBtn" aria-pressed="false" onclick="selectMeetingDay(1)">غدًا</button>
+            </div>
+            <div class="agenda-date-controls">
+              <button type="button" class="workspace-button agenda-icon-button" onclick="navigateMeetingsDay(-1)" aria-label="اليوم السابق" title="اليوم السابق">
+                <i data-lucide="chevron-right" aria-hidden="true"></i>
+              </button>
+              <input type="date" lang="en-GB" dir="ltr" class="input-field" id="meetingsDatePicker" aria-label="اختر يوم الاجتماعات">
+              <button type="button" class="workspace-button agenda-icon-button" onclick="navigateMeetingsDay(1)" aria-label="اليوم التالي" title="اليوم التالي">
+                <i data-lucide="chevron-left" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <button type="button" class="workspace-button agenda-icon-button" id="meetingsRefreshBtn" onclick="fetchMeetingsForDay()" aria-label="تحديث الاجتماعات" title="تحديث الاجتماعات">
+            <i data-lucide="refresh-cw" aria-hidden="true"></i>
           </button>
         </div>
 
-        <div class="workspace-toolbar">
-          <div class="workspace-switch" role="group" aria-label="نطاق الاجتماعات">
-            <button type="button" data-meetings-scope="mine" aria-pressed="true">اجتماعاتي</button>
-            <button type="button" data-meetings-scope="all" aria-pressed="false">كل الاجتماعات</button>
-          </div>
-          <div class="workspace-date-nav" role="group" aria-label="تاريخ الاجتماعات">
-            <button type="button" class="workspace-button" onclick="navigateMeetingsDay(-1)" aria-label="اليوم السابق" title="اليوم السابق">
-              <i data-lucide="chevron-right"></i>
-            </button>
-            <button type="button" class="workspace-button" id="meetingsTodayBtn" aria-pressed="true" onclick="selectMeetingDay(0)">اليوم</button>
-            <button type="button" class="workspace-button" id="meetingsTomorrowBtn" aria-pressed="false" onclick="selectMeetingDay(1)">غدًا</button>
-            <input type="date" lang="en-GB" dir="ltr" class="input-field" id="meetingsDatePicker" aria-label="اختر يوم الاجتماعات">
-            <button type="button" class="workspace-button" onclick="navigateMeetingsDay(1)" aria-label="اليوم التالي" title="اليوم التالي">
-              <i data-lucide="chevron-left"></i>
-            </button>
-            <button type="button" class="workspace-button" id="meetingsRefreshBtn" onclick="fetchMeetingsForDay()" aria-label="تحديث الاجتماعات" title="تحديث الاجتماعات">
-              <i data-lucide="refresh-cw"></i>
-            </button>
-          </div>
-        </div>
+        <dl class="agenda-metrics" aria-label="إحصاءات اليوم المحدد">
+          <div class="agenda-metric agenda-metric-total"><dt>إجمالي اليوم</dt><dd id="agendaTotalCount">—</dd><i data-lucide="calendar" aria-hidden="true"></i></div>
+          <div class="agenda-metric"><dt>عن بعد</dt><dd id="agendaRemoteCount">—</dd><i data-lucide="video" aria-hidden="true"></i></div>
+          <div class="agenda-metric"><dt>حضوري</dt><dd id="agendaInPersonCount">—</dd><i data-lucide="map-pin" aria-hidden="true"></i></div>
+          <div class="agenda-metric agenda-metric-completed"><dt>مكتملة</dt><dd id="agendaCompletedCount">—</dd><i data-lucide="circle-check" aria-hidden="true"></i></div>
+        </dl>
 
-        <div id="meetingsAgenda" class="workspace-panel" aria-busy="false">
-          <p class="workspace-panel-heading" id="meetingsProgressLabel" role="status">جارٍ جلب الاجتماعات…</p>
-          <div id="meetingsTableContainer"></div>
-        </div>
-        <details class="workspace-panel workspace-range-export">
-          <summary>تصدير اجتماعات فترة محددة</summary>
-          <form id="meetingsExportForm" class="workspace-export-form">
-            <div class="workspace-date-fields">
-              <label>من تاريخ <input type="date" lang="en-GB" dir="ltr" id="meetingsExportDateFrom" class="input-field" required></label>
-              <label>إلى تاريخ <input type="date" lang="en-GB" dir="ltr" id="meetingsExportDateTo" class="input-field" required></label>
+        <section id="meetingsAgenda" class="workspace-panel agenda-panel" aria-labelledby="meetingsAgendaTitle">
+          <div class="agenda-panel-toolbar">
+            <div>
+              <h2 id="meetingsAgendaTitle">جدول المواعيد</h2>
+              <p id="meetingsProgressLabel" role="status">جارٍ جلب الاجتماعات…</p>
             </div>
-            <div class="workspace-options" aria-label="فترات سريعة">
-              <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('today')">اليوم</button>
-              <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('tomorrow')">غدًا</button>
-              <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('week')">هذا الأسبوع</button>
-              <button type="button" class="workspace-button" onclick="setMeetingsExportShortcut('month')">هذا الشهر</button>
-            </div>
-            <fieldset>
-              <legend>نطاق التصدير</legend>
-              <div class="workspace-options">
-                <label><input type="radio" name="meetingsExportScope" value="mine" checked> اجتماعاتي فقط</label>
-                <label><input type="radio" name="meetingsExportScope" value="all"> كل الاجتماعات</label>
+            <div class="agenda-list-filters">
+              <label class="agenda-search">
+                <i data-lucide="search" aria-hidden="true"></i>
+                <input type="search" class="input-field" id="meetingSearch" aria-label="ابحث في الاجتماعات" placeholder="ابحث بعنوان الاجتماع أو المسؤول">
+              </label>
+              <div class="workspace-switch" role="group" aria-label="نطاق عرض الاجتماعات">
+                <button type="button" data-meetings-scope="mine" aria-pressed="true">اجتماعاتي</button>
+                <button type="button" data-meetings-scope="all" aria-pressed="false">كل الاجتماعات</button>
               </div>
-            </fieldset>
-            <div class="workspace-export-actions">
-              <button type="submit" class="btn-primary" id="meetingsExportExcelSubmitBtn">
-                <i data-lucide="file-spreadsheet"></i> تنزيل إكسل
+            </div>
+          </div>
+          <div class="agenda-column-labels" aria-hidden="true">
+            <span>الرقم</span><span>الوقت</span><span>الاجتماع والمسؤول</span><span>الحالة والإجراء</span>
+          </div>
+          <div id="meetingsTableContainer" aria-busy="false"></div>
+        </section>
+
+        <dialog id="meetingExportDialog" class="agenda-dialog" aria-labelledby="meetingExportTitle" aria-describedby="meetingExportDescription">
+          <div class="agenda-dialog-header">
+            <div>
+              <h2 id="meetingExportTitle">تخصيص تصدير الاجتماعات</h2>
+              <p id="meetingExportDescription">اختر اليوم والاجتماعات التي تريدها في ملف إكسل.</p>
+            </div>
+            <button type="button" class="workspace-button agenda-icon-button" id="closeMeetingExportBtn" aria-label="إغلاق التخصيص">
+              <i data-lucide="x" aria-hidden="true"></i>
+            </button>
+          </div>
+          <form id="meetingsExportForm" class="agenda-export-form">
+            <div class="agenda-export-fields">
+              <label>المدة
+                <select class="input-field" id="meetingExportPeriod">
+                  <option value="day">يوم واحد</option>
+                  <option value="range">فترة محددة</option>
+                </select>
+              </label>
+              <label><span id="meetingExportDateLabel">التاريخ</span>
+                <input type="date" lang="en-GB" dir="ltr" id="meetingsExportDateFrom" class="input-field" required>
+              </label>
+              <label id="meetingExportEndField" hidden>إلى تاريخ
+                <input type="date" lang="en-GB" dir="ltr" id="meetingsExportDateTo" class="input-field" required disabled>
+              </label>
+              <label>الفريق المسؤول
+                <select class="input-field" id="meetingExportScope">
+                  <option value="all">جميع المسؤولين</option>
+                  <option value="mine">اجتماعاتي فقط</option>
+                  <option value="م.مجاهد">مجاهد</option>
+                  <option value="م.أشرف">أشرف</option>
+                  <option value="م.شادي">شادي</option>
+                  <option value="م.حسام">حسام</option>
+                  <option value="unassigned">بدون مسؤول</option>
+                </select>
+              </label>
+              <label>نوع الاجتماع
+                <select class="input-field" id="meetingExportType">
+                  <option value="all">كل الأنواع</option>
+                  <option value="remote">عن بعد</option>
+                  <option value="in-person">حضوري</option>
+                </select>
+              </label>
+              <label>الحالة
+                <select class="input-field" id="meetingExportStatus">
+                  <option value="all">كل الحالات</option>
+                  <option value="pending">مجدول</option>
+                  <option value="done">مكتمل</option>
+                  <option value="postponed">ملغي</option>
+                </select>
+              </label>
+            </div>
+            <div class="agenda-dialog-footer">
+              <div class="agenda-export-feedback">
+                <p id="meetingExportCount" role="status"></p>
+                <button type="button" class="agenda-text-button" id="previewMeetingExportBtn" hidden>حساب الاجتماعات</button>
+              </div>
+              <button type="submit" class="agenda-primary" id="meetingsExportExcelSubmitBtn" disabled>
+                <i data-lucide="file-spreadsheet" aria-hidden="true"></i> تنزيل إكسل
               </button>
-              <p id="meetingExportCount" role="status"></p>
             </div>
           </form>
-        </details>
+        </dialog>
       </section>
       <!-- Electronic Signature View -->
       <div id="esignView" class="content-container" style="display: none; overflow-y: auto;">

@@ -25,6 +25,8 @@ let meetingStatusesRef;
 let meetingStatusUpdates = new Map();
 let exportingDay = false;
 let exportingRange = false;
+let countingExport = false;
+let exportDateCache;
 let customerExport;
 let customerLoad;
 let customerRows;
@@ -112,6 +114,7 @@ function showWorkspaceFromLocation() {
     if (selected) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
+  if (tab !== 'meetings' && element('meetingExportDialog').open) element('meetingExportDialog').close();
   if (tab === 'meetings') fetchMeetingsForDay();
   if (tab === 'esign') openElectronicSignature();
   if (tab === 'export') loadCustomerRows();
@@ -138,7 +141,12 @@ function stopWorkspace() {
   customerLoad = undefined;
   customerExport = undefined;
   meetingRequest++;
+  meetingLoad = 'loading';
+  exportDateCache = undefined;
+  if (element('meetingExportDialog').open) element('meetingExportDialog').close();
+  element('meetingSearch').value = '';
   element('meetingExportCount').textContent = '';
+  updateAgendaMetrics();
   updateDailyExportButton();
   element('customerExportPreview').replaceChildren();
   element('customerExportCount').textContent = '';
@@ -168,20 +176,28 @@ async function fetchMeetingsForDay({ background = false } = {}) {
   element('meetingsDayTitle').textContent = day === today ? 'اجتماعات اليوم'
     : day === tomorrow ? 'اجتماعات الغد' : 'جدول الاجتماعات';
   element('meetingsDaySub').textContent = calendarLabelFormat.format(date);
+  element('dailyExportLabel').textContent = day === today ? 'تصدير كل اجتماعات اليوم'
+    : day === tomorrow ? 'تصدير كل اجتماعات الغد' : 'تصدير كل اجتماعات اليوم المحدد';
   element('meetingsRefreshBtn').disabled = true;
 
   if (!background) {
     meetingLoad = 'loading';
+    dailyMeetings = [];
     updateDailyExportButton();
-    element('meetingsAgenda').setAttribute('aria-busy', 'true');
+    updateAgendaMetrics();
+    const table = element('meetingsTableContainer');
+    table.setAttribute('aria-busy', 'true');
     element('meetingsProgressLabel').textContent = 'جارٍ جلب الاجتماعات…';
-    element('meetingsTableContainer').replaceChildren();
+    const placeholder = textElement('div', '', 'agenda-loading');
+    placeholder.setAttribute('aria-hidden', 'true');
+    for (let index = 0; index < 3; index++) placeholder.append(textElement('span', ''));
+    table.replaceChildren(placeholder);
   }
 
   try {
     const meetings = await getCalendarMeetings({ date: day });
     if (request !== meetingRequest) return;
-    dailyMeetings = meetings;
+    dailyMeetings = availableMeetings(meetings, day);
     meetingLoad = 'ready';
     renderMeetings();
   } catch (error) {
@@ -192,20 +208,23 @@ async function fetchMeetingsForDay({ background = false } = {}) {
     const retry = textElement('button', 'إعادة المحاولة', 'workspace-button');
     retry.type = 'button';
     retry.addEventListener('click', () => fetchMeetingsForDay());
-    renderMeetingMessage(error.message, retry);
+    renderMeetingMessage(error.message, retry, 'circle-alert');
   } finally {
     if (request === meetingRequest) {
-      element('meetingsAgenda').setAttribute('aria-busy', 'false');
+      element('meetingsTableContainer').setAttribute('aria-busy', 'false');
       element('meetingsRefreshBtn').disabled = false;
     }
   }
 }
 
-function renderMeetingMessage(message, button) {
-  const empty = textElement('div', '', 'workspace-empty');
-  empty.append(textElement('p', message));
+function renderMeetingMessage(message, button, icon = 'calendar-days') {
+  const empty = textElement('div', '', 'workspace-empty agenda-empty');
+  const badge = textElement('span', '', 'agenda-empty-icon');
+  badge.append(renderedIcon(icon));
+  empty.append(badge, textElement('p', message));
   if (button) empty.append(button);
   element('meetingsTableContainer').replaceChildren(empty);
+  window.lucide?.createIcons();
 }
 
 function selectMeetingScope(scope) {
@@ -238,24 +257,80 @@ async function saveMeetingStatus(id, status) {
   }
 }
 
-function visibleMeetings() {
-  return dailyMeetings.filter(meeting => meetingScope === 'all' || matchesCurrentUser(meeting))
-    .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+function meetingChannel(meeting) {
+  return ['حضوري', 'خارجي'].includes(meeting.meetingType) ? 'in-person' : 'remote';
 }
 
-function updateDailyExportButton(meetings = visibleMeetings()) {
-  element('downloadDailyMeetingsBtn').disabled = exportingDay || meetingLoad !== 'ready' || meetings.length === 0;
+function availableMeetings(rows, from, to = from) {
+  const events = new Map();
+  for (const meeting of rows) {
+    const date = eventDay(meeting);
+    if (date >= from && date <= to) events.set(meeting.id, meeting);
+  }
+  return [...events.values()].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+}
+
+function searchableMeetingText(text) {
+  return englishDigits(text).normalize('NFD').replace(/\p{Mark}/gu, '').toLowerCase().trim();
+}
+
+function meetingDisplayTitle(summary) {
+  return summary.replace(/(?:\s*[-–—·]+\s*)+(?:[اأإ]ون\s*لا?[يى]ن|حضوري|حضورى|خارجي|عن\s+بعد)\s*$/iu, '')
+    .replace(/(?:\s*[-–—]\s*){2,}/g, ' - ').trim() || summary;
+}
+
+function visibleMeetings() {
+  const query = searchableMeetingText(element('meetingSearch').value);
+  return dailyMeetings.filter(meeting => {
+    if (meetingScope === 'mine' && !matchesCurrentUser(meeting)) return false;
+    return !query || searchableMeetingText([meeting.summary, meeting.salesRep].filter(Boolean).join(' ')).includes(query);
+  });
+}
+
+function updateDailyExportButton() {
+  const count = element('dailyExportCount');
+  const button = element('downloadDailyMeetingsBtn');
+  const ready = meetingLoad === 'ready';
+  const total = ready ? dailyMeetings.length : 0;
+  count.hidden = !ready;
+  count.textContent = ready ? workspaceNumber.format(total) : '';
+  button.disabled = exportingDay || !ready || total === 0;
+  button.setAttribute('aria-busy', String(exportingDay));
+  const label = element('dailyExportLabel').textContent;
+  button.setAttribute('aria-label', ready ? label + '، عدد الاجتماعات ' + total : label);
+}
+
+function updateAgendaMetrics() {
+  const ready = meetingLoad === 'ready';
+  const total = dailyMeetings.length;
+  const remote = dailyMeetings.filter(meeting => meetingChannel(meeting) === 'remote').length;
+  const completed = dailyMeetings.filter(meeting => getMeetingStatus(meeting.id) === 'done').length;
+  element('agendaTotalCount').textContent = ready ? workspaceNumber.format(total) : '—';
+  element('agendaRemoteCount').textContent = ready ? workspaceNumber.format(remote) : '—';
+  element('agendaInPersonCount').textContent = ready ? workspaceNumber.format(total - remote) : '—';
+  element('agendaCompletedCount').textContent = ready ? workspaceNumber.format(completed) : '—';
 }
 
 function renderMeetings() {
   const meetings = visibleMeetings();
-  updateDailyExportButton(meetings);
-  const completed = meetings.filter(meeting => getMeetingStatus(meeting.id) === 'done').length;
-  element('meetingsProgressLabel').textContent = meetings.length
-    ? workspaceNumber.format(meetings.length) + ' مواعيد · ' + workspaceNumber.format(completed) + ' مكتملة'
-    : 'المواعيد';
+  updateDailyExportButton();
+  updateAgendaMetrics();
+  if (element('meetingExportDialog').open) updateMeetingExportPreview();
+  element('meetingsProgressLabel').textContent = 'المعروض ' + workspaceNumber.format(meetings.length) +
+    ' من ' + workspaceNumber.format(dailyMeetings.length);
 
   if (!meetings.length) {
+    if (element('meetingSearch').value.trim()) {
+      const clear = textElement('button', 'مسح البحث', 'workspace-button');
+      clear.type = 'button';
+      clear.addEventListener('click', () => {
+        element('meetingSearch').value = '';
+        renderMeetings();
+        element('meetingSearch').focus();
+      });
+      renderMeetingMessage('لا توجد اجتماعات تطابق البحث.', clear, 'search');
+      return;
+    }
     let showTeam;
     if (meetingScope === 'mine' && dailyMeetings.length) {
       showTeam = textElement('button', 'عرض كل الاجتماعات', 'workspace-button');
@@ -266,39 +341,44 @@ function renderMeetings() {
     return;
   }
 
-  const list = document.createElement('ul');
+  const container = element('meetingsTableContainer');
+  const focusedStatus = container.contains(document.activeElement) ? document.activeElement.dataset.meetingId : null;
+  const list = document.createElement('ol');
   list.className = 'workspace-agenda';
-  for (const meeting of meetings) {
+  list.setAttribute('role', 'list');
+  list.setAttribute('aria-label', 'الاجتماعات مرتبة بالوقت');
+  meetings.forEach((meeting, index) => {
     const row = document.createElement('li');
     row.className = 'workspace-agenda-row';
+    const number = textElement('span', String(index + 1).padStart(2, '0'), 'agenda-row-number');
+    number.setAttribute('aria-hidden', 'true');
 
-    const title = document.createElement('div');
-    title.append(
-      textElement('strong', meeting.summary),
-      textElement('small', [meeting.salesRep, meeting.meetingType].filter(Boolean).join(' · ')),
-    );
+    const title = textElement('div', '', 'agenda-row-title');
+    const label = meetingDisplayTitle(meeting.summary);
+    const meta = textElement('div', '', 'agenda-row-meta');
+    const remote = meetingChannel(meeting) === 'remote';
+    const typeLabel = remote ? 'عن بعد' : meeting.meetingType === 'خارجي' ? 'خارجي' : 'حضوري';
+    const type = textElement('span', typeLabel, 'agenda-type');
+    type.dataset.channel = remote ? 'remote' : 'in-person';
+    type.prepend(renderedIcon(remote ? 'video' : 'map-pin'));
+    meta.append(type, textElement('span', meeting.salesRep || 'بدون مسؤول', 'agenda-owner'));
+    title.append(textElement('strong', label), meta);
+
+    const timeGroup = textElement('div', '', 'agenda-row-clock');
     const time = textElement('time', meetingTime(meeting));
     time.dateTime = meeting.startTime;
+    timeGroup.append(time);
     if (!meeting.allDay && Number.isFinite(Date.parse(meeting.endTime))) {
-      time.append(textElement('small', 'إلى ' + meetingTimeFormat.format(new Date(meeting.endTime))));
+      const end = textElement('time', 'إلى ' + meetingTimeFormat.format(new Date(meeting.endTime)), 'agenda-end-time');
+      end.dateTime = meeting.endTime;
+      timeGroup.append(end);
     }
 
-    const actions = document.createElement('div');
-    actions.className = 'workspace-meeting-actions';
-    const link = meetUrl(meeting.meetLink);
-    if (link && !['حضوري', 'خارجي'].includes(meeting.meetingType)) {
-      const join = textElement('a', 'انضمام', 'workspace-button workspace-join');
-      join.prepend(renderedIcon('video'));
-      join.href = link;
-      join.target = '_blank';
-      join.rel = 'noopener noreferrer';
-      join.setAttribute('aria-label', 'انضمام إلى ' + meeting.summary);
-      actions.append(join);
-    }
-
+    const actions = textElement('div', '', 'workspace-meeting-actions');
     const select = document.createElement('select');
     select.className = 'input-field workspace-status';
-    select.setAttribute('aria-label', 'حالة ' + meeting.summary);
+    select.dataset.meetingId = meeting.id;
+    select.setAttribute('aria-label', 'حالة ' + label);
     for (const status of ['pending', 'done', 'postponed']) {
       select.add(new Option(meetingStatusLabels[status], status));
     }
@@ -307,29 +387,135 @@ function renderMeetings() {
     select.disabled = meetingStatusUpdates.has(meeting.id);
     select.addEventListener('change', () => saveMeetingStatus(meeting.id, select.value));
     actions.append(select);
-    row.append(time, title, actions);
+
+    const link = meetUrl(meeting.meetLink);
+    if (link && remote) {
+      const join = textElement('a', 'انضمام', 'workspace-button workspace-join');
+      join.prepend(renderedIcon('video'));
+      join.href = link;
+      join.target = '_blank';
+      join.rel = 'noopener noreferrer';
+      join.setAttribute('aria-label', 'انضمام إلى ' + label);
+      actions.append(join);
+    }
+    row.append(number, timeGroup, title, actions);
     list.append(row);
+  });
+  container.replaceChildren(list);
+  if (focusedStatus) {
+    [...list.querySelectorAll('select:not(:disabled)')].find(select => select.dataset.meetingId === focusedStatus)
+      ?.focus({ preventScroll: true });
   }
-  element('meetingsTableContainer').replaceChildren(list);
   window.lucide?.createIcons();
 }
 
-function setMeetingsExportShortcut(type) {
-  const today = calendarDayFormat.format(new Date());
-  let first = today, last = today;
-  if (type === 'tomorrow') {
-    first = last = shiftDate(today, 1);
-  } else if (type === 'week') {
-    first = shiftDate(today, -new Date(today + 'T00:00:00Z').getUTCDay());
-    last = shiftDate(first, 6);
-  } else if (type === 'month') {
-    first = today.slice(0, 7) + '-01';
-    const next = new Date(first + 'T00:00:00Z');
-    next.setUTCMonth(next.getUTCMonth() + 1);
-    last = shiftDate(next.toISOString().slice(0, 10), -1);
+function readMeetingExportFilters() {
+  const from = element('meetingsExportDateFrom').value;
+  const range = element('meetingExportPeriod').value === 'range';
+  const to = range ? element('meetingsExportDateTo').value : from;
+  const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+  return {
+    from, to, range,
+    valid: isoDay.test(from) && isoDay.test(to) && from <= to,
+    scope: element('meetingExportScope').value,
+    type: element('meetingExportType').value,
+    status: element('meetingExportStatus').value,
+  };
+}
+
+function filterMeetingExport(rows, filters, mine = matchesCurrentUser, statusFor = getMeetingStatus) {
+  return rows.filter(meeting => {
+    if (filters.scope === 'mine' && !mine(meeting)) return false;
+    if (filters.scope === 'unassigned' && meeting.salesRep) return false;
+    if (!['all', 'mine', 'unassigned'].includes(filters.scope) && meeting.salesRep !== filters.scope) return false;
+    if (filters.type !== 'all' && meetingChannel(meeting) !== filters.type) return false;
+    return filters.status === 'all' || statusFor(meeting.id) === filters.status;
+  });
+}
+
+function cachedMeetingExportRows(filters) {
+  if (filters.from === meetingDay && filters.to === meetingDay && meetingLoad === 'ready') return dailyMeetings;
+  if (exportDateCache?.from === filters.from && exportDateCache.to === filters.to) return exportDateCache.rows;
+  return undefined;
+}
+
+function updateMeetingExportPreview() {
+  const filters = readMeetingExportFilters();
+  const endField = element('meetingExportEndField');
+  endField.hidden = !filters.range;
+  element('meetingsExportDateTo').disabled = !filters.range;
+  element('meetingExportDateLabel').textContent = filters.range ? 'من تاريخ' : 'التاريخ';
+
+  const rows = filters.valid ? cachedMeetingExportRows(filters) : undefined;
+  const count = rows ? filterMeetingExport(rows, filters).length : null;
+  const preview = element('previewMeetingExportBtn');
+  const download = element('meetingsExportExcelSubmitBtn');
+  preview.hidden = !filters.valid || count !== null;
+  preview.disabled = exportingRange || countingExport;
+  download.disabled = !filters.valid || count === 0 || exportingRange || countingExport;
+  download.setAttribute('aria-busy', String(exportingRange));
+  const feedback = element('meetingExportCount');
+  if (exportingRange || countingExport) feedback.textContent = exportingRange ? 'جارٍ تجهيز ملف إكسل…' : 'جارٍ حساب الاجتماعات…';
+  else if (!filters.valid) feedback.textContent = 'حدد تاريخًا صالحًا للتصدير.';
+  else if (count === null) feedback.textContent = 'احسب العدد أو نزّل الملف مباشرة.';
+  else if (count === 0) feedback.textContent = 'لا توجد اجتماعات تطابق الفلاتر.';
+  else feedback.textContent = 'عدد الاجتماعات في الملف: ' + workspaceNumber.format(count);
+}
+
+function openMeetingExport() {
+  const dialog = element('meetingExportDialog');
+  if (dialog.open) return;
+  element('meetingsExportForm').reset();
+  element('meetingsExportDateFrom').value = meetingDay;
+  element('meetingsExportDateTo').value = meetingDay;
+  exportDateCache = undefined;
+  updateMeetingExportPreview();
+  dialog.showModal();
+}
+
+async function getMeetingExportRows(filters, uid) {
+  const cached = cachedMeetingExportRows(filters);
+  if (cached) return cached;
+  const meetings = [];
+  if (filters.from === filters.to) {
+    meetings.push(...await getCalendarMeetings({ date: filters.from }));
+  } else {
+    const cursor = new Date(filters.from.slice(0, 7) + '-01T00:00:00Z');
+    const lastMonth = filters.to.slice(0, 7);
+    while (cursor.toISOString().slice(0, 7) <= lastMonth) {
+      const batch = [];
+      for (let i = 0; i < 4 && cursor.toISOString().slice(0, 7) <= lastMonth; i++) {
+        batch.push(getCalendarMeetings({ month: cursor.toISOString().slice(0, 7) }));
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      }
+      for (const list of await Promise.all(batch)) {
+        for (const meeting of list) meetings.push(meeting);
+      }
+      if (currentUser?.uid !== uid) return [];
+    }
   }
-  element('meetingsExportDateFrom').value = first;
-  element('meetingsExportDateTo').value = last;
+  if (currentUser?.uid !== uid) return [];
+  const rows = availableMeetings(meetings, filters.from, filters.to);
+  exportDateCache = { from: filters.from, to: filters.to, rows };
+  return rows;
+}
+
+async function previewMeetingExport() {
+  const filters = readMeetingExportFilters();
+  const uid = currentUser?.uid;
+  if (!filters.valid || !uid || countingExport || exportingRange) return;
+  countingExport = true;
+  updateMeetingExportPreview();
+  let failed = false;
+  try {
+    await getMeetingExportRows(filters, uid);
+  } catch {
+    failed = currentUser?.uid === uid;
+  } finally {
+    countingExport = false;
+    updateMeetingExportPreview();
+    if (failed) element('meetingExportCount').textContent = 'تعذّر حساب الاجتماعات. حاول مرة أخرى.';
+  }
 }
 
 function loadExportScript(url) {
@@ -349,22 +535,25 @@ async function saveMeetingReport(rows, filename, uid) {
     loadExportScript('assets/js/vendor/exceljs.min.js'),
     loadExportScript('assets/js/meetings-workbook.js'),
   ]);
-  if (currentUser?.uid !== uid) return;
+  if (currentUser?.uid !== uid) return false;
   const statuses = Object.fromEntries(rows.map(meeting => [
-    meeting.id, meetingStatusUpdates.get(meeting.id) || meetingStatuses[meeting.id]?.status,
+    meeting.id, getMeetingStatus(meeting.id),
   ]));
   await window.saveMeetingsWorkbook(rows, statuses, filename);
+  return true;
 }
 
 async function downloadDailyMeetings() {
   const uid = currentUser?.uid;
-  const rows = visibleMeetings();
+  const rows = [...dailyMeetings];
   if (!uid || !rows.length || meetingLoad !== 'ready' || exportingDay) return;
   const date = meetingDay;
   exportingDay = true;
   updateDailyExportButton();
   try {
-    await saveMeetingReport(rows, 'الاجتماعات ' + date, uid);
+    if (await saveMeetingReport(rows, 'الاجتماعات ' + date, uid)) {
+      showToast('تم تجهيز ملف اليوم. عدد الاجتماعات: ' + workspaceNumber.format(rows.length), 'success');
+    }
   } catch {
     if (currentUser?.uid === uid) showToast('تعذّر تنزيل ملف الاجتماعات. حاول مرة أخرى.', 'error');
   } finally {
@@ -373,56 +562,30 @@ async function downloadDailyMeetings() {
   }
 }
 
-async function downloadMeetingsRange(event) {
+async function downloadCustomMeetingExport(event) {
   event.preventDefault();
+  const filters = readMeetingExportFilters();
   const uid = currentUser?.uid;
-  if (!uid || exportingRange) return;
-  const from = element('meetingsExportDateFrom').value;
-  const to = element('meetingsExportDateTo').value;
-  const scope = document.querySelector('[name="meetingsExportScope"]:checked').value;
-  const count = element('meetingExportCount');
-  const btn = element('meetingsExportExcelSubmitBtn');
-  if (!from || !to || from > to) {
-    count.textContent = 'حدد تاريخ بداية وتاريخ نهاية صالحين.';
-    return;
-  }
-
+  if (!filters.valid || !uid || exportingRange || countingExport) return;
   exportingRange = true;
-  btn.disabled = true;
-  count.textContent = 'جارٍ جلب الاجتماعات للفترة المحددة…';
+  updateMeetingExportPreview();
+  let failed = false;
   try {
-    const cursor = new Date(from.slice(0, 7) + '-01T00:00:00Z');
-    const lastMonth = to.slice(0, 7);
-    const events = new Map();
-    while (cursor.toISOString().slice(0, 7) <= lastMonth) {
-      const batch = [];
-      for (let i = 0; i < 4 && cursor.toISOString().slice(0, 7) <= lastMonth; i++) {
-        batch.push(getCalendarMeetings({ month: cursor.toISOString().slice(0, 7) }));
-        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-      }
-      const lists = await Promise.all(batch);
-      if (currentUser?.uid !== uid) return;
-      for (const list of lists) {
-        for (const meeting of list) {
-          const date = eventDay(meeting);
-          if (date >= from && date <= to && (scope === 'all' || matchesCurrentUser(meeting))) {
-            events.set(meeting.id, meeting);
-          }
-        }
-      }
+    const allRows = await getMeetingExportRows(filters, uid);
+    if (currentUser?.uid !== uid) return;
+    const rows = filterMeetingExport(allRows, filters);
+    if (!rows.length) return;
+    const dateLabel = filters.from === filters.to ? filters.from : filters.from + ' إلى ' + filters.to;
+    if (await saveMeetingReport(rows, 'الاجتماعات ' + dateLabel, uid)) {
+      element('meetingExportDialog').close();
+      showToast('تم تجهيز ملف إكسل. عدد الاجتماعات: ' + workspaceNumber.format(rows.length), 'success');
     }
-    if (!events.size) {
-      count.textContent = 'لا توجد اجتماعات تطابق الفترة والنطاق.';
-      return;
-    }
-    count.textContent = 'جارٍ تجهيز ' + workspaceNumber.format(events.size) + ' اجتماع…';
-    await saveMeetingReport([...events.values()], 'الاجتماعات ' + from + ' إلى ' + to, uid);
-    if (currentUser?.uid === uid) count.textContent = 'عدد الاجتماعات: ' + workspaceNumber.format(events.size);
   } catch {
-    if (currentUser?.uid === uid) count.textContent = 'تعذّر تنزيل ملف الاجتماعات. حاول مرة أخرى.';
+    failed = currentUser?.uid === uid;
   } finally {
     exportingRange = false;
-    btn.disabled = false;
+    updateMeetingExportPreview();
+    if (failed) element('meetingExportCount').textContent = 'تعذّر تنزيل ملف الاجتماعات. حاول مرة أخرى.';
   }
 }
 
@@ -595,12 +758,18 @@ element('meetingsDatePicker').addEventListener('change', event => {
   meetingDay = event.target.value;
   fetchMeetingsForDay();
 });
-element('meetingsExportForm').addEventListener('submit', downloadMeetingsRange);
+element('meetingsExportForm').addEventListener('submit', downloadCustomMeetingExport);
+element('meetingsExportForm').addEventListener('change', updateMeetingExportPreview);
+element('customMeetingExportBtn').addEventListener('click', openMeetingExport);
+element('closeMeetingExportBtn').addEventListener('click', () => element('meetingExportDialog').close());
+element('previewMeetingExportBtn').addEventListener('click', previewMeetingExport);
+element('meetingSearch').addEventListener('input', () => {
+  if (meetingLoad === 'ready') renderMeetings();
+});
 element('customersExportForm').addEventListener('submit', event => event.preventDefault());
 element('customersExportForm').addEventListener('change', renderCustomerExport);
 element('downloadDailyMeetingsBtn').addEventListener('click', downloadDailyMeetings);
 element('exportExcelBtn').addEventListener('click', downloadCustomerExport);
-setMeetingsExportShortcut('today');
 setInterval(() => {
   if (activeWorkspace === 'meetings' && meetingLoad === 'ready' && !document.hidden) {
     fetchMeetingsForDay({ background: true });
