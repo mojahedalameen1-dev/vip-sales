@@ -1,8 +1,6 @@
 import { createServer } from 'node:http';
 import { handleAsNodeRequest } from 'cloudflare:node';
 import meetings from '../api/meetings.js';
-import slackSync from '../api/slack-sync.js';
-import slackThread from '../api/slack-thread.js';
 
 const firebaseWebApiKey = 'AIzaSyA7Ttn8e6aMSoqf1sDKJE1evjmLGf95JDE';
 const staffEmails = [
@@ -12,18 +10,11 @@ const staffEmails = [
   'mojahedalameen1@gmail.com',
 ];
 
-const handlers = new Map([
-  ['/api/meetings', meetings],
-  ['/api/slack-sync', slackSync],
-  ['/api/slack-thread', slackThread],
-]);
-
 const port = 8080;
 createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'private, no-store');
   try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
-    await handlers.get(pathname)(req, res);
+    await meetings(req, res);
   } catch (error) {
     console.error('VIP Sales API request failed', error.name);
     if (!res.headersSent) {
@@ -63,7 +54,7 @@ export default {
     if (pathname !== '/api' && !pathname.startsWith('/api/')) {
       return env.ASSETS.fetch(request);
     }
-    if (!handlers.has(pathname)) return apiError(404, 'Not found');
+    if (pathname !== '/api/meetings') return apiError(404, 'Not found');
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: { Allow: 'GET, OPTIONS' } });
     }
@@ -86,9 +77,7 @@ export default {
       return apiError(403, 'This account does not have access to VIP Sales integrations');
     }
 
-    const slackConfigured = env.SLACK_USER_TOKEN && env.SLACK_CHANNEL_ID;
-    const configured = pathname === '/api/meetings' ? env.GOOGLE_SERVICE_ACCOUNT_JSON : slackConfigured;
-    if (!configured) return apiError(503, 'This integration is not configured');
+    if (!env.GOOGLE_SERVICE_ACCOUNT_JSON) return apiError(503, 'Google Calendar is not configured');
 
     return handleAsNodeRequest(port, request);
   },

@@ -1,0 +1,331 @@
+#appContainer[style*="display: none"],
+#appContainer[style*="display: none"] ~ .bottom-nav,
+.sales-workspace[hidden],
+.sales-workspace [hidden] {
+  display: none !important;
+}
+
+.sidebar-menu .menu-item {
+  text-decoration: none;
+}
+
+#appContainer .workspace-mobile-logout {
+  display: none;
+}
+
+.sales-workspace {
+  --workspace-accent: #175db6;
+  --workspace-tint: #eaf3ff;
+  --workspace-border: color-mix(in srgb, var(--text-secondary) 19%, transparent);
+  align-self: center;
+  width: min(100%, 1240px);
+  padding: clamp(20px, 3vw, 42px);
+  gap: 20px;
+  overflow-y: auto;
+}
+
+[data-theme="dark"] .sales-workspace {
+  --workspace-accent: #9ac7ff;
+  --workspace-tint: #182f4b;
+}
+
+.workspace-heading,
+.workspace-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.workspace-heading h1 {
+  font-size: clamp(25px, 3vw, 36px);
+  font-weight: 750;
+  line-height: 1.25;
+  margin-block-end: 6px;
+}
+
+.workspace-heading p,
+.workspace-preview p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.workspace-switch,
+.workspace-date-nav,
+.workspace-options,
+.workspace-export-actions,
+.workspace-meeting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-switch {
+  background: var(--bg-surface);
+  border: 1px solid var(--workspace-border);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.workspace-switch button,
+.workspace-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 9px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  text-decoration: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-switch button {
+  border-color: transparent;
+}
+
+.workspace-switch button[aria-pressed="true"],
+.workspace-join,
+.workspace-button:hover {
+  color: var(--workspace-accent);
+  background: var(--workspace-tint);
+}
+
+.sales-workspace :focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.sales-workspace button:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.sales-workspace svg {
+  width: 17px;
+  height: 17px !important;
+  flex: 0 0 auto;
+}
+
+.workspace-panel {
+  border: 1px solid var(--workspace-border);
+  border-radius: 16px;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.workspace-panel-heading {
+  padding: 14px 18px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--workspace-border);
+}
+
+.workspace-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 42px 16px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.workspace-agenda {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-agenda-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 17px 18px;
+  gap: 12px 20px;
+}
+
+.workspace-agenda-row + .workspace-agenda-row {
+  border-top: 1px solid var(--workspace-border);
+}
+
+.workspace-agenda-row time,
+.workspace-agenda-row strong {
+  font-weight: 700;
+}
+
+.workspace-agenda-row strong {
+  overflow-wrap: anywhere;
+}
+
+.workspace-agenda-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.workspace-status.input-field,
+.workspace-date-nav .input-field {
+  min-height: 40px;
+  width: auto;
+  background-color: var(--bg-surface);
+  border-color: var(--workspace-border);
+}
+
+.workspace-status[data-status="done"] {
+  border-color: #279774;
+}
+
+.workspace-status[data-status="postponed"] {
+  border-color: #cc646b;
+}
+
+.workspace-export-panel {
+  display: grid;
+  grid-template-columns: minmax(270px, 1fr) minmax(0, 1.15fr);
+}
+
+.workspace-export-form,
+.workspace-preview {
+  min-width: 0;
+  padding: clamp(16px, 2.5vw, 27px);
+}
+
+.workspace-export-form {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.workspace-preview {
+  border-inline-start: 1px solid var(--workspace-border);
+}
+
+.workspace-preview h2 {
+  font-size: var(--text-lg);
+  margin-bottom: 4px;
+}
+
+.workspace-date-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workspace-date-fields label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.sales-workspace input[type="date"] {
+  min-width: 0;
+  color-scheme: light;
+}
+
+[data-theme="dark"] .sales-workspace input[type="date"] {
+  color-scheme: dark;
+}
+
+.workspace-export-form fieldset {
+  min-width: 0;
+  border: 1px solid var(--workspace-border);
+  border-radius: 10px;
+  padding: 8px 12px 12px;
+}
+
+.workspace-export-form legend {
+  padding-inline: 5px;
+  font-weight: 600;
+}
+
+.workspace-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  font-size: var(--text-sm);
+}
+
+.workspace-options input {
+  accent-color: var(--accent-blue);
+}
+
+.workspace-table-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.workspace-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.workspace-table-wrap th,
+.workspace-table-wrap td {
+  text-align: start;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--workspace-border);
+  overflow-wrap: anywhere;
+}
+
+.workspace-table-wrap th {
+  background: var(--bg-subtle);
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .workspace-export-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-preview {
+    border-inline-start: none;
+    border-top: 1px solid var(--workspace-border);
+  }
+}
+
+@media (max-width: 767px) {
+  #appContainer .workspace-mobile-logout {
+    display: inline-flex;
+  }
+
+  .main-area:has(> .sales-workspace:not([hidden])) {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .sales-workspace {
+    gap: 15px;
+  }
+
+  .workspace-date-nav {
+    gap: 5px;
+  }
+
+  .workspace-date-nav .workspace-button {
+    padding-inline: 8px;
+  }
+
+  .workspace-agenda-row {
+    grid-template-columns: minmax(75px, auto) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .workspace-meeting-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}

@@ -2,8 +2,6 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import meetingsHandler from './api/meetings.js';
-import slackSyncHandler from './api/slack-sync.js';
-import slackThreadHandler from './api/slack-thread.js';
 
 const PORT = 8080;
 
@@ -29,12 +27,9 @@ const serverHandler = async (req, res) => {
     return meetingsHandler(req, res);
   }
 
-  if (pathname === '/api/slack-sync') {
-    return slackSyncHandler(req, res);
-  }
-
-  if (pathname === '/api/slack-thread') {
-    return slackThreadHandler(req, res);
+  if (pathname === '/api' || pathname.startsWith('/api/')) {
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ error: 'Not found' }));
   }
 
   // Static File Serving
