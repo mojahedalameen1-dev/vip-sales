@@ -3793,6 +3793,13 @@
     let initialLoadComplete = false;
     let isManualLogin = false;
 
+    async function fetchSalesApi(url) {
+      const user = auth?.currentUser;
+      if (!user) throw new Error('Firebase sign-in required');
+      const token = await user.getIdToken();
+      return fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    }
+
     function getLeadsPath() {
       return currentUser ? `/users/${currentUser.uid}/leads` : '/leads';
     }
@@ -5461,7 +5468,7 @@
       }
 
       try {
-        const response = await fetch(`/api/meetings?date=${dateStr}`);
+        const response = await fetchSalesApi(`/api/meetings?date=${dateStr}`);
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
@@ -5589,7 +5596,7 @@
         monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       }
       try {
-        const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
+        const response = await fetchSalesApi(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
         if (!response.ok) return;
         const events = await response.json();
         if (db && typeof db.ref === 'function' && events && events.length > 0) {
@@ -5630,7 +5637,7 @@
 
           try {
             // Fetch thread data for this specific lead code
-            const resp = await fetch(`/api/slack-thread?code=${encodeURIComponent(code)}`);
+            const resp = await fetchSalesApi(`/api/slack-thread?code=${encodeURIComponent(code)}`);
             if (!resp.ok) continue; // Skip on error, don't abort all
 
             const slackInfo = await resp.json();
@@ -5702,7 +5709,7 @@
           const mm = String(now.getMonth() + 1).padStart(2, '0');
           monthStr = `${yyyy}-${mm}`;
         }
-        const response = await fetch(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
+        const response = await fetchSalesApi(`/api/meetings?month=${monthStr}&email=${encodeURIComponent(currentUser.email)}`);
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || 'فشل الاتصال بخادم الاجتماعات');
@@ -6321,7 +6328,7 @@
           if (scope === 'mine') {
             url += `&email=${encodeURIComponent(currentUser.email)}`;
           }
-          return fetch(url)
+          return fetchSalesApi(url)
             .then(res => res.ok ? res.json() : [])
             .catch(() => []);
         });

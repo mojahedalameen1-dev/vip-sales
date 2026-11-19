@@ -1,5 +1,5 @@
-const https = require('https');
-const url = require('url');
+import https from 'node:https';
+import url from 'node:url';
 
 const slackThreadCache = new Map();
 const SLACK_THREAD_CACHE_TTL = 30000; // 30 seconds
@@ -91,7 +91,7 @@ function slackGet(path, token) {
   });
 }
 
-module.exports = async (req, res) => {
+export default async function slackThread(req, res) {
   setCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -245,4 +245,4 @@ module.exports = async (req, res) => {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
   }
-};
+}

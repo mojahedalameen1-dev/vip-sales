@@ -1,9 +1,9 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const meetingsHandler = require('./api/meetings');
-const slackSyncHandler = require('./api/slack-sync');
-const slackThreadHandler = require('./api/slack-thread');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import meetingsHandler from './api/meetings.js';
+import slackSyncHandler from './api/slack-sync.js';
+import slackThreadHandler from './api/slack-thread.js';
 
 const PORT = 8080;
 
@@ -38,14 +38,14 @@ const serverHandler = async (req, res) => {
   }
 
   // Static File Serving
-  let filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
+  let filePath = path.join(import.meta.dirname, pathname === '/' ? 'index.html' : pathname);
   const extname = path.extname(filePath);
   let contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
   fs.readFile(filePath, (error, content) => {
     if (error) {
       if (error.code === 'ENOENT') {
-        fs.readFile(path.join(__dirname, 'index.html'), (err, htmlContent) => {
+        fs.readFile(path.join(import.meta.dirname, 'index.html'), (err, htmlContent) => {
           if (err) {
             res.writeHead(500);
             res.end('Error loading index.html');

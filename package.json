@@ -1,8 +1,17 @@
 {
+  "type": "module",
   "scripts": {
-    "dev": "node local-server.js"
+    "dev": "node local-server.js",
+    "cloudflare:dev": "cf dev",
+    "cloudflare:build": "cf build",
+    "cloudflare:deploy": "cf deploy"
   },
   "dependencies": {
     "firebase": "^12.14.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "2.0.0-rc.2",
+    "cf": "1.0.0-rc.1",
+    "vite": "8.3.8"
   }
 }

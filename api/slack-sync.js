@@ -1,4 +1,4 @@
-const https = require('https');
+import https from 'node:https';
 
 const slackSyncCache = new Map();
 const SLACK_SYNC_CACHE_TTL = 30000; // 30 seconds
@@ -95,7 +95,7 @@ function extractCrmLink(text) {
 }
 
 // ════════════════ Main handler ════════════════
-module.exports = async (req, res) => {
+export default async function slackSync(req, res) {
   setCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -286,4 +286,4 @@ module.exports = async (req, res) => {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
   }
-};
+}

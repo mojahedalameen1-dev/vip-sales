@@ -1,7 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const https = require('https');
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import https from 'node:https';
 
 const meetingsCache = new Map();
 const MEETINGS_CACHE_TTL = 30000; // 30 seconds
@@ -364,7 +364,7 @@ function parseMeetingSummary(summary) {
 }
 
 // ════════════════ Main Handler ════════════════
-module.exports = async (req, res) => {
+export default async function meetings(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
@@ -521,4 +521,4 @@ module.exports = async (req, res) => {
     res.writeHead(500);
     res.end(JSON.stringify({ error: err.message }));
   }
-};
+}
