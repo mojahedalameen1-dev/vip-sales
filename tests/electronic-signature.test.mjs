@@ -2,15 +2,18 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const source = await readFile(new URL('../assets/js/electronic-signature.js', import.meta.url), 'utf8');
+const placementSource = await readFile(new URL('../assets/js/esign-placement.js', import.meta.url), 'utf8');
 const libSource = await readFile(new URL('../assets/js/vendor/pdf-lib.min.js', import.meta.url), 'utf8');
 const lib = { exports: {} };
 new Function('module', 'exports', libSource)(lib, lib.exports);
 const PDFLib = lib.exports;
+const standardFontDataUrl = fileURLToPath(new URL('../node_modules/pdfjs-dist/standard_fonts/', import.meta.url)).replaceAll('\\', '/');
 
 function createElement() {
   return {
@@ -29,7 +32,7 @@ function harness(ids = []) {
   const downloads = [];
   const notices = [];
   const context = vm.createContext({
-    PDFLib, pdfjsLib: pdfjs, URL, Blob, Uint8Array, ArrayBuffer, confirm: () => true,
+    PDFLib, pdfjsLib: pdfjs, URL, Blob, File, Uint8Array, ArrayBuffer, confirm: () => true,
     ES_PDF_ASSETS: new URL('../node_modules/pdfjs-dist/', import.meta.url),
     window: { atob, innerWidth: 1200 },
     document: {
@@ -45,6 +48,7 @@ function harness(ids = []) {
     showToast: (message, type) => notices.push({ message, type })
   });
   const run = code => vm.runInContext(code, context);
+  run(placementSource);
   run(source);
   return { run, context, state: () => run('esState'), downloads, elements, notices };
 }
@@ -350,4 +354,262 @@ test('failed preview page offers retry and renders on its second attempt', async
   assert.equal(attempts, 2);
   assert.equal(h.state().contract.renderedPages[0].isRendered, true);
   assert.equal(wrapper.children.at(-1).className, 'page-canvas');
+});
+
+const arabicFixture = await readFile(new URL('./fixtures/esign-arabic.pdf', import.meta.url));
+
+async function arabicTestFile(indexes, name) {
+  const sourcePdf = await PDFLib.PDFDocument.load(arabicFixture);
+  const result = await PDFLib.PDFDocument.create();
+  for (const page of await result.copyPages(sourcePdf, indexes)) result.addPage(page);
+  return new File([await result.save()], name, { type: 'application/pdf' });
+}
+
+function quickHarness(ids = []) {
+  const h = harness(ids);
+  h.context.pdfjsLib = { getDocument: options => pdfjs.getDocument({ ...options, standardFontDataUrl }) };
+  const create = h.context.document.createElement;
+  h.context.document.createElement = tag => tag === 'canvas' ? createCanvas(1, 1) : create(tag);
+  h.state().signatureData = signature;
+  h.state().stampData = stamp;
+  h.context.currentUser = { uid: 'fixture' };
+  h.context.localStorage = {
+    items: new Map(),
+    getItem(key) { return this.items.get(key); },
+    setItem(key, value) { this.items.set(key, value); }
+  };
+  return h;
+}
+
+test('detects real Arabic dotted sections high, middle and low, uses graphics only in qualifying context, and rejects ambiguity', async t => {
+  const cases = [
+    { index: 0, y: 175, x: 321 }, { index: 1, y: 400, x: 321 }, { index: 2, y: 663, x: 321 },
+    { index: 3, y: 400, x: 302 }, { index: 4, manual: true }, { index: 5, manual: true }, { index: 6, manual: true }
+  ];
+  for (const scenario of cases) {
+    await t.test('Arabic fixture page ' + (scenario.index + 1), async sub => {
+      const h = quickHarness();
+      sub.after(() => h.run('clearElectronicSignatureSession()'));
+      const file = await arabicTestFile([scenario.index], 'arabic-contract.pdf');
+      await upload(h, 'contract', file);
+      await h.run('startEsQuick()');
+      assert.equal(h.state().contract.file, file);
+      if (scenario.manual) {
+        assert.equal(h.state().quick.phase, 'positioning');
+        assert.equal(h.state().outputs.size, 0);
+        assert.equal(h.state().quick.pending.length, 1);
+        return;
+      }
+      assert.equal(h.state().quick.phase, 'results');
+      const doc = h.state().contract;
+      const sig = doc.pageSignatureOverlays[0];
+      const stampRect = doc.pageStampOverlays[0];
+      assert.ok(sig.leftRatio * 600 >= scenario.x);
+      assert.ok((sig.leftRatio + sig.widthRatio) * 600 < 474, 'Stays clear of the signature label and other party');
+      assert.ok(sig.topRatio * 800 < scenario.y && (sig.topRatio + sig.heightRatio) * 800 > scenario.y);
+      assert.ok(stampRect.topRatio > sig.topRatio && stampRect.topRatio < sig.topRatio + sig.heightRatio);
+      assert.notEqual(stampRect.leftRatio + stampRect.widthRatio / 2, sig.leftRatio + sig.widthRatio / 2);
+      assert.ok(Math.abs(sig.widthRatio * 600 / (sig.heightRatio * 800) - signature.width / signature.height) < 0.001);
+      const exported = h.state().outputs.get('contract');
+      assert.equal(exported.file.type, 'application/pdf');
+      assert.equal(h.downloads.length, 0, 'Quick mode waits for the user to share or download');
+      const output = pdfjs.getDocument({ data: new Uint8Array(await exported.file.arrayBuffer()), standardFontDataUrl });
+      try {
+        const page = await (await output.promise).getPage(1);
+        const canvas = createCanvas(600, 800);
+        const context = canvas.getContext('2d');
+        await page.render({ canvasContext: context, viewport: page.getViewport({ scale: 1 }) }).promise;
+        const samples = (rect, side) => Array.from(context.getImageData(
+          Math.floor((rect.leftRatio + rect.widthRatio * side) * 600),
+          Math.floor((rect.topRatio + rect.heightRatio * 0.45) * 800), 1, 1
+        ).data).slice(0, 3);
+        assert.deepEqual(samples(sig, 0.75), [0, 0, 255]);
+        assert.deepEqual(samples(stampRect, 0.25), [0, 170, 0]);
+      } finally { await output.destroy(); }
+    });
+  }
+});
+
+test('quick export supports an offer alone, both files together, and a separate result when one file cannot be read', async t => {
+  const offer = await arabicTestFile([4, 2], 'offer.pdf');
+  const contract = await arabicTestFile([0, 3], 'contract.pdf');
+  for (const scenario of ['offer-only', 'both', 'bad-contract']) {
+    await t.test(scenario, async sub => {
+      const h = quickHarness();
+      sub.after(() => h.run('clearElectronicSignatureSession()'));
+      await upload(h, 'technicalOffer', offer);
+      if (scenario === 'both') await upload(h, 'contract', contract);
+      if (scenario === 'bad-contract') await upload(h, 'contract', new File(['unreadable'], 'bad.pdf', { type: 'application/pdf' }));
+      await h.run('startEsQuick()');
+      assert.equal(h.state().quick.phase, 'results');
+      assert.deepEqual([...h.state().outputs.keys()], scenario === 'both' ? ['technicalOffer', 'contract'] : ['technicalOffer']);
+      assert.equal(h.state().technicalOffer.pageSignatureOverlays[0], undefined, 'Cover excluded');
+      assert.equal(h.state().technicalOffer.pageStampOverlays[1], undefined);
+      if (scenario === 'both') {
+        assert.ok(h.state().contract.pageSignatureOverlays[0]);
+        assert.ok(h.state().contract.pageSignatureOverlays[1]);
+        assert.equal(h.state().contract.pageStampOverlays[0], undefined);
+        assert.ok(h.state().contract.pageStampOverlays[1]);
+      }
+    });
+  }
+});
+
+test('quick detection and export agree on a rotated and cropped Arabic PDF', async t => {
+  const h = quickHarness();
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  const sourceDoc = await PDFLib.PDFDocument.load(arabicFixture);
+  const doc = await PDFLib.PDFDocument.create();
+  const embedded = await doc.embedPage(sourceDoc.getPage(0));
+  const page = doc.addPage([820, 650]);
+  page.drawPage(embedded, { x: 810, y: 20, rotate: PDFLib.degrees(90) });
+  page.setRotation(PDFLib.degrees(90));
+  page.setCropBox(10, 20, 800, 600);
+  await upload(h, 'contract', new File([await doc.save()], 'rotated-arabic.pdf', { type: 'application/pdf' }));
+  await h.run('startEsQuick()');
+  assert.equal(h.state().quick.phase, 'results');
+  const overlay = h.state().contract.pageSignatureOverlays[0];
+  assert.ok(overlay.leftRatio * 600 > 300 && overlay.leftRatio * 600 < 375);
+  assert.ok(overlay.topRatio * 800 < 175);
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(await h.state().outputs.get('contract').file.arrayBuffer()), standardFontDataUrl
+  });
+  try {
+    const finalPage = await (await task.promise).getPage(1);
+    const viewport = finalPage.getViewport({ scale: 1 });
+    assert.deepEqual([viewport.width, viewport.height], [600, 800]);
+    const canvas = createCanvas(600, 800);
+    const ctx = canvas.getContext('2d');
+    await finalPage.render({ canvasContext: ctx, viewport }).promise;
+    const pixel = ctx.getImageData(
+      Math.floor((overlay.leftRatio + overlay.widthRatio * 0.75) * viewport.width),
+      Math.floor((overlay.topRatio + overlay.heightRatio * 0.45) * viewport.height), 1, 1
+    );
+    assert.deepEqual(Array.from(pixel.data).slice(0, 3), [0, 0, 255]);
+  } finally { await task.destroy(); }
+});
+
+test('an unresolved scanned page can be positioned without re-upload, retains a group, and reuses an exact approved file only', async t => {
+  const keys = ['esign-quick-size', 'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm', 'esign-quick-template'];
+  const h = quickHarness(keys);
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  h.context.crypto = globalThis.crypto;
+  const scan = await PDFLib.PDFDocument.create();
+  const raster = createCanvas(180, 240);
+  raster.getContext('2d').fillRect(12, 10, 120, 30);
+  const image = await scan.embedPng(raster.toDataURL('image/png'));
+  scan.addPage([300, 400]).drawImage(image, { x: 0, y: 0, width: 300, height: 400 });
+  const file = new File([await scan.save()], 'scan.pdf', { type: 'application/pdf' });
+  await upload(h, 'contract', file);
+  await h.run('startEsQuick()');
+  assert.equal(h.state().quick.phase, 'positioning');
+  assert.ok(h.state().quick.pending[0].key);
+  assert.equal(h.state().outputs.size, 0);
+  h.run('placeEsQuickGroup(0.46, 0.58)');
+  assert.equal(h.elements.get('esign-quick-confirm').disabled, false);
+  h.elements.get('esign-quick-template').checked = true;
+  await h.run('confirmEsQuickPosition()');
+  assert.equal(h.state().contract.file, file);
+  assert.equal(h.state().outputs.size, 1);
+  const saved = h.state().contract.pageSignatureOverlays[0];
+  h.run('clearElectronicSignatureSession()');
+  h.state().signatureData = signature;
+  h.state().stampData = stamp;
+  await upload(h, 'contract', file);
+  await h.run('startEsQuick()');
+  const reused = h.state().contract.pageSignatureOverlays[0];
+  assert.equal(h.state().outputs.size, 1);
+  assert.equal(JSON.stringify(saved), JSON.stringify(reused));
+  h.run('cancelEsQuick()');
+  await upload(h, 'contract', await fixture({ name: 'scan.pdf' }));
+  await h.run('startEsQuick()');
+  assert.equal(h.state().quick.phase, 'positioning');
+  assert.equal(h.state().outputs.size, 0);
+});
+
+test('adjusting the quick result keeps the other generated result and leaves both intact on Back', async t => {
+  const keys = ['esign-quick-size', 'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm', 'esign-quick-template'];
+  const h = quickHarness(keys);
+  h.context.crypto = globalThis.crypto;
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  const contractFile = await arabicTestFile([0], 'contract.pdf');
+  await upload(h, 'contract', contractFile);
+  await upload(h, 'technicalOffer', await arabicTestFile([4, 2], 'offer.pdf'));
+  await h.run('startEsQuick()');
+  const offer = h.state().outputs.get('technicalOffer');
+  const contract = h.state().outputs.get('contract');
+  await h.run("editEsQuickResult('contract')");
+  assert.equal(h.state().quick.phase, 'positioning');
+  h.run('prevStep()');
+  assert.equal(h.state().outputs.get('contract'), contract);
+  assert.equal(h.state().outputs.get('technicalOffer'), offer);
+  await h.run("editEsQuickResult('contract')");
+  h.run('placeEsQuickGroup(0.42, 0.53)');
+  assert.equal(h.elements.get('esign-quick-confirm').disabled, false);
+  h.elements.get('esign-quick-template').checked = true;
+  await h.run('confirmEsQuickPosition()');
+  assert.notEqual(h.state().outputs.get('contract'), contract);
+  assert.equal(h.state().outputs.get('technicalOffer'), offer);
+  const adjusted = h.state().contract.pageSignatureOverlays[0];
+  h.run('cancelEsQuick()');
+  await upload(h, 'contract', contractFile);
+  await h.run('startEsQuick()');
+  assert.equal(JSON.stringify(h.state().contract.pageSignatureOverlays[0]), JSON.stringify(adjusted));
+});
+
+test('PNG and JPEG are decoded locally and turn into a one-page PDF with visible content; DOCX explains the PDF path', async t => {
+  const h = quickHarness();
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  h.context.createImageBitmap = async (file, options) => {
+    assert.equal(options.imageOrientation, 'from-image');
+    const bitmap = await loadImage(Buffer.from(await file.arrayBuffer()));
+    bitmap.close = () => {};
+    return bitmap;
+  };
+  for (const format of ['png', 'jpeg']) {
+    const image = createCanvas(20, 30);
+    const ctx = image.getContext('2d');
+    ctx.fillStyle = '#008800';
+    ctx.fillRect(0, 0, 20, 30);
+    const file = new File([image.toBuffer('image/' + format)], 'fixture.' + format, { type: 'image/' + format });
+    await upload(h, 'contract', file);
+    assert.equal(h.state().contract.processingStatus, 'ready');
+    const parsed = await PDFLib.PDFDocument.load(h.state().contract.convertedPdf);
+    assert.equal(parsed.getPageCount(), 1);
+    assert.deepEqual(parsed.getPage(0).getSize(), { width: 20, height: 30 });
+    const pdf = h.state().contract.pdfDocument;
+    const page = await pdf.getPage(1);
+    const rendered = createCanvas(20, 30);
+    const renderer = rendered.getContext('2d');
+    await page.render({ canvasContext: renderer, viewport: page.getViewport({ scale: 1 }) }).promise;
+    const [red, green, blue] = renderer.getImageData(10, 15, 1, 1).data;
+    assert.ok(red < 10 && green >= 130 && green <= 141 && blue < 10);
+    await upload(h, 'technicalOffer', file);
+    assert.match(h.notices.at(-1).message, /PDF متعدد الصفحات/);
+  }
+  await upload(h, 'technicalOffer', new File(['fixture'], 'fixture.docx'));
+  assert.match(h.notices.at(-1).message, /Word إلى PDF/);
+});
+
+test('sharing hands off one or two actual PDFs and leaves them available after cancellation, failure and unsupported sharing', async () => {
+  const h = quickHarness();
+  const files = [new File(['%PDF-test'], 'contract.pdf', { type: 'application/pdf' }),
+    new File(['%PDF-test'], 'offer.pdf', { type: 'application/pdf' })];
+  const calls = [];
+  h.context.files = files;
+  h.context.sharing = {
+    canShare: data => data.files.every(file => file.type === 'application/pdf'),
+    share: async data => calls.push(data.files)
+  };
+  assert.equal(await h.run('esSharePdfFiles(sharing, files.slice(0, 1))'), 'opened');
+  assert.equal(await h.run('esSharePdfFiles(sharing, files)'), 'opened');
+  assert.deepEqual(calls.map(batch => [...batch]), [[files[0]], files]);
+  h.context.sharing.share = async () => { throw new DOMException('cancelled', 'AbortError'); };
+  assert.equal(await h.run('esSharePdfFiles(sharing, files)'), 'cancelled');
+  h.context.sharing.share = async () => { throw new Error('fixture share error'); };
+  assert.equal(await h.run('esSharePdfFiles(sharing, files)'), 'failed');
+  h.context.sharing.canShare = () => false;
+  assert.equal(await h.run('esSharePdfFiles(sharing, files)'), 'unsupported');
+  assert.equal(files.length, 2);
+  assert.equal(await files[1].text(), '%PDF-test');
 });

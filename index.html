@@ -3549,6 +3549,7 @@
       loading.textContent = 'جارٍ تحميل قسم التوقيع الإلكتروني…';
       try {
         await Promise.all([loadEsPdfLibrary(), loadScript('assets/js/vendor/pdf-lib.min.js')]);
+        await loadScript('assets/js/esign-placement.js');
         await loadScript('assets/js/electronic-signature.js');
         if (currentUser?.uid !== uid) return;
         loading.remove();

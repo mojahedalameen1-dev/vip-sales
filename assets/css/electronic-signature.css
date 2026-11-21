@@ -754,6 +754,58 @@ button.upload-zone {
   display: none;
 }
 
+.esign-quick-bar, .esign-quick-controls, .esign-share-bar, .esign-export-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.esign-quick-bar, .esign-share-bar {
+  justify-content: center;
+  margin: 0 0 1.25rem;
+}
+
+.esign-quick-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.esign-quick-bar span[role="status"], .esign-share-bar p {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.esign-share-bar p, .esign-result-preview {
+  flex-basis: 100%;
+}
+
+.esign-share-bar p:empty {
+  display: none;
+}
+
+.esign-result-preview {
+  max-width: 100%;
+  width: fit-content;
+  height: auto;
+  object-fit: contain;
+  object-position: right;
+  border-radius: 4px;
+}
+
+.esign-share-bar[hidden], .esign-share-bar [hidden], .esign-quick-controls [hidden] {
+  display: none !important;
+}
+
+.esign-quick-workspace canvas {
+  cursor: crosshair;
+}
+
+.overlay-element.esign-quick-overlay {
+  pointer-events: none;
+}
+
 /* Logs Table Styles */
 .esign-logs-toolbar {
   display: flex;
