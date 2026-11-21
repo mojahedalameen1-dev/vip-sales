@@ -777,8 +777,27 @@ button.upload-zone {
   font-size: 0.85rem;
 }
 
-.esign-share-bar p, .esign-result-preview {
+.esign-share-bar p, .esign-result-thumbnail, .esign-result-page {
   flex-basis: 100%;
+}
+
+.esign-result-page {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.esign-result-page select {
+  min-height: 2.5rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
 }
 
 .esign-share-bar p:empty {
@@ -850,7 +869,9 @@ button.upload-zone {
 }
 
 .esign-logs-table {
+  display: table;
   width: 100%;
+  min-width: 42rem;
   border-collapse: collapse;
   text-align: right;
   font-size: 0.9rem;

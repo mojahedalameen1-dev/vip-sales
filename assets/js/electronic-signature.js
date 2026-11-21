@@ -263,7 +263,7 @@ function initElectronicSignature() {
             <span>تحديث السجل</span>
           </button>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive" tabindex="0" role="region" aria-label="جدول سجل عمليات التوقيع">
           <table class="esign-logs-table">
             <thead>
               <tr>
@@ -271,7 +271,7 @@ function initElectronicSignature() {
                 <th>المستخدم</th>
                 <th>نوع المستند</th>
                 <th>اسم الملف الأصلي</th>
-                <th>الصفحات</th>
+                <th>صفحات الأصل</th>
                 <th>الختم؟</th>
                 <th>الحالة</th>
               </tr>
@@ -912,7 +912,10 @@ async function startEsQuick() {
   const docs = esQuickDocuments();
   if (esState.currentStep !== 1 || esState.quick || !docs.length) return;
   const session = esState;
-  const quick = { docs, phase: 'analyzing', pending: [], original: new Map(), approved: [], skipped: new Set(), current: null };
+  const quick = {
+    docs, phase: 'analyzing', pending: [], original: new Map(), approved: [],
+    skipped: new Set(), previewPages: new Map(), current: null
+  };
   session.quick = quick;
   const progress = document.getElementById('esign-quick-progress');
   const next = document.getElementById('btn-next-step');
@@ -1042,13 +1045,11 @@ function advanceEsQuick() {
     return;
   }
   quick.phase = 'results';
-  esSaveTemplates(quick.approved);
-  quick.approved = [];
-  const edited = Boolean(quick.editing);
+  const edit = quick.editing;
   quick.editing = null;
   for (const type of quick.docs) esState.reviewedFiles[type] = true;
-  goToStep(3, { preserveOutputs: edited });
-  return processAllDocumentsDownload();
+  goToStep(3, { preserveOutputs: Boolean(edit) });
+  return processAllDocumentsDownload(edit);
 }
 
 function cancelEsQuick() {
@@ -1096,6 +1097,23 @@ function placeEsQuickGroup(x, y) {
   const quick = esState.quick;
   const target = quick?.pending[0];
   if (quick?.phase !== 'positioning' || !target) return;
+  if (quick.current?.group) {
+    const { base, group } = quick.current;
+    const rectangles = Object.values(group);
+    const left = Math.min(...rectangles.map(rect => rect.leftRatio));
+    const right = Math.max(...rectangles.map(rect => rect.leftRatio + rect.widthRatio));
+    const top = Math.min(...rectangles.map(rect => rect.topRatio));
+    const bottom = Math.max(...rectangles.map(rect => rect.topRatio + rect.heightRatio));
+    const { signature } = group;
+    const dx = Math.max(-left, Math.min(1 - right, x - signature.leftRatio - signature.widthRatio / 2));
+    const dy = Math.max(-top, Math.min(1 - bottom, y - signature.topRatio - signature.heightRatio * 0.72));
+    for (const rect of Object.values(base)) {
+      rect.leftRatio += dx;
+      rect.topRatio += dy;
+    }
+    updateEsQuickGroup();
+    return;
+  }
   const width = target.page.width * 0.32;
   const line = {
     x: x * target.page.width - width / 2, right: x * target.page.width + width / 2,
@@ -1107,7 +1125,9 @@ function placeEsQuickGroup(x, y) {
 }
 
 function configureEsQuickGroup(group, target) {
-  esState.quick.current = { base: group, group };
+  const base = { signature: { ...group.signature } };
+  if (group.stamp) base.stamp = { ...group.stamp };
+  esState.quick.current = { base, group };
   document.getElementById('esign-quick-size').disabled = false;
   document.getElementById('esign-quick-size').value = 100;
   document.getElementById('esign-quick-offset').disabled = !target.stamp;
@@ -1154,12 +1174,7 @@ function confirmEsQuickPosition() {
   const target = quick?.pending[0];
   if (!target || !esGroupIsClear(target.page, quick.current?.group)) return;
   if (target.key && document.getElementById('esign-quick-template').checked) {
-    quick.approved.push({ key: target.key, group: quick.current.group });
-  }
-  if (quick.editing) {
-    const output = esState.outputs.get(target.type);
-    if (output) URL.revokeObjectURL(output.url);
-    esState.outputs.delete(target.type);
+    quick.approved.push({ type: target.type, key: target.key, group: quick.current.group });
   }
   quick.pending.shift();
   return advanceEsQuick();
@@ -1171,6 +1186,7 @@ function skipEsQuickDocument() {
   const { type } = quick.pending[0];
   quick.docs = quick.docs.filter(doc => doc !== type);
   quick.pending = quick.pending.filter(target => target.type !== type);
+  quick.approved = quick.approved.filter(placement => placement.type !== type);
   quick.skipped.add(type);
   advanceEsQuick();
 }
@@ -1178,10 +1194,11 @@ function skipEsQuickDocument() {
 async function editEsQuickResult(type) {
   const session = esState;
   const quick = session.quick;
-  if (quick?.phase !== 'results' || session.isProcessing || !session.outputs.has(type)) return;
+  if (quick?.phase !== 'results' || quick.openingEditor || session.isProcessing || !session.outputs.has(type)) return;
+  quick.openingEditor = true;
   const state = session[type];
-  const stamp = type === 'contract';
-  const index = stamp ? state.pageCount - 1 : 1;
+  const index = esResultPage(session, type);
+  const stamp = type === 'contract' && index === state.pageCount - 1;
   const group = { signature: state.pageSignatureOverlays[index] };
   if (stamp) group.stamp = state.pageStampOverlays[index];
   const viewport = state.viewports[index];
@@ -1193,6 +1210,7 @@ async function editEsQuickResult(type) {
     page = { width: viewport.width, height: viewport.height, marks: [] };
   }
   const key = await esTemplateKey(type, state, index);
+  quick.openingEditor = false;
   if (session !== esState || quick !== session.quick || quick.phase !== 'results') return;
   quick.editing = { type, index, group };
   quick.pending = [{ type, index, stamp, page, key }];
@@ -2152,13 +2170,13 @@ function renderStep3(container) {
   }
 }
 
-async function processAllDocumentsDownload() {
+async function processAllDocumentsDownload(edit = null) {
   if (esState.currentStep !== 3 || esState.isProcessing || !canExportEsDocuments()) return;
 
   const session = esState;
   const { signatureData, stampData } = session;
   const docs = [...(session.quick?.docs ?? getEsReviewDocuments())].reverse();
-  const pending = docs.filter(type => !session.outputs.has(type));
+  const pending = edit ? [edit.type] : docs.filter(type => !session.outputs.has(type));
   if (!pending.length) return;
   const button = document.getElementById('btn-process-pdf');
   const spinner = document.getElementById('pdf-processing-spinner');
@@ -2177,16 +2195,26 @@ async function processAllDocumentsDownload() {
     for (const type of pending) {
       const state = session[type];
       const outputStatus = document.getElementById('esign-output-' + type);
-      if (outputStatus) outputStatus.textContent = 'جارٍ تجهيز النسخة…';
+      if (outputStatus && !edit) outputStatus.textContent = 'جارٍ تجهيز النسخة…';
       try {
         const bytes = await generateFinalPdfBytes(type, state, signatureData, stampData);
         if (esState !== session) return;
         const name = state.file.name.replace(/\.(?:pdf|png|jpe?g)$/i, '') + ' - معتمد.pdf';
         const file = new File([bytes], name, { type: 'application/pdf' });
         const url = URL.createObjectURL(file);
-        session.outputs.set(type, { url, file });
+        const previous = session.outputs.get(type);
+        session.outputs.set(type, {
+          url, file,
+          signatures: [...state.pageSignatureOverlays],
+          stamps: [...state.pageStampOverlays]
+        });
+        if (previous) URL.revokeObjectURL(previous.url);
         const link = showEsOutput(session, type, outputStatus);
         if (!session.quick) link.click();
+        if (session.quick) {
+          esSaveTemplates(session.quick.approved.filter(placement => placement.type === type));
+          session.quick.approved = session.quick.approved.filter(placement => placement.type !== type);
+        }
         void logSignatureOperation({
           status: 'generated',
           documentType: type === 'contract' ? 'contract' : 'technical_offer',
@@ -2197,6 +2225,13 @@ async function processAllDocumentsDownload() {
       } catch (error) {
         if (esState !== session) return;
         console.error('Could not generate signature document:', error);
+        if (edit) {
+          applyEsQuickGroup(state, edit.index, edit.group);
+          session.quick.approved = session.quick.approved.filter(placement => placement.type !== type);
+          showEsOutput(session, type, outputStatus);
+          showToast('تعذر تحديث الموضع. النسخة السابقة جاهزة. اضبط الموضع وأعد المحاولة.', 'warning');
+          continue;
+        }
         failed = true;
         if (outputStatus) outputStatus.textContent = 'تعذر تجهيز هذا الملف. يمكنك إعادة محاولة الملفات المتعثرة.';
       }
@@ -2217,8 +2252,13 @@ async function processAllDocumentsDownload() {
   }
 }
 
+function esResultPage(session, type) {
+  return session.quick.previewPages.get(type) ?? (type === 'contract' ? session[type].pageCount - 1 : 1);
+}
+
 function showEsOutput(session, type, container) {
-  const { file, url } = session.outputs.get(type);
+  const output = session.outputs.get(type);
+  const { file, url } = output;
   const link = document.createElement('a');
   link.href = url;
   link.download = file.name;
@@ -2238,16 +2278,51 @@ function showEsOutput(session, type, container) {
     container.append(share);
   }
   if (session.quick) {
+    const state = session[type];
+    const first = type === 'contract' ? 0 : 1;
+    const title = type === 'contract' ? 'العقد' : 'العرض الفني';
+    const thumbnail = document.createElement('div');
+    thumbnail.className = 'esign-result-thumbnail';
+    const showPreview = () => {
+      const frame = document.createElement('div');
+      thumbnail.replaceChildren(frame);
+      void renderEsResultPreview(session, output, esResultPage(session, type), frame);
+    };
+    container.prepend(thumbnail);
+    if (state.pageCount - first > 1) {
+      const label = document.createElement('label');
+      label.className = 'esign-result-page';
+      const picker = document.createElement('select');
+      picker.dir = 'rtl';
+      picker.setAttribute('aria-label', 'صفحة معاينة ' + title);
+      for (let index = first; index < state.pageCount; index++) {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = 'صفحة ' + (index + 1);
+        picker.append(option);
+      }
+      picker.value = String(esResultPage(session, type));
+      picker.onchange = () => {
+        if (session.isProcessing || session.quick.openingEditor) {
+          picker.value = String(esResultPage(session, type));
+          return;
+        }
+        session.quick.previewPages.set(type, Number(picker.value));
+        showPreview();
+      };
+      label.append('معاينة الموضع', picker);
+      container.prepend(label);
+    }
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.className = 'btn-es btn-es-secondary';
     edit.dataset.esignEdit = '';
     edit.disabled = session.isProcessing;
-    edit.textContent = 'ضبط هذا الموضع';
-    edit.setAttribute('aria-label', type === 'contract' ? 'ضبط موضع توقيع العقد' : 'ضبط موضع توقيع العرض الفني');
+    edit.textContent = 'ضبط موضع هذه الصفحة';
+    edit.setAttribute('aria-label', 'ضبط موضع توقيع ' + title);
     edit.onclick = () => editEsQuickResult(type);
     container.append(edit);
-    void renderEsResultPreview(session, session[type], type, file, container);
+    showPreview();
   }
   return link;
 }
@@ -2276,19 +2351,19 @@ async function shareEsResults(destination, type) {
   }
 }
 
-async function renderEsResultPreview(session, state, type, file, container) {
+async function renderEsResultPreview(session, output, index, container) {
   let task;
   try {
-    const index = type === 'contract' ? state.pageCount - 1 : 1;
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (session !== esState || !container.isConnected) return;
+    const bytes = new Uint8Array(await output.file.arrayBuffer());
     if (session !== esState || !container.isConnected) return;
     task = openEsPdf(bytes);
     const documentOut = await task.promise;
     const page = await documentOut.getPage(index + 1);
     if (session !== esState || !container.isConnected) return;
     const view = page.getViewport({ scale: 1 });
-    const group = [getOverlayState(type, 'signature', index, state)];
-    if (type === 'contract') group.push(getOverlayState(type, 'stamp', index, state));
+    const group = [output.signatures[index]];
+    if (output.stamps[index]) group.push(output.stamps[index]);
     const left = Math.max(0, Math.min(...group.map(rect => rect.leftRatio)) - 0.04) * view.width;
     const top = Math.max(0, Math.min(...group.map(rect => rect.topRatio)) - 0.04) * view.height;
     const right = Math.min(1, Math.max(...group.map(rect => rect.leftRatio + rect.widthRatio)) + 0.04) * view.width;

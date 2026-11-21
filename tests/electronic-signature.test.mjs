@@ -21,6 +21,7 @@ function createElement() {
     classList: { add() {}, remove() {}, toggle() {} },
     setAttribute() {}, removeAttribute() {}, focus() {}, addEventListener() {},
     append(...children) { this.children.push(...children); },
+    prepend(...children) { this.children.unshift(...children); },
     appendChild(child) { this.append(child); },
     replaceChildren(...children) { this.children = children; },
     querySelector() { return this.label ??= {}; }
@@ -555,6 +556,94 @@ test('adjusting the quick result keeps the other generated result and leaves bot
   await upload(h, 'contract', contractFile);
   await h.run('startEsQuick()');
   assert.equal(JSON.stringify(h.state().contract.pageSignatureOverlays[0]), JSON.stringify(adjusted));
+});
+
+test('quick review selects any signed page without offering the cover or adding a stamp to other pages', async t => {
+  const keys = ['esign-output-contract', 'esign-output-technicalOffer', 'esign-quick-size',
+    'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm', 'esign-quick-template'];
+  const h = quickHarness(keys);
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  await upload(h, 'contract', await arabicTestFile([0, 3], 'contract.pdf'));
+  await upload(h, 'technicalOffer', await arabicTestFile([4, 0, 2], 'offer.pdf'));
+  await h.run('startEsQuick()');
+
+  const contract = h.state().contract;
+  const lastSignature = contract.pageSignatureOverlays[1];
+  const lastStamp = contract.pageStampOverlays[1];
+  const result = h.elements.get('esign-output-contract');
+  const picker = result.children[0].children[1];
+  const offerPicker = h.elements.get('esign-output-technicalOffer').children[0].children[1];
+  assert.deepEqual(picker.children.map(option => option.value), ['0', '1']);
+  assert.deepEqual(offerPicker.children.map(option => option.value), ['1', '2']);
+  assert.equal(picker.value, '1');
+  picker.value = '0';
+  picker.onchange();
+  await h.run("editEsQuickResult('contract')");
+  assert.equal(h.state().quick.pending[0].index, 0);
+  assert.equal(h.state().quick.pending[0].stamp, false);
+  h.run('placeEsQuickGroup(0.42, 0.54)');
+  await h.run('confirmEsQuickPosition()');
+  assert.equal(h.state().quick.phase, 'results');
+  assert.equal(contract.pageStampOverlays[0], undefined);
+  assert.equal(contract.pageSignatureOverlays[1], lastSignature);
+  assert.equal(contract.pageStampOverlays[1], lastStamp);
+  assert.equal(h.state().outputs.get('contract').signatures[0], contract.pageSignatureOverlays[0]);
+});
+
+test('moving a quick signing group preserves its adjusted size, stamp offset and page bounds', async t => {
+  const keys = ['esign-quick-size', 'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm'];
+  const h = quickHarness(keys);
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  await upload(h, 'contract', await fixture());
+  await h.run('startEsQuick()');
+  h.run('placeEsQuickGroup(0.5, 0.5)');
+  h.elements.get('esign-quick-size').value = '80';
+  h.elements.get('esign-quick-offset').value = '32';
+  h.run('updateEsQuickGroup()');
+  const before = h.state().quick.current.group;
+  h.run('placeEsQuickGroup(0.99, 0.99)');
+  const after = h.state().quick.current.group;
+  assert.notEqual(after.signature.leftRatio, before.signature.leftRatio);
+  assert.equal(after.signature.widthRatio, before.signature.widthRatio);
+  assert.equal(after.stamp.widthRatio, before.stamp.widthRatio);
+  const offset = group => group.stamp.leftRatio - group.signature.leftRatio;
+  assert.ok(Math.abs(offset(after) - offset(before)) < 0.000001);
+  assert.equal(h.run('esGroupIsClear(esState.quick.pending[0].page, esState.quick.current.group)'), true);
+});
+
+test('failed quick adjustment leaves both downloads and the previous template intact until a replacement succeeds', async t => {
+  const keys = ['esign-quick-size', 'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm', 'esign-quick-template'];
+  const h = quickHarness(keys);
+  h.context.crypto = globalThis.crypto;
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  await upload(h, 'contract', await arabicTestFile([0], 'contract.pdf'));
+  await upload(h, 'technicalOffer', await arabicTestFile([4, 2], 'offer.pdf'));
+  await h.run('startEsQuick()');
+  const contract = h.state().outputs.get('contract');
+  const offer = h.state().outputs.get('technicalOffer');
+  h.run('const generateFixture = generateFinalPdfBytes; generateFinalPdfBytes = async () => { throw new Error("fixture failure"); }');
+
+  const adjust = async () => {
+    await h.run("editEsQuickResult('contract')");
+    h.run('placeEsQuickGroup(0.42, 0.53)');
+    assert.equal(h.elements.get('esign-quick-confirm').disabled, false);
+    h.elements.get('esign-quick-template').checked = true;
+    await h.run('confirmEsQuickPosition()');
+  };
+  await adjust();
+  assert.equal(h.state().outputs.get('contract'), contract);
+  assert.equal(h.state().outputs.get('technicalOffer'), offer);
+  assert.ok(await fetch(contract.url).then(response => response.ok));
+  assert.equal(h.state().contract.pageSignatureOverlays[0], contract.signatures[0]);
+  assert.equal(h.context.localStorage.items.size, 0);
+  assert.match(h.notices.at(-1).message, /النسخة السابقة جاهزة/);
+
+  h.run('generateFinalPdfBytes = generateFixture');
+  await adjust();
+  assert.notEqual(h.state().outputs.get('contract'), contract);
+  assert.equal(h.state().outputs.get('technicalOffer'), offer);
+  assert.equal(h.context.localStorage.items.size, 1);
+  await assert.rejects(fetch(contract.url));
 });
 
 test('PNG and JPEG are decoded locally and turn into a one-page PDF with visible content; DOCX explains the PDF path', async t => {

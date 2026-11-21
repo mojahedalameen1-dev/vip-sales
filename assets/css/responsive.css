@@ -289,7 +289,7 @@ img, svg, canvas, iframe, video {
   .table-responsive,
   .meetings-table-wrapper,
   .preview-table-container,
-  table {
+  table:not(.esign-logs-table) {
     display: block !important;
     width: 100% !important;
     overflow-x: auto !important;
