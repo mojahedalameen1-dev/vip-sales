@@ -17,7 +17,7 @@ function esTextMatches(pattern, value) {
   return pattern.test(compact) || pattern.test(Array.from(compact).reverse().join(''));
 }
 
-function esPlacementPage(items, viewport) {
+function esPlacementPage(items, viewport, { detectLines = true } = {}) {
   const rows = [];
   const marks = [];
   for (const item of items) {
@@ -41,6 +41,10 @@ function esPlacementPage(items, viewport) {
     const baseline = (origin[1] + end[1]) / 2;
     if (right <= 0 || left >= viewport.width || baseline < 0 || baseline > viewport.height) continue;
     const box = { x: left, right, y: baseline, height, top: baseline - 0.95 * height, bottom: baseline + 0.28 * height };
+    if (!detectLines) {
+      marks.push(box);
+      continue;
+    }
     let row = rows.find(candidate => Math.abs(candidate.y - baseline) < Math.max(2, height * 0.45));
     if (!row) rows.push(row = { y: baseline, spans: [] });
     if (/^[\s.·•∙⋅…‥․。۔_ـ]+$/u.test(item.str)) {
@@ -113,7 +117,8 @@ function esPartyForLabel(page, label) {
       distance: Math.abs(label.y - item.y) +
         2 * Math.max(0, item.x - label.right, label.x - item.right)
     })).sort((a, b) => a.distance - b.distance);
-  return nearby[0]?.party === 1 && !nearby.some(item => item.party !== 1 &&
+  if (!nearby.length) return esTextMatches(/^(?:التوقيع|توقيع)المديرالعام$/u, label.text);
+  return nearby[0].party === 1 && !nearby.some(item => item.party !== 1 &&
     item.distance <= nearby[0].distance + label.height * 2);
 }
 
@@ -235,7 +240,46 @@ function esGroupIsClear(page, group, avoidText = true) {
   });
 }
 
-function esComposeSigningGroup(page, line, signature, stamp, manual = false) {
+function esFixedSignature(page, signature, raster) {
+  const right = 0.94;
+  const maxWidth = Math.min(0.15, page.height * 0.06 * signature.width / signature.height / page.width);
+  let footerTop = 0.95;
+  const occupied = (x, y) => {
+    const i = (y * raster.width + x) * 4;
+    return raster.pixels[i + 3] > 120 &&
+      raster.pixels[i] + raster.pixels[i + 1] + raster.pixels[i + 2] < 735;
+  };
+  const left = Math.floor((right - maxWidth - 0.01) * raster.width);
+  const end = Math.ceil((right + 0.01) * raster.width);
+  for (let y = Math.floor(raster.height * 0.89); y < Math.floor(raster.height * footerTop); y++) {
+    let ink = 0;
+    for (let x = left; x < end; x++) {
+      if (occupied(x, y) && ++ink >= 2) {
+        footerTop = y / raster.height;
+        break;
+      }
+    }
+  }
+  const bottom = footerTop - 0.012;
+  // Keep the alignment and baseline fixed; only shrink when body content is close.
+  for (const scale of [1, 0.87, 0.74]) {
+    const widthRatio = maxWidth * scale;
+    const heightRatio = widthRatio * page.width * signature.height / signature.width / page.height;
+    const group = { signature: { leftRatio: right - widthRatio, topRatio: bottom - heightRatio, widthRatio, heightRatio } };
+    if (!esGroupIsClear(page, group)) continue;
+    let clear = true;
+    for (let y = Math.floor(group.signature.topRatio * raster.height) - 1; y <= Math.ceil(bottom * raster.height); y++) {
+      for (let x = Math.floor(group.signature.leftRatio * raster.width) - 1; x <= Math.ceil(right * raster.width); x++) {
+        if (occupied(x, y)) { clear = false; break; }
+      }
+      if (!clear) break;
+    }
+    if (clear) return group;
+  }
+  return null;
+}
+
+function esComposeSigningGroup(page, line, signature, stamp, manual = false, raster = null) {
   const span = line.right - line.x;
   const center = (line.x + line.right) / 2;
   const asRatio = (x, y, width, height) => ({
@@ -258,9 +302,12 @@ function esComposeSigningGroup(page, line, signature, stamp, manual = false) {
         x = Math.max(1 - Math.min(0, stampX), Math.min(x, page.width - 1 - Math.max(sigWidth, stampX + stampWidth)));
         y = Math.max(1, Math.min(y, page.height - 1 - stampBottom));
       }
-      const group = { signature: asRatio(x, y, sigWidth, sigHeight) };
-      if (stamp) group.stamp = asRatio(x + stampX, y + gapFromSignatureTop, stampWidth, stampHeight);
-      if (esGroupIsClear(page, group, !manual)) return group;
+      for (const nudge of raster ? [0, 0.08, 0.16, 0.24] : [0]) {
+        const top = y + line.height * nudge;
+        const group = { signature: asRatio(x, top, sigWidth, sigHeight) };
+        if (stamp) group.stamp = asRatio(x + stampX, top + gapFromSignatureTop, stampWidth, stampHeight);
+        if (esGroupIsClear(page, group, !manual) && (!raster || esGroupIsVisuallyClear(page, group, line, raster))) return group;
+      }
     }
   }
   return null;

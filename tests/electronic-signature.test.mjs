@@ -141,8 +141,9 @@ test('rendered contract matches the preview rectangle and image orientation at a
   state.stampData = stamp;
   state.contract.signatureOverlay = sigPosition;
   state.contract.stampOverlay = stampPosition;
+  state.contract.stampPageIndex = 1;
   const bytes = await h.run("generateFinalPdfBytes('contract', esState.contract, esState.signatureData, esState.stampData)");
-  await assertVisualPositions(bytes, [[sigPosition], [sigPosition], [sigPosition], [sigPosition, stampPosition]]);
+  await assertVisualPositions(bytes, [[sigPosition], [sigPosition, stampPosition], [sigPosition], [sigPosition]]);
 });
 
 test('technical offer keeps the cover untouched and never adds a company stamp', async t => {
@@ -216,7 +217,7 @@ test('review buttons do not mark skipped documents and Previous reopens the last
   state.signatureData = signature;
   state.stampData = stamp;
   for (const type of ['contract', 'technicalOffer']) Object.assign(state[type], { file: {}, processingStatus: 'ready', pageCount: 2 });
-  h.run('nextStep()');
+  h.run('goToStep(2)');
   assert.equal(state.currentStep, 2);
   h.run('goToWizardSubStep(2); goToWizardSubStep(3)');
   assert.equal(state.wizardStep, 1);
@@ -413,7 +414,7 @@ test('detects real Arabic dotted sections high, middle and low, uses graphics on
       assert.ok(Math.abs(sig.widthRatio * 600 / (sig.heightRatio * 800) - signature.width / signature.height) < 0.001);
       const exported = h.state().outputs.get('contract');
       assert.equal(exported.file.type, 'application/pdf');
-      assert.equal(h.downloads.length, 0, 'Quick mode waits for the user to share or download');
+      assert.deepEqual(h.downloads, [exported.file.name]);
       const output = pdfjs.getDocument({ data: new Uint8Array(await exported.file.arrayBuffer()), standardFontDataUrl });
       try {
         const page = await (await output.promise).getPage(1);
@@ -433,7 +434,7 @@ test('detects real Arabic dotted sections high, middle and low, uses graphics on
 
 test('quick export supports an offer alone, both files together, and a separate result when one file cannot be read', async t => {
   const offer = await arabicTestFile([4, 2], 'offer.pdf');
-  const contract = await arabicTestFile([0, 3], 'contract.pdf');
+  const contract = await arabicTestFile([3, 4], 'contract.pdf');
   for (const scenario of ['offer-only', 'both', 'bad-contract']) {
     await t.test(scenario, async sub => {
       const h = quickHarness();
@@ -444,13 +445,14 @@ test('quick export supports an offer alone, both files together, and a separate 
       await h.run('startEsQuick()');
       assert.equal(h.state().quick.phase, 'results');
       assert.deepEqual([...h.state().outputs.keys()], scenario === 'both' ? ['technicalOffer', 'contract'] : ['technicalOffer']);
+      assert.deepEqual(h.downloads, [...h.state().outputs.values()].map(result => result.file.name));
       assert.equal(h.state().technicalOffer.pageSignatureOverlays[0], undefined, 'Cover excluded');
       assert.equal(h.state().technicalOffer.pageStampOverlays[1], undefined);
       if (scenario === 'both') {
         assert.ok(h.state().contract.pageSignatureOverlays[0]);
         assert.ok(h.state().contract.pageSignatureOverlays[1]);
-        assert.equal(h.state().contract.pageStampOverlays[0], undefined);
-        assert.ok(h.state().contract.pageStampOverlays[1]);
+        assert.ok(h.state().contract.pageStampOverlays[0]);
+        assert.equal(h.state().contract.pageStampOverlays[1], undefined);
       }
     });
   }
@@ -488,6 +490,115 @@ test('quick detection and export agree on a rotated and cropped Arabic PDF', asy
     );
     assert.deepEqual(Array.from(pixel.data).slice(0, 3), [0, 0, 255]);
   } finally { await task.destroy(); }
+});
+
+test('ordinary pages use a right-aligned slot above the real footer, including on rotated pages', async t => {
+  const h = quickHarness();
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  const doc = await PDFLib.PDFDocument.create();
+  doc.addPage([600, 800]);
+  const portrait = doc.addPage([600, 800]);
+  portrait.drawRectangle({ x: 0, y: 0, width: 600, height: 68, color: PDFLib.rgb(0.15, 0.25, 0.5) });
+  const rotated = doc.addPage([800, 600]);
+  rotated.setRotation(PDFLib.degrees(90));
+  rotated.drawRectangle({ x: 732, y: 0, width: 68, height: 600, color: PDFLib.rgb(0.15, 0.25, 0.5) });
+  await upload(h, 'technicalOffer', new File([await doc.save()], 'footer.pdf', { type: 'application/pdf' }));
+  await h.run('startEsQuick()');
+  const result = h.state().outputs.get('technicalOffer');
+  const task = pdfjs.getDocument({ data: new Uint8Array(await result.file.arrayBuffer()) });
+  try {
+    const pdf = await task.promise;
+    assert.equal(result.signatures[0], undefined);
+    for (const index of [1, 2]) {
+      const page = await pdf.getPage(index + 1);
+      const view = page.getViewport({ scale: 1 });
+      const canvas = createCanvas(view.width, view.height);
+      const context = canvas.getContext('2d');
+      await page.render({ canvas, canvasContext: context, viewport: view }).promise;
+      const rect = result.signatures[index];
+      assert.equal(rect.leftRatio + rect.widthRatio, 0.94);
+      assert.ok(rect.topRatio + rect.heightRatio < 0.915);
+      assert.ok(rect.topRatio + rect.heightRatio > 0.89);
+      const pixel = (x, y) => [...context.getImageData(Math.floor(x * view.width), Math.floor(y * view.height), 1, 1).data].slice(0, 3);
+      assert.deepEqual(pixel(rect.leftRatio + rect.widthRatio * 0.25, rect.topRatio + rect.heightRatio / 2), [255, 0, 0]);
+      assert.deepEqual(pixel(0.9, 0.96), [38, 64, 128]);
+      assert.equal(result.stamps[index], undefined);
+    }
+  } finally { await task.destroy(); }
+});
+
+test('a solid graphic at the fixed position asks for review of just the obstructed page', async t => {
+  const h = quickHarness();
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  const doc = await PDFLib.PDFDocument.create();
+  for (let i = 0; i < 3; i++) {
+    const page = doc.addPage([600, 800]);
+    if (i === 1) page.drawRectangle({ x: 430, y: 0, width: 170, height: 175 });
+  }
+  await upload(h, 'technicalOffer', new File([await doc.save()], 'graphic.pdf', { type: 'application/pdf' }));
+  await h.run('startEsQuick()');
+  assert.equal(h.state().quick.phase, 'positioning');
+  assert.deepEqual(Array.from(h.state().quick.pending, target => target.index), [1]);
+  assert.ok(h.state().technicalOffer.pageSignatureOverlays[2]);
+  assert.equal(h.downloads.length, 0);
+});
+
+test('an ambiguous contract asks which page to stamp and uses the fixed placement on the other page', async t => {
+  const keys = ['esign-quick-size', 'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm'];
+  const h = quickHarness(keys);
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  await upload(h, 'contract', await arabicTestFile([0, 3], 'ambiguous-contract.pdf'));
+  await h.run('startEsQuick()');
+  assert.equal(h.state().outputs.size, 0);
+  assert.equal(h.state().quick.pending[0].chooseStampPage, true);
+  h.run('selectEsStampPage({ value: "1" })');
+  assert.equal(h.state().contract.stampPageIndex, 1);
+  assert.equal(h.state().quick.pending[0].index, 1);
+  assert.equal(h.state().contract.pageStampOverlays[0], undefined);
+  assert.ok(h.state().contract.pageSignatureOverlays[0].topRatio > 0.8);
+  h.run('placeEsQuickGroup(0.68, 0.7)');
+  await h.run('confirmEsQuickPosition()');
+  assert.deepEqual(Object.keys(h.state().outputs.get('contract').stamps).filter(i => h.state().outputs.get('contract').stamps[i]), ['1']);
+});
+
+test('manual review begins with the same placement plan and leaves the manager field in place when restoring defaults', async t => {
+  const h = quickHarness();
+  t.after(() => h.run('clearElectronicSignatureSession()'));
+  await upload(h, 'contract', await arabicTestFile([0, 4], 'contract.pdf'));
+  await h.run('nextStep()');
+  assert.equal(h.state().quick, null);
+  assert.equal(h.state().currentStep, 2);
+  assert.equal(h.state().contract.stampPageIndex, 0);
+  const expected = h.run("getOverlayState('contract', 'signature', 0)");
+  assert.ok(expected.topRatio < 0.3);
+  h.run("esState.activePreviewSubTab = 'contract'; resetOverlaysToDefaults(); applyPositionToAll('contract', 'signature', 1)");
+  assert.equal(h.run("getOverlayState('contract', 'signature', 0)"), expected);
+  assert.equal(h.downloads.length, 0);
+});
+
+test('quick mobile export offers the actual PDF files together and preserves them if activation expired', async t => {
+  for (const isActive of [true, false]) {
+    await t.test(isActive ? 'share available' : 'activation expired', async sub => {
+      const h = quickHarness(['esign-share-status', 'esign-share-native']);
+      sub.after(() => h.run('clearElectronicSignatureSession()'));
+      const shared = [];
+      h.elements.get('esign-share-status').isConnected = true;
+      h.context.window.matchMedia = () => ({ matches: true });
+      h.context.navigator = {
+        userActivation: { isActive },
+        canShare: ({ files }) => files.length > 0 && files.every(file => file.type === 'application/pdf'),
+        share: async ({ files }) => { shared.push(...files); }
+      };
+      await upload(h, 'contract', await arabicTestFile([3, 4], 'contract.pdf'));
+      await upload(h, 'technicalOffer', await arabicTestFile([4, 2], 'offer.pdf'));
+      await h.run('startEsQuick()');
+      const files = [...h.state().outputs.values()].map(result => result.file);
+      assert.equal(files.length, 2);
+      assert.deepEqual(shared, isActive ? files : []);
+      assert.deepEqual(h.downloads, []);
+      if (!isActive) assert.match(h.elements.get('esign-share-status').textContent, /فتح المشاركة/);
+    });
+  }
 });
 
 test('an unresolved scanned page can be positioned without re-upload, retains a group, and reuses an exact approved file only', async t => {
@@ -555,7 +666,8 @@ test('adjusting the quick result keeps the other generated result and leaves bot
   h.run('cancelEsQuick()');
   await upload(h, 'contract', contractFile);
   await h.run('startEsQuick()');
-  assert.equal(JSON.stringify(h.state().contract.pageSignatureOverlays[0]), JSON.stringify(adjusted));
+  assert.notEqual(JSON.stringify(h.state().contract.pageSignatureOverlays[0]), JSON.stringify(adjusted),
+    'A confidently identified director field takes precedence over a saved adjustment');
 });
 
 test('quick review selects any signed page without offering the cover or adding a stamp to other pages', async t => {
@@ -563,7 +675,7 @@ test('quick review selects any signed page without offering the cover or adding 
     'esign-quick-offset', 'esign-quick-position-status', 'esign-quick-confirm', 'esign-quick-template'];
   const h = quickHarness(keys);
   t.after(() => h.run('clearElectronicSignatureSession()'));
-  await upload(h, 'contract', await arabicTestFile([0, 3], 'contract.pdf'));
+  await upload(h, 'contract', await arabicTestFile([4, 3], 'contract.pdf'));
   await upload(h, 'technicalOffer', await arabicTestFile([4, 0, 2], 'offer.pdf'));
   await h.run('startEsQuick()');
 
@@ -581,7 +693,8 @@ test('quick review selects any signed page without offering the cover or adding 
   await h.run("editEsQuickResult('contract')");
   assert.equal(h.state().quick.pending[0].index, 0);
   assert.equal(h.state().quick.pending[0].stamp, false);
-  h.run('placeEsQuickGroup(0.42, 0.54)');
+  h.run('placeEsQuickGroup(0.65, 0.90)');
+  assert.equal(h.elements.get('esign-quick-confirm').disabled, false);
   await h.run('confirmEsQuickPosition()');
   assert.equal(h.state().quick.phase, 'results');
   assert.equal(contract.pageStampOverlays[0], undefined);

@@ -15,6 +15,8 @@ function createEsDocument() {
     loadingTask: null,
     pdfDocument: null,
     pageCount: 0,
+    stampPageIndex: null,
+    signingDefaults: null,
     viewports: [],
     renderedPages: [],
     signatureOverlay: { leftRatio: 0, topRatio: 0, widthRatio: 0, heightRatio: 0 },
@@ -350,6 +352,16 @@ function applyEsAsset(type, data) {
 
   for (const docType of getEsReviewDocuments()) {
     if (type === 'stamp' && docType !== 'contract') continue;
+    if (changed && esState[docType].signingDefaults) {
+      const state = esState[docType];
+      state.signingDefaults = null;
+      state.stampPageIndex = null;
+      state.pageSignatureOverlays = [];
+      state.pageStampOverlays = [];
+      state.signatureOverlay.widthRatio = 0;
+      state.stampOverlay.widthRatio = 0;
+      if (esState.currentStep > 1 && !esState.isProcessing) goToStep(1);
+    }
     initializeDefaultOverlayRatios(docType);
     redrawAllPageOverlays(docType, type);
     if (changed) esState.reviewedFiles[docType] = false;
@@ -576,9 +588,17 @@ function nextStep() {
   if (esState.quick) return;
   if (!canAdvanceEsStep()) return;
   if (esState.currentStep === 1) {
-    esState.wizardStep = 1;
-    esState.reviewedFiles = { technicalOffer: false, contract: false };
-    goToStep(2);
+    const docs = getEsReviewDocuments();
+    if (esQuickDocuments().length === docs.length) {
+      if (docs.every(type => esState[type].signingDefaults)) {
+        esState.wizardStep = 1;
+        esState.reviewedFiles = { technicalOffer: false, contract: false };
+        return goToStep(2);
+      }
+      return startEsQuick({ reviewOnly: true });
+    }
+    showToast('تحقق من توفر التوقيع وختم الشركة للعقد.', 'warning');
+    return;
   } else if (esState.currentStep === 2) {
     const docs = getEsReviewDocuments();
     esState.reviewedFiles[docs[esState.wizardStep - 1]] = true;
@@ -696,7 +716,7 @@ function renderStep1(container) {
           <i data-lucide="file-check-2" style="color: var(--accent-teal);"></i>
           <span>العقد الرسمي (Contract)</span>
         </h4>
-        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">* يتم توقيع كافة الصفحات، مع وضع الختم الرسمي على الصفحة الأخيرة فقط.</p>
+        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">توقيع أسفل الصفحات العادية، وتوقيع وختم في خانة المدير العام.</p>
         
         <button type="button" class="upload-zone" id="zone-contract" aria-label="اختر ملف العقد" onclick="document.getElementById('input-contract').click()">
           <i data-lucide="file-up" style="width: 32px; height: 32px;"></i>
@@ -908,13 +928,13 @@ function esQuickDocuments() {
   return getEsReviewDocuments().filter(type => type !== 'contract' || esState.stampData);
 }
 
-async function startEsQuick() {
+async function startEsQuick({ reviewOnly = false } = {}) {
   const docs = esQuickDocuments();
   if (esState.currentStep !== 1 || esState.quick || !docs.length) return;
   const session = esState;
   const quick = {
     docs, phase: 'analyzing', pending: [], original: new Map(), approved: [],
-    skipped: new Set(), previewPages: new Map(), current: null
+    skipped: new Set(), previewPages: new Map(), current: null, reviewOnly, contractPages: []
   };
   session.quick = quick;
   const progress = document.getElementById('esign-quick-progress');
@@ -923,44 +943,74 @@ async function startEsQuick() {
   checkStepValidity();
   const total = docs.reduce((sum, type) => sum + session[type].pageCount - (type === 'technicalOffer' ? 1 : 0), 0);
   const templates = esLoadTemplates();
-  const hasTemplates = Object.keys(templates).length > 0;
   let completed = 0;
 
   for (const type of docs) {
     const state = session[type];
-    quick.original.set(type, { signature: [...state.pageSignatureOverlays], stamp: [...state.pageStampOverlays] });
-    const includeStamp = type === 'contract';
-    for (let index = includeStamp ? 0 : 1; index < state.pageCount; index++) {
+    quick.original.set(type, {
+      signature: [...state.pageSignatureOverlays], stamp: [...state.pageStampOverlays],
+      stampPageIndex: state.stampPageIndex
+    });
+    const isContract = type === 'contract';
+    const targets = [];
+    for (let index = isContract ? 0 : 1; index < state.pageCount; index++) {
       if (session.quick !== quick || esState !== session) return;
       if (progress) progress.textContent = 'جارٍ فحص الصفحة ' + (++completed) + ' من ' + total + '…';
       const viewport = state.viewports[index];
-      const target = { type, index, stamp: includeStamp && index === state.pageCount - 1 };
+      const target = { type, index, stamp: false, page: { width: viewport.width, height: viewport.height, marks: [] } };
+      targets.push(target);
       try {
-        const page = await state.pdfDocument.getPage(index + 1);
-        const { items } = await page.getTextContent();
-        target.page = esPlacementPage(items, viewport);
-        const labels = target.page.labels.filter(label => esPartyForLabel(target.page, label));
-        let lines = esFindSigningLine(target.page);
-        if (labels.length && lines.length < 2) {
-          const raster = await esRenderPlacementRaster(page, viewport);
+        const pdfPage = await state.pdfDocument.getPage(index + 1);
+        const { items } = await pdfPage.getTextContent();
+        target.page = esPlacementPage(items, viewport, { detectLines: isContract });
+        const raster = await esRenderPlacementRaster(pdfPage, viewport);
+        if (isContract) {
+          let lines = esFindSigningLine(target.page);
           if (!lines.length) lines = esFindGraphicSigningLines(target.page, raster.pixels, raster.width, raster.height);
+          target.lineCount = lines.length;
           if (lines.length === 1) {
-            const line = lines[0];
-            const group = esComposeSigningGroup(target.page, line, session.signatureData, target.stamp ? session.stampData : null);
-            if (group && esGroupIsVisuallyClear(target.page, group, line, raster)) target.group = group;
+            target.special = esComposeSigningGroup(target.page, lines[0], session.signatureData, session.stampData, false, raster);
           }
         }
+        target.fixed = esFixedSignature(target.page, session.signatureData, raster);
       } catch (error) {
         console.warn('Could not detect a signing location:', error);
       }
       if (session.quick !== quick || esState !== session) return;
-      target.page ??= { width: viewport.width, height: viewport.height, marks: [] };
-      if (!target.group || hasTemplates) {
+    }
+    if (isContract) {
+      quick.contractPages = targets;
+      const candidates = targets.filter(target => target.lineCount);
+      let remembered = [];
+      if (!candidates.length && Object.values(templates).some(template => template?.group?.stamp)) {
+        for (const target of targets) {
+          target.key = await esTemplateKey(type, state, target.index);
+          if (session.quick !== quick || esState !== session) return;
+          const group = esReadTemplate({ ...target, stamp: true }, templates);
+          if (group) remembered.push({ target, group });
+        }
+      }
+      const saved = remembered.length === 1 ? remembered[0] : null;
+      const special = candidates[0] ?? saved?.target ?? targets.at(-1);
+      special.stamp = true;
+      special.chooseStampPage = true;
+      special.useSpecial = candidates.length === 1 && special.lineCount === 1;
+      if (saved) {
+        special.special = saved.group;
+        special.useSpecial = true;
+      }
+      state.stampPageIndex = special.index;
+    }
+    for (const target of targets) {
+      let group = target.stamp ? (target.useSpecial ? target.special : null) : target.fixed;
+      if (!group) {
+        const index = target.index;
         target.key = await esTemplateKey(type, state, index);
         if (session.quick !== quick || esState !== session) return;
-        target.group = esReadTemplate(target, templates) || target.group;
+        // A saved rectangle cannot select a stamp page when the field is ambiguous.
+        if (!target.stamp || target.useSpecial) group = esReadTemplate(target, templates);
       }
-      if (target.group) applyEsQuickGroup(state, index, target.group);
+      if (group) applyEsQuickGroup(state, target.index, group);
       else quick.pending.push(target);
     }
   }
@@ -993,7 +1043,7 @@ async function esTemplateKey(type, state, index) {
 function esLoadTemplates() {
   if (!currentUser?.uid) return {};
   try {
-    const key = 'vip-esign-templates-v1:' + currentUser.uid;
+    const key = 'vip-esign-templates-v2:' + currentUser.uid;
     return JSON.parse(localStorage.getItem(key) || '{}') || {};
   } catch {
     return {};
@@ -1008,13 +1058,13 @@ function esReadTemplate(target, templates) {
   const stamp = esState.stampData;
   if (signatureAspect !== signature.width / signature.height ||
       (target.stamp && stampAspect !== stamp.width / stamp.height)) return null;
-  return esGroupIsClear(target.page, group, false) ? group : null;
+  return esGroupIsClear(target.page, group) ? group : null;
 }
 
 function esSaveTemplates(approved) {
   if (!approved.length || !currentUser?.uid) return;
   try {
-    const key = 'vip-esign-templates-v1:' + currentUser.uid;
+    const key = 'vip-esign-templates-v2:' + currentUser.uid;
     const entries = new Map(Object.entries(esLoadTemplates()));
     for (const { key, group } of approved) {
       const signature = esState.signatureData;
@@ -1033,7 +1083,7 @@ function esSaveTemplates(approved) {
 
 function applyEsQuickGroup(state, index, group) {
   state.pageSignatureOverlays[index] = group.signature;
-  if (group.stamp) state.pageStampOverlays[index] = group.stamp;
+  state.pageStampOverlays[index] = group.stamp;
 }
 
 function advanceEsQuick() {
@@ -1043,6 +1093,17 @@ function advanceEsQuick() {
     quick.phase = 'positioning';
     goToStep(2, { preserveOutputs: Boolean(quick.editing) });
     return;
+  }
+  if (quick.reviewOnly) {
+    for (const type of quick.docs) {
+      const state = esState[type];
+      state.signingDefaults = { signature: [...state.pageSignatureOverlays], stamp: [...state.pageStampOverlays] };
+    }
+    esSaveTemplates(quick.approved);
+    esState.quick = null;
+    esState.wizardStep = 1;
+    esState.reviewedFiles = { technicalOffer: false, contract: false };
+    return goToStep(2);
   }
   quick.phase = 'results';
   const edit = quick.editing;
@@ -1058,6 +1119,7 @@ function cancelEsQuick() {
   for (const [type, placements] of quick.original) {
     esState[type].pageSignatureOverlays = placements.signature;
     esState[type].pageStampOverlays = placements.stamp;
+    esState[type].stampPageIndex = placements.stampPageIndex;
   }
   esState.quick = null;
   goToStep(1);
@@ -1069,8 +1131,9 @@ function renderEsQuickPosition(container) {
   container.innerHTML = `
     <h3 tabindex="-1">حدد موضع التوقيع</h3>
     <p id="esign-quick-page"></p>
-    <p>اضغط على موضع التوقيع قرب السطر. راجع التكوين وعدّله قبل اعتماده.</p>
+    <p>${target.stamp ? 'راجع صفحة المدير العام وحدد سطر توقيعه للتوقيع والختم.' : 'تعذر اعتماد الموضع السفلي. اختر مساحة واضحة للتوقيع.'}</p>
     <div class="esign-quick-controls">
+      <label id="esign-stamp-page-label" hidden>صفحة خانة المدير العام <select id="esign-stamp-page" onchange="selectEsStampPage(this)"></select></label>
       <label>حجم المجموعة <input id="esign-quick-size" type="range" min="60" max="130" value="100" disabled oninput="updateEsQuickGroup()"></label>
       <label id="esign-quick-offset-label" hidden>إزاحة الختم <input id="esign-quick-offset" type="range" min="-40" max="40" value="-25" disabled oninput="updateEsQuickGroup()"></label>
       <label id="esign-quick-template-label" hidden><input type="checkbox" id="esign-quick-template"> تذكّر هذا الموضع للملف المطابق على هذا الجهاز</label>
@@ -1087,10 +1150,38 @@ function renderEsQuickPosition(container) {
     (target.type === 'contract' ? 'العقد' : 'العرض الفني') + ' · الصفحة ' + (target.index + 1) +
     ' · صفحات تحتاج تحديدًا: ' + esState.quick.pending.length;
   document.getElementById('esign-quick-offset-label').hidden = !target.stamp;
+  if (target.chooseStampPage && esState.quick.contractPages.length > 1) {
+    const picker = document.getElementById('esign-stamp-page');
+    for (const page of esState.quick.contractPages) {
+      const option = document.createElement('option');
+      option.value = String(page.index);
+      option.textContent = 'صفحة ' + (page.index + 1);
+      picker.append(option);
+    }
+    picker.value = String(target.index);
+    document.getElementById('esign-stamp-page-label').hidden = false;
+  }
   document.getElementById('esign-quick-template-label').hidden = !target.key;
-  document.getElementById('esign-quick-skip').hidden = Boolean(esState.quick.editing) || esState.quick.docs.length < 2;
+  document.getElementById('esign-quick-skip').hidden = Boolean(esState.quick.editing) || esState.quick.reviewOnly || esState.quick.docs.length < 2;
   layoutEsPreview();
   if (esState.quick.editing) configureEsQuickGroup(esState.quick.editing.group, target);
+}
+
+function selectEsStampPage(picker) {
+  const quick = esState.quick;
+  const previous = quick?.pending[0];
+  if (!previous?.chooseStampPage) return;
+  const target = quick.contractPages[Number(picker.value)];
+  if (!target || target === previous) return;
+  const state = esState.contract;
+  state.stampPageIndex = target.index;
+  previous.stamp = previous.chooseStampPage = false;
+  applyEsQuickGroup(state, previous.index, previous.fixed || {});
+  target.stamp = target.chooseStampPage = true;
+  applyEsQuickGroup(state, target.index, {});
+  quick.pending = [target, ...quick.pending.filter(page => page !== previous && page !== target)];
+  if (!previous.fixed) quick.pending.push(previous);
+  advanceEsQuick();
 }
 
 function placeEsQuickGroup(x, y) {
@@ -1182,7 +1273,7 @@ function confirmEsQuickPosition() {
 
 function skipEsQuickDocument() {
   const quick = esState.quick;
-  if (quick?.phase !== 'positioning' || quick.editing || quick.docs.length < 2) return;
+  if (quick?.phase !== 'positioning' || quick.editing || quick.reviewOnly || quick.docs.length < 2) return;
   const { type } = quick.pending[0];
   quick.docs = quick.docs.filter(doc => doc !== type);
   quick.pending = quick.pending.filter(target => target.type !== type);
@@ -1198,14 +1289,14 @@ async function editEsQuickResult(type) {
   quick.openingEditor = true;
   const state = session[type];
   const index = esResultPage(session, type);
-  const stamp = type === 'contract' && index === state.pageCount - 1;
+  const stamp = index === state.stampPageIndex;
   const group = { signature: state.pageSignatureOverlays[index] };
   if (stamp) group.stamp = state.pageStampOverlays[index];
   const viewport = state.viewports[index];
   let page;
   try {
     const pdfPage = await state.pdfDocument.getPage(index + 1);
-    page = esPlacementPage((await pdfPage.getTextContent()).items, viewport);
+    page = esPlacementPage((await pdfPage.getTextContent()).items, viewport, { detectLines: stamp });
   } catch {
     page = { width: viewport.width, height: viewport.height, marks: [] };
   }
@@ -1547,7 +1638,6 @@ async function lazyRenderPageCanvas(type, index) {
     }
 
     const isTech = type === 'technicalOffer';
-    const lastIndex = state.renderedPages.length - 1;
 
     if (isTech && index === 0) {
       const watermark = document.createElement('div');
@@ -1573,7 +1663,7 @@ async function lazyRenderPageCanvas(type, index) {
       wrapper.appendChild(sigOverlay);
     }
 
-    if (!isTech && esState.stampData && index === lastIndex && showGroup) {
+    if (!isTech && esState.stampData && index === state.stampPageIndex && showGroup) {
       const stampOverlay = createEsOverlayElement('stamp', index, type);
       wrapper.appendChild(stampOverlay);
     }
@@ -1624,7 +1714,8 @@ function initializeDefaultOverlayRatios(type) {
 
   const stamp = esState.stampData;
   if (!isTech && stamp && !state.stampOverlay.widthRatio) {
-    const last = state.viewports.at(-1);
+    const last = state.viewports[state.stampPageIndex];
+    if (!last) return;
     const height = referenceWidth * last.height / last.width;
     const aspect = stamp.width / stamp.height;
     const width = Math.min(stamp.width * 0.45, referenceWidth * 0.28, height * 0.4 * aspect);
@@ -1644,6 +1735,8 @@ function getOverlayState(docType, overlayType, pageIndex, state = esState[docTyp
   if (overlaysArray && overlaysArray[pageIndex]) {
     return overlaysArray[pageIndex];
   }
+  const planned = state.signingDefaults?.[overlayType][pageIndex];
+  if (planned) return planned;
   return overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
 }
 
@@ -1955,7 +2048,7 @@ function showFloatingMenu(element, overlayType, docType, pageIndex) {
   btnApplyThisPage.innerHTML = '<i data-lucide="check"></i><span>تطبيق الموضع على هذه الصفحة فقط</span>';
   btnApplyThisPage.onclick = () => applyPositionToThisPageOnly(docType, overlayType, pageIndex);
 
-  menu.appendChild(btnApplyAll);
+  if (pageIndex !== esState[docType].stampPageIndex) menu.appendChild(btnApplyAll);
   menu.appendChild(btnApplyThisPage);
 
   const overlayRectTop = parseFloat(element.style.top);
@@ -1990,7 +2083,12 @@ function removeFloatingMenus() {
 function applyPositionToAll(docType, overlayType, pageIndex) {
   const sourceState = getOverlayState(docType, overlayType, pageIndex);
   const state = esState[docType];
-  if (overlayType === 'signature') {
+  if (overlayType === 'signature' && state.signingDefaults) {
+    if (pageIndex === state.stampPageIndex) return;
+    for (let i = docType === 'technicalOffer' ? 1 : 0; i < state.pageCount; i++) {
+      if (i !== state.stampPageIndex) state.pageSignatureOverlays[i] = { ...sourceState };
+    }
+  } else if (overlayType === 'signature') {
     state.signatureOverlay = { ...sourceState };
     state.pageSignatureOverlays = new Array(state.pageCount).fill(null);
   } else {
@@ -2006,10 +2104,12 @@ function applyPositionToAll(docType, overlayType, pageIndex) {
 function applyPositionToSubsequent(docType, overlayType, pageIndex) {
   const sourceState = getOverlayState(docType, overlayType, pageIndex);
   const state = esState[docType];
+  if (state.signingDefaults && pageIndex === state.stampPageIndex) return;
   const targetArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
 
   for (let i = pageIndex; i < state.pageCount; i++) {
     if (docType === 'technicalOffer' && i === 0) continue;
+    if (state.signingDefaults && i === state.stampPageIndex) continue;
     targetArray[i] = { ...sourceState };
   }
 
@@ -2023,7 +2123,7 @@ function resetPageToDefault(docType, overlayType, pageIndex) {
   const targetArray = overlayType === 'signature' ? state.pageSignatureOverlays : state.pageStampOverlays;
   targetArray[pageIndex] = null;
 
-  const defaultState = overlayType === 'signature' ? state.signatureOverlay : state.stampOverlay;
+  const defaultState = getOverlayState(docType, overlayType, pageIndex);
   const el = document.getElementById(`overlay-${docType}-${overlayType}-page-${pageIndex}`);
   if (el) {
     updateOverlayUI(el, defaultState);
@@ -2044,7 +2144,7 @@ function redrawAllPageOverlays(docType, overlayType) {
 
   state.renderedPages.forEach((pageData, index) => {
     if (isTech && index === 0) return;
-    if (overlayType === 'stamp' && (isTech || index !== state.pageCount - 1)) return;
+    if (overlayType === 'stamp' && (isTech || index !== state.stampPageIndex)) return;
     const wrapper = document.getElementById('page-wrapper-' + docType + '-' + index);
     if (!wrapper || !pageData.isRendered) return;
 
@@ -2113,7 +2213,7 @@ function renderStep3(container) {
     <div class="esign-summary-card" id="esign-export-summary"></div>
     <div class="esign-share-bar" id="esign-share-bar" hidden>
       <button type="button" class="btn-es btn-es-primary" onclick="shareEsResults('whatsapp')"><i data-lucide="message-circle"></i><span>مشاركة واتساب</span></button>
-      <button type="button" class="btn-es btn-es-secondary" onclick="shareEsResults('other')"><i data-lucide="share-2"></i><span>مشاركة أخرى</span></button>
+      <button type="button" class="btn-es btn-es-secondary" id="esign-share-native" onclick="shareEsResults('other')"><i data-lucide="share-2"></i><span>مشاركة أخرى</span></button>
       <p id="esign-share-status" role="status"></p>
       <a id="esign-whatsapp-web" class="btn-es btn-es-secondary" href="https://web.whatsapp.com/" target="_blank" rel="noopener noreferrer" hidden>فتح واتساب وإرفاق الملفات يدويًا</a>
     </div>
@@ -2178,6 +2278,9 @@ async function processAllDocumentsDownload(edit = null) {
   const docs = [...(session.quick?.docs ?? getEsReviewDocuments())].reverse();
   const pending = edit ? [edit.type] : docs.filter(type => !session.outputs.has(type));
   if (!pending.length) return;
+  const shareOnMobile = session.quick && !edit &&
+    (globalThis.navigator?.userAgentData?.mobile || window.matchMedia?.('(pointer: coarse) and (hover: none)').matches);
+  const prepared = [];
   const button = document.getElementById('btn-process-pdf');
   const spinner = document.getElementById('pdf-processing-spinner');
   const prev = document.getElementById('btn-prev-step');
@@ -2210,7 +2313,8 @@ async function processAllDocumentsDownload(edit = null) {
         });
         if (previous) URL.revokeObjectURL(previous.url);
         const link = showEsOutput(session, type, outputStatus);
-        if (!session.quick) link.click();
+        if (shareOnMobile) prepared.push(file);
+        else if (!edit) link.click();
         if (session.quick) {
           esSaveTemplates(session.quick.approved.filter(placement => placement.type === type));
           session.quick.approved = session.quick.approved.filter(placement => placement.type !== type);
@@ -2250,10 +2354,30 @@ async function processAllDocumentsDownload(edit = null) {
       checkStepValidity();
     }
   }
+  if (esState === session && prepared.length) await esOpenQuickShare(session, prepared);
+}
+
+async function esOpenQuickShare(session, files) {
+  const status = document.getElementById('esign-share-status');
+  const button = document.getElementById('esign-share-native');
+  const sharing = globalThis.navigator || {};
+  if (!esCanSharePdfFiles(sharing, files)) {
+    if (status) status.textContent = 'الملفات جاهزة. يمكنك تنزيلها أو مشاركة كل ملف على حدة عند توفر المشاركة.';
+    return;
+  }
+  const result = sharing.userActivation?.isActive === false ? 'failed' : await esSharePdfFiles(sharing, files);
+  if (session !== esState || !status?.isConnected) return;
+  if (result === 'cancelled') status.textContent = 'أُغلقت المشاركة. ملفاتك جاهزة.';
+  if (result !== 'failed') return;
+  status.textContent = 'الملفات جاهزة. اضغط «فتح المشاركة».';
+  if (button) {
+    button.querySelector('span').textContent = 'فتح المشاركة';
+    button.focus();
+  }
 }
 
 function esResultPage(session, type) {
-  return session.quick.previewPages.get(type) ?? (type === 'contract' ? session[type].pageCount - 1 : 1);
+  return session.quick.previewPages.get(type) ?? session[type].stampPageIndex ?? (type === 'contract' ? 0 : 1);
 }
 
 function showEsOutput(session, type, container) {
@@ -2393,6 +2517,9 @@ async function generateFinalPdfBytes(type, state, signatureData, stampData) {
   const pdfDoc = await PDFLib.PDFDocument.load(state.convertedPdf ?? await state.file.arrayBuffer());
   const signature = await pdfDoc.embedPng(dataUrlToBytes(signatureData.dataUrl));
   const isContract = type === 'contract';
+  if (isContract && (!Number.isInteger(state.stampPageIndex) || state.stampPageIndex < 0 || state.stampPageIndex >= state.viewports.length)) {
+    throw new Error('The contract stamp page is missing');
+  }
   const stamp = isContract ? await pdfDoc.embedPng(dataUrlToBytes(stampData.dataUrl)) : null;
   const pages = pdfDoc.getPages();
   if (pages.length !== state.viewports.length) throw new Error('PDF page count changed after preview');
@@ -2403,7 +2530,7 @@ async function generateFinalPdfBytes(type, state, signatureData, stampData) {
     const signatureRect = getOverlayState(type, 'signature', index, state);
     page.drawImage(signature, esPdfImagePlacement(viewport, signatureRect));
 
-    if (stamp && index === pages.length - 1) {
+    if (stamp && index === state.stampPageIndex) {
       const stampRect = getOverlayState(type, 'stamp', index, state);
       page.drawImage(stamp, esPdfImagePlacement(viewport, stampRect));
     }
